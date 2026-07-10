@@ -79,46 +79,62 @@ export async function GET({ url, locals }) {
     if (q) {
       query = query.or(`name.ilike.%${safeQ}%,description.ilike.%${safeQ}%`);
     }
-    return query;
+    // After fetching, add joined flag false
+    return query.then(({ data, error }) => {
+      if (error) throw error;
+      const withFlag = data.map(e => ({ ...e, joined: false }));
+      return { data: withFlag };
+    });
   };
 
   const getJoinedQuery = async () => {
-    const { data: joined, error: jErr } = await admin.from('event_participants')
-      .select('event_id')
-      .eq('user_id', locals.user.id)
-      .eq('status', 'joined');
-    const joinedIds = !jErr && joined ? joined.map(j => j.event_id) : [];
-    
-    if (joinedIds.length === 0) return Promise.resolve({ data: [] });
-    
-    let query = admin.from('events').select('id, name, description, slug, created_by, created_at, updated_at')
-      .in('id', joinedIds);
-    if (q) {
-      query = query.or(`name.ilike.%${safeQ}%,description.ilike.%${safeQ}%`);
-    }
-    return query;
-  };
+      const { data: joined, error: jErr } = await admin.from('event_participants')
+        .select('event_id')
+        .eq('user_id', locals.user.id)
+        .eq('status', 'joined');
+      const joinedIds = !jErr && joined ? joined.map(j => j.event_id) : [];
+      
+      if (joinedIds.length === 0) return Promise.resolve({ data: [] });
+      
+      let query = admin.from('events').select('id, name, description, slug, created_by, created_at, updated_at')
+        .in('id', joinedIds);
+      if (q) {
+        query = query.or(`name.ilike.%${safeQ}%,description.ilike.%${safeQ}%`);
+      }
+      // After fetching, add joined flag
+      const { data, error } = await query;
+      if (error) throw error;
+      const withFlag = data.map(e => ({ ...e, joined: true }));
+      return { data: withFlag };
+    };
 
   try {
     let events = [];
 
     if (filter === 'hosting') {
-      const { data } = await getHostingQuery();
-      events = data || [];
-    } else if (filter === 'joined') {
-      const { data } = await getJoinedQuery();
-      events = data || [];
-    } else {
-      // 'all'
-      const [hostingRes, joinedRes] = await Promise.all([
-        getHostingQuery(),
-        getJoinedQuery()
-      ]);
-      
-      const combined = [...(hostingRes.data || []), ...(joinedRes.data || [])];
-      // Deduplicate by ID
-      events = Array.from(new Map(combined.map(e => [e.id, e])).values());
-    }
+        const { data } = await getHostingQuery();
+        events = data || [];
+      } else if (filter === 'joined') {
+        const { data } = await getJoinedQuery();
+        events = data || [];
+      } else {
+        // 'all'
+        const [hostingRes, joinedRes] = await Promise.all([
+          getHostingQuery(),
+          getJoinedQuery()
+        ]);
+        
+        const combined = [...(hostingRes.data || []), ...(joinedRes.data || [])];
+        // Deduplicate by ID, preferring joined flag true if present
+        const map = new Map();
+        for (const e of combined) {
+          const existing = map.get(e.id);
+          if (!existing || e.joined) {
+            map.set(e.id, e);
+          }
+        }
+        events = Array.from(map.values());
+      }
 
     // Sort descending by created_at
     events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));

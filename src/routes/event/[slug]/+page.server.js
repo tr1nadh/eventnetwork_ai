@@ -30,9 +30,23 @@ export const load = async ({ params, locals }) => {
     throw error(404, 'Event not found.');
   }
 
+  let isParticipant = false;
+  if (locals.user && data) {
+    const { data: participantData } = await admin
+      .from('event_participants')
+      .select('id')
+      .eq('event_id', data.id)
+      .eq('user_id', locals.user.id)
+      .eq('status', 'joined')
+      .maybeSingle();
+      
+    if (participantData) isParticipant = true;
+  }
+
   return {
     event: data,
     suggestedMatches: demoAttendees.slice(0, 3),
-    user: locals.user
+    user: locals.user,
+    isParticipant
   };
 };

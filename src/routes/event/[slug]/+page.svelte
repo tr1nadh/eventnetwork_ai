@@ -26,11 +26,9 @@
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
   import { onMount } from 'svelte';
 
-  export let data;
-
   const supabase = createSupabaseBrowserClient();
-  const storageBase = `eventnetwork:event:${data.event.slug}`;
-  const pendingJoinKey = `${storageBase}:pending-join`;
+
+  export let data;
 
   let signingOut = false;
   let joining = false;
@@ -40,43 +38,11 @@
   let activeTab = 'details';
   let matches = data.suggestedMatches ?? [];
   let networkingProfile = {
-    whoTheyAre: '',
+    whoTheyAre: data.user?.user_metadata?.full_name ?? '',
     whatTheyDo: '',
     whoTheyWant: '',
     expectations: ''
   };
-
-  function profileKey(userId) {
-    return `${storageBase}:profile:${userId}`;
-  }
-
-  function loadStoredWorkspace(userId) {
-    if (typeof localStorage === 'undefined') return;
-    const rawProfile = localStorage.getItem(profileKey(userId));
-    if (!rawProfile) return;
-    try {
-      const stored = JSON.parse(rawProfile);
-      networkingProfile = {
-        whoTheyAre: stored.profile?.whoTheyAre ?? '',
-        whatTheyDo: stored.profile?.whatTheyDo ?? '',
-        whoTheyWant: stored.profile?.whoTheyWant ?? '',
-        expectations: stored.profile?.expectations ?? ''
-      };
-      matches = stored.matches?.length ? stored.matches : matches;
-      stage = 'workspace';
-      activeTab = 'details';
-    } catch {
-      localStorage.removeItem(profileKey(userId));
-    }
-  }
-
-  function storeWorkspace(userId, nextMatches) {
-    localStorage.setItem(
-      profileKey(userId),
-      JSON.stringify({ profile: networkingProfile, matches: nextMatches })
-    );
-    localStorage.removeItem(pendingJoinKey);
-  }
 
   async function signOut() {
     signingOut = true;
@@ -97,8 +63,19 @@
     if (joining) return;
     joining = true;
     try {
-      localStorage.setItem(pendingJoinKey, '1');
       if (!data.user) { await signInWithGoogle(); return; }
+
+      // Register the join in the database
+      const res = await fetch('/api/events/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: data.event.id })
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to register event participation in database');
+      }
+
       stage = 'profile';
       toast.success('Joined event', { description: 'Complete your networking profile to unlock matches.' });
     } catch (error) {
@@ -154,19 +131,20 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
     if (!data.user) return;
-    const pendingJoin = localStorage.getItem(pendingJoinKey) === '1';
-    if (pendingJoin) stage = 'profile';
+    // Load any saved workspace data
     loadStoredWorkspace(data.user.id);
-    if (stage !== 'workspace' && pendingJoin) stage = 'profile';
+    if (data.user?.user_metadata?.full_name) {
+      networkingProfile.whoTheyAre = data.user.user_metadata.full_name;
+    }
   });
 
   const profileFields = [
-    { key: 'whoTheyAre', label: 'Who are you?', placeholder: 'Builder, founder, designer, student, operator…', id: 'whoTheyAre', wsId: 'ws-whoTheyAre' },
-    { key: 'whatTheyDo', label: 'What do you do?', placeholder: 'I build consumer AI tools for early-stage startups.', id: 'whatTheyDo', wsId: 'ws-whatTheyDo' },
-    { key: 'whoTheyWant', label: 'Who do you want to meet?', placeholder: 'Founders, product designers, AI engineers, investors…', id: 'whoTheyWant', wsId: 'ws-whoTheyWant' },
-    { key: 'expectations', label: 'What are your expectations?', placeholder: 'Looking for meaningful intros, cofounder chats, and practical collaborations.', id: 'expectations', wsId: 'ws-expectations' },
+    { key: 'whoTheyAre', label: 'Display name (Prefilled from Google, editable)', placeholder: 'Builder, founder, designer, student, operator…', id: 'whoTheyAre', wsId: 'ws-whoTheyAre' },
+    { key: 'whatTheyDo', label: 'What do you do?', placeholder: 'I build consumer AI tools for early-stage startups.', id: 'whatTheyDo', wsId: 'ws-whatTheyDo', suggestions: ['AI Engineer', 'Founder', 'Product Designer', 'Researcher'] },
+    { key: 'whoTheyWant', label: 'Who would you like to meet?', placeholder: 'Founders, product designers, AI engineers, investors…', id: 'whoTheyWant', wsId: 'ws-whoTheyWant', suggestions: ['Investors', 'Co‑founders', 'Mentors', 'Strategic Partners'] },
+    { key: 'expectations', label: 'What are you hoping to achieve at this event?', placeholder: 'Looking for meaningful intros, cofounder chats, and practical collaborations.', id: 'expectations', wsId: 'ws-expectations' },
   ];
 </script>
 
@@ -297,7 +275,15 @@
                     bind:value={networkingProfile[field.key]}
                     placeholder={field.placeholder}
                     class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-violet-400/50 focus:ring-violet-400/20"
+                    list={field.suggestions ? field.key + '-list' : undefined}
                   />
+                  {#if field.suggestions}
+                    <datalist id={field.key + '-list'}>
+                      {#each field.suggestions as suggestion}
+                        <option value={suggestion} />
+                      {/each}
+                    </datalist>
+                  {/if}
                 </div>
               {/each}
             </div>

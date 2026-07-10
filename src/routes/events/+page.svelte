@@ -16,6 +16,7 @@
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
   import { goto } from '$app/navigation';
+  import { navigating } from '$app/stores';
   import { toast } from '$lib/components/ui/sonner/index.js';
 
   export let data;
@@ -84,6 +85,7 @@
         id="create-event-btn"
         onclick={() => goto('/events/create')}
         class="gap-2 shrink-0"
+        disabled={$navigating}
       >
         <Plus size={16} />
         Create event
@@ -92,7 +94,7 @@
 
     <!-- Filters and Search -->
     <div class="mb-6 flex flex-col sm:flex-row gap-4 animate-slide-up sm:items-center justify-between">
-      <div class="flex items-center gap-2 p-1 glass rounded-xl border border-white/8">
+      <div class="flex items-center gap-2 p-1 glass rounded-xl border border-white/8 transition-opacity duration-200" class:opacity-50={$navigating} class:pointer-events-none={$navigating}>
         <button 
           class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter === 'all' ? 'bg-white/10 text-white' : 'text-ink-500 hover:text-white'}"
           onclick={() => applyFilter('all')}
@@ -113,19 +115,20 @@
         </button>
       </div>
 
-      <form onsubmit={applySearch} class="relative w-full sm:w-64">
+      <form onsubmit={applySearch} class="relative w-full sm:w-64 transition-opacity duration-200" class:opacity-50={$navigating}>
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-500" />
         <Input 
           type="search" 
           placeholder="Search events..." 
           bind:value={searchQuery}
+          disabled={$navigating}
           class="pl-9 bg-white/5 border-white/10 text-white h-10 w-full" 
         />
       </form>
     </div>
 
     <!-- Events list -->
-    <div class="space-y-4 animate-slide-up-delay-1">
+    <div class="space-y-4 animate-slide-up-delay-1 transition-opacity duration-200" class:opacity-50={$navigating}>
       {#if data.events.length}
         {#each data.events as event}
           <div class="glass card-hover rounded-2xl p-6 border border-white/8">

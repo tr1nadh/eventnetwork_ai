@@ -56,8 +56,24 @@
     goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 
+  let searchTimeout;
+
+  function handleInput() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (searchQuery) {
+        params.set("q", searchQuery);
+      } else {
+        params.delete("q");
+      }
+      goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+    }, 300);
+  }
+
   function applySearch(e) {
     e.preventDefault();
+    clearTimeout(searchTimeout);
     const params = new URLSearchParams(window.location.search);
     if (searchQuery) {
       params.set("q", searchQuery);
@@ -139,8 +155,7 @@
 
       <form
         onsubmit={applySearch}
-        class="relative w-full sm:w-64 transition-opacity duration-200"
-        class:opacity-50={$navigating}
+        class="relative w-full sm:w-64"
       >
         <Search
           class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-500"
@@ -149,7 +164,7 @@
           type="search"
           placeholder="Search events..."
           bind:value={searchQuery}
-          disabled={$navigating}
+          oninput={handleInput}
           class="pl-9 bg-white/5 border-white/10 text-white h-10 w-full"
         />
       </form>

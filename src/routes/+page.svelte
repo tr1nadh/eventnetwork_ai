@@ -13,7 +13,15 @@
   } from '@lucide/svelte';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
   import { Button } from '$lib/components/ui/button/index.js';
-  import { Card } from '$lib/components/ui/card/index.js';
+  import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent
+  } from '$lib/components/ui/card/index.js';
+  import { Badge } from '$lib/components/ui/badge/index.js';
+  import { Alert, AlertTitle, AlertDescription } from '$lib/components/ui/alert/index.js';
   import Navbar from '$lib/components/navbar.svelte';
   import { demoEvent } from '$lib/demo';
   import { onMount } from 'svelte';
@@ -85,10 +93,10 @@
     <div class="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
       <div class="space-y-7">
         <div class="space-y-4">
-          <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+          <Badge variant="secondary" className="gap-2 px-4 py-2 text-sm text-slate-200">
             <PartyPopper size={16} class="text-amber-300" />
             Built for hackathons, conferences, and meetups
-          </div>
+          </Badge>
           <h1 class="max-w-3xl text-5xl font-black tracking-tight text-white sm:text-6xl">
             Turn every event into a room full of useful introductions.
           </h1>
@@ -111,28 +119,36 @@
 
         <div class="grid gap-4 sm:grid-cols-3">
           <Card className="border-amber-300/15 bg-amber-300/8 p-4">
-            <ClipboardList class="mb-3 text-amber-300" size={20} />
-            <p class="text-sm font-semibold">Attendee profile</p>
-            <p class="mt-1 text-sm text-slate-300">Capture who they are, what they do, who they want, and expectations.</p>
+            <CardHeader>
+              <ClipboardList class="text-amber-300" size={20} />
+              <CardTitle className="text-sm">Attendee profile</CardTitle>
+              <CardDescription>Capture who they are, what they do, who they want, and expectations.</CardDescription>
+            </CardHeader>
           </Card>
           <Card className="border-cyan-300/15 bg-cyan-300/8 p-4">
-            <ScanSearch class="mb-3 text-cyan-300" size={20} />
-            <p class="text-sm font-semibold">AI match engine</p>
-            <p class="mt-1 text-sm text-slate-300">Rank people by intent, topic, and collaboration fit.</p>
+            <CardHeader>
+              <ScanSearch class="text-cyan-300" size={20} />
+              <CardTitle className="text-sm">AI match engine</CardTitle>
+              <CardDescription>Rank people by intent, topic, and collaboration fit.</CardDescription>
+            </CardHeader>
           </Card>
           <Card className="border-white/10 bg-white/5 p-4">
-            <ChartNoAxesCombined class="mb-3 text-white" size={20} />
-            <p class="text-sm font-semibold">Organizer analytics</p>
-            <p class="mt-1 text-sm text-slate-300">See attendee interests, trends, and engagement in real time.</p>
+            <CardHeader>
+              <ChartNoAxesCombined class="text-white" size={20} />
+              <CardTitle className="text-sm">Organizer analytics</CardTitle>
+              <CardDescription>See attendee interests, trends, and engagement in real time.</CardDescription>
+            </CardHeader>
           </Card>
         </div>
 
         <Card className="border-white/10 bg-white/5 p-6">
-          <div class="flex items-center gap-2 text-emerald-200">
-            <Users size={18} />
-            <p class="text-sm font-semibold uppercase tracking-[0.2em]">How it works</p>
-          </div>
-          <div class="mt-4 grid gap-4 md:grid-cols-4">
+          <CardHeader>
+            <div class="flex items-center gap-2 text-emerald-200">
+              <Users size={18} />
+              <p class="text-sm font-semibold uppercase tracking-[0.2em]">How it works</p>
+            </div>
+          </CardHeader>
+          <CardContent className="mt-4 grid gap-4 md:grid-cols-4">
             <div>
               <p class="text-sm font-semibold text-white">1. Create event</p>
               <p class="mt-1 text-sm text-slate-300">Organizer creates a private event and shares one link.</p>
@@ -149,49 +165,54 @@
               <p class="text-sm font-semibold text-white">4. Review analytics</p>
               <p class="mt-1 text-sm text-slate-300">Organizers see audience themes and engagement trends live.</p>
             </div>
-          </div>
+          </CardContent>
         </Card>
 
         {#if error}
-          <div class="max-w-xl rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
-            {error}
-          </div>
+          <Alert variant="destructive" className="max-w-xl">
+            <AlertTitle>Authentication error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         {/if}
       </div>
 
       <Card className="overflow-hidden p-0">
-        <div class="border-b border-white/10 bg-white/5 px-6 py-5">
-          <p class="text-sm font-semibold text-amber-200">Demo event</p>
-          <h2 class="mt-1 text-2xl font-bold">{demoEvent.name}</h2>
-        </div>
-        <div class="space-y-5 p-6">
+        <CardHeader className="border-b border-white/10 bg-white/5 px-6 py-5">
+          <Badge variant="accent" className="w-fit">Demo event</Badge>
+          <CardTitle className="mt-1 text-2xl">{demoEvent.name}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5 p-6">
           <div class="space-y-2 text-sm text-slate-300">
             <p>{demoEvent.description}</p>
             <p class="flex items-center gap-2 text-slate-200"><MapPin size={16} />{demoEvent.city} - {demoEvent.date}</p>
             <p class="flex items-center gap-2 text-slate-200"><Users size={16} />{demoEvent.format}</p>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Flow</p>
-            <ol class="mt-3 space-y-3 text-sm text-slate-200">
-              <li>1. Organizer creates the event and shares a unique link.</li>
-              <li>2. Attendee signs in with Google and completes a short profile.</li>
-              <li>3. AI surfaces the most relevant connections with explanations.</li>
-              <li>4. Organizer sees live audience insights and networking trends.</li>
-            </ol>
-          </div>
+          <Card className="border-white/10 bg-slate-950/60 p-4">
+            <CardHeader className="pb-2">
+              <Badge variant="info" className="w-fit uppercase tracking-[0.18em]">Flow</Badge>
+            </CardHeader>
+            <CardContent>
+              <ol class="space-y-3 text-sm text-slate-200">
+                <li>1. Organizer creates the event and shares a unique link.</li>
+                <li>2. Attendee signs in with Google and completes a short profile.</li>
+                <li>3. AI surfaces the most relevant connections with explanations.</li>
+                <li>4. Organizer sees live audience insights and networking trends.</li>
+              </ol>
+            </CardContent>
+          </Card>
 
-          <div class="rounded-2xl border border-emerald-400/15 bg-emerald-400/10 p-4">
-            <p class="text-sm text-emerald-200">Signed in status</p>
-            <p class="mt-1 text-lg font-semibold">
+          <Alert variant="success">
+            <AlertTitle>Signed in status</AlertTitle>
+            <AlertDescription className="mt-1 text-lg font-semibold">
               {#if user}
                 Welcome back, {user.email}
               {:else}
                 Google sign-in ready
               {/if}
-            </p>
-          </div>
-        </div>
+            </AlertDescription>
+          </Alert>
+        </CardContent>
       </Card>
     </div>
   </section>

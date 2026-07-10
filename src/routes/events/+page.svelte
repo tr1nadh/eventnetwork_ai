@@ -10,7 +10,14 @@
   import Navbar from '$lib/components/navbar.svelte';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
   import { Button } from '$lib/components/ui/button/index.js';
-  import { Card } from '$lib/components/ui/card/index.js';
+  import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent
+  } from '$lib/components/ui/card/index.js';
+  import { Badge } from '$lib/components/ui/badge/index.js';
   import { goto } from '$app/navigation';
 
   export let data;
@@ -35,7 +42,7 @@
   <section class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
     <Navbar user={data.user} {signingOut} onSignOut={signOut} />
 
-    <div class="mb-8 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 px-5 py-5 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+    <Card className="mb-8 flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p class="text-sm font-semibold tracking-[0.18em] text-amber-200 uppercase">Your events</p>
         <h1 class="mt-1 text-3xl font-black">Welcome, {data.user?.email}</h1>
@@ -46,7 +53,7 @@
         <Plus size={16} />
         Create event
       </Button>
-    </div>
+    </Card>
 
     <div class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       <div class="space-y-4">
@@ -55,10 +62,10 @@
             <Card className="p-6">
               <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                 <div class="space-y-3">
-                  <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">
+                  <Badge variant="secondary" className="gap-2 w-fit">
                     <Sparkles size={14} class="text-amber-300" />
                     Private event
-                  </div>
+                  </Badge>
                   <div>
                     <h2 class="text-2xl font-bold">{event.name}</h2>
                     <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
@@ -93,23 +100,25 @@
       </div>
 
       <Card>
-        <div class="flex items-center gap-2 text-cyan-200">
-          <ChartNoAxesCombined size={18} />
-          <p class="text-sm font-semibold uppercase tracking-[0.2em]">Organizer snapshot</p>
-        </div>
-        <div class="mt-5 space-y-4">
-          <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+        <CardHeader>
+          <div class="flex items-center gap-2 text-cyan-200">
+            <ChartNoAxesCombined size={18} />
+            <p class="text-sm font-semibold uppercase tracking-[0.2em]">Organizer snapshot</p>
+          </div>
+        </CardHeader>
+        <CardContent className="mt-5 space-y-4">
+          <Card className="border-white/10 bg-slate-950/60 p-4">
             <p class="text-sm text-slate-400">Logged in as</p>
             <p class="mt-1 text-lg font-semibold">{data.user?.email}</p>
-          </div>
-          <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+          </Card>
+          <Card className="border-white/10 bg-slate-950/60 p-4">
             <p class="text-sm text-slate-400">Event creation</p>
             <p class="mt-1 text-lg font-semibold">Now backed by public.events</p>
             <p class="mt-2 text-sm leading-6 text-slate-300">
               Each event row is created with your user ID in `created_by`, so only your events are shown here.
             </p>
-          </div>
-        </div>
+          </Card>
+        </CardContent>
       </Card>
     </div>
   </section>

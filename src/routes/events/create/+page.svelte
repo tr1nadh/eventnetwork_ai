@@ -3,11 +3,18 @@
   import { goto } from '$app/navigation';
   import Navbar from '$lib/components/navbar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
-  import { Card } from '$lib/components/ui/card/index.js';
+  import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent
+  } from '$lib/components/ui/card/index.js';
+  import { Badge } from '$lib/components/ui/badge/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
   import { Label } from '$lib/components/ui/label/index.js';
+  import { toast } from '$lib/components/ui/sonner/index.js';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
-  import { toast } from 'svelte-sonner';
 
   export let data;
 
@@ -86,12 +93,16 @@
     </div>
 
     <Card className="border-amber-300/20 bg-white/5 p-6">
-      <div class="flex items-center gap-2 text-amber-200">
-        <FolderPlus size={18} />
-        <p class="text-sm font-semibold uppercase tracking-[0.2em]">Event details</p>
-      </div>
+      <CardHeader>
+        <Badge variant="accent" className="w-fit gap-2">
+          <FolderPlus size={18} />
+          Event details
+        </Badge>
+        <CardTitle className="text-2xl">New networking event</CardTitle>
+        <CardDescription>Capture the name, public ID, and a concise description for attendees.</CardDescription>
+      </CardHeader>
 
-      <div class="mt-5 grid gap-4 md:grid-cols-2">
+      <CardContent className="mt-5 grid gap-4 md:grid-cols-2">
         <div class="md:col-span-2">
           <Label for="name">Event name</Label>
           <Input id="name" bind:value={form.name} placeholder="HackNight Delhi 2026" />
@@ -104,7 +115,7 @@
           <Label for="description">Description</Label>
           <Input id="description" bind:value={form.description} placeholder="Short description for attendees" />
         </div>
-      </div>
+      </CardContent>
 
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <Button onclick={createEvent} disabled={creatingEvent || !form.name}>

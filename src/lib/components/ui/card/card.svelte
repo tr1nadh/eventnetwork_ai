@@ -1,12 +1,21 @@
 <script>
-  import { cn } from '$lib/utils';
+	import { cn } from "$lib/utils.js";
 
-  export let className = '';
+	let {
+		ref = $bindable(null),
+		class: className,
+		children,
+		size = "default",
+		...restProps
+	} = $props();
 </script>
 
 <div
-  class={cn('rounded-3xl border border-white/10 bg-white/6 p-6 shadow-glow backdrop-blur-xl', className)}
-  {...$$restProps}
+	bind:this={ref}
+	data-slot="card"
+	data-size={size}
+	class={cn("ring-foreground/10 bg-card text-card-foreground gap-(--card-spacing) overflow-hidden rounded-xl py-(--card-spacing) text-sm shadow-xs ring-1 [--card-spacing:--spacing(6)] has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl group/card flex flex-col", className)}
+	{...restProps}
 >
-  <slot />
+	{@render children?.()}
 </div>

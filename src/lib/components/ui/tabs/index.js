@@ -1,4 +1,18 @@
-export { default as Root } from './tabs.svelte';
-export { default as List } from './tabs-list.svelte';
-export { default as Trigger } from './tabs-trigger.svelte';
-export { default as Content } from './tabs-content.svelte';
+import Root from "./tabs.svelte";
+import Content from "./tabs-content.svelte";
+import List, { tabsListVariants, } from "./tabs-list.svelte";
+import Trigger from "./tabs-trigger.svelte";
+
+export {
+	Root,
+	Content,
+	List,
+	Trigger,
+	tabsListVariants,
+
+	//
+	Root as Tabs,
+	Content as TabsContent,
+	List as TabsList,
+	Trigger as TabsTrigger,
+};

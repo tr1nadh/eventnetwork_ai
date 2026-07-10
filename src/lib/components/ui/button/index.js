@@ -1,1 +1,13 @@
-export { default as Button } from './button.svelte';
+import Root, {
+
+	buttonVariants,
+} from "./button.svelte";
+
+export {
+	Root,
+
+	//
+	Root as Button,
+	buttonVariants,
+
+};

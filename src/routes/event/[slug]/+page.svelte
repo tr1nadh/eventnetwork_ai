@@ -12,13 +12,21 @@
   } from '@lucide/svelte';
   import Navbar from '$lib/components/navbar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
-  import { Card } from '$lib/components/ui/card/index.js';
+  import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent
+  } from '$lib/components/ui/card/index.js';
+  import { Alert, AlertTitle, AlertDescription } from '$lib/components/ui/alert/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
   import { Label } from '$lib/components/ui/label/index.js';
+  import { toast } from '$lib/components/ui/sonner/index.js';
   import * as Tabs from '$lib/components/ui/tabs/index.js';
+  import { Badge } from '$lib/components/ui/badge/index.js';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
   import { onMount } from 'svelte';
-  import { toast } from 'svelte-sonner';
 
   export let data;
 
@@ -229,25 +237,25 @@
     {#if stage === 'preview'}
       <div class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
         <Card className="space-y-6 p-6">
-          <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+          <Badge variant="secondary" className="gap-2 px-4 py-2 text-sm text-slate-200">
             <Sparkles size={16} class="text-amber-300" />
             Event preview
-          </div>
+          </Badge>
 
-          <div class="space-y-3">
-            <h1 class="text-4xl font-black tracking-tight sm:text-5xl">{data.event.name}</h1>
-            <p class="max-w-3xl text-base leading-7 text-slate-300">{data.event.description}</p>
-          </div>
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-4xl sm:text-5xl">{data.event.name}</CardTitle>
+            <CardDescription className="max-w-3xl text-base leading-7">{data.event.description}</CardDescription>
+          </CardHeader>
 
           <div class="grid gap-3 sm:grid-cols-2">
-            <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+            <Card className="border-white/10 bg-slate-950/60 p-4">
               <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Event ID</p>
               <p class="mt-2 text-sm font-semibold text-white">{data.event.slug}</p>
-            </div>
-            <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+            </Card>
+            <Card className="border-white/10 bg-slate-950/60 p-4">
               <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Organizer access</p>
               <p class="mt-2 text-sm font-semibold text-white">Google sign-in required</p>
-            </div>
+            </Card>
           </div>
 
           <div class="flex flex-wrap gap-3">
@@ -270,28 +278,30 @@
         </Card>
 
         <Card className="space-y-5 p-6">
-          <div class="flex items-center gap-2 text-cyan-200">
-            <Users size={18} />
-            <p class="text-sm font-semibold uppercase tracking-[0.2em]">What happens next</p>
-          </div>
+          <CardHeader>
+            <div class="flex items-center gap-2 text-cyan-200">
+              <Users size={18} />
+              <p class="text-sm font-semibold uppercase tracking-[0.2em]">What happens next</p>
+            </div>
+          </CardHeader>
 
-          <ol class="space-y-4 text-sm leading-6 text-slate-300">
-            <li class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">1. Sign in with Google to confirm your attendance.</li>
-            <li class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">2. Fill a short networking profile so the AI can understand your intent.</li>
-            <li class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">3. Review event details, edit your profile, and explore the best matches.</li>
-          </ol>
+          <CardContent className="space-y-4 text-sm leading-6 text-slate-300">
+            <Card className="border-white/10 bg-slate-950/60 p-4">1. Sign in with Google to confirm your attendance.</Card>
+            <Card className="border-white/10 bg-slate-950/60 p-4">2. Fill a short networking profile so the AI can understand your intent.</Card>
+            <Card className="border-white/10 bg-slate-950/60 p-4">3. Review event details, edit your profile, and explore the best matches.</Card>
+          </CardContent>
         </Card>
       </div>
     {:else if stage === 'profile'}
       <div class="mx-auto max-w-4xl">
         <Card className="space-y-6 p-6">
-          <div class="space-y-2">
-            <p class="text-sm font-semibold uppercase tracking-[0.2em] text-amber-200">Mandatory profile</p>
-            <h1 class="text-3xl font-black">Tell us who you are</h1>
-            <p class="text-sm leading-6 text-slate-300">
+          <CardHeader className="space-y-2">
+            <Badge variant="accent" className="w-fit uppercase tracking-[0.18em]">Mandatory profile</Badge>
+            <CardTitle className="text-3xl">Tell us who you are</CardTitle>
+            <CardDescription>
               This profile powers the semantic matching engine and will be visible only inside your event workspace.
-            </p>
-          </div>
+            </CardDescription>
+          </CardHeader>
 
           <div class="grid gap-4 md:grid-cols-2">
             <div class="md:col-span-2">
@@ -352,10 +362,10 @@
         <Card className="space-y-5 p-6">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div class="space-y-3">
-              <div class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
+              <Badge variant="success" className="gap-2">
                 <CheckCircle2 size={14} />
                 Joined event
-              </div>
+              </Badge>
               <div>
                 <h1 class="text-4xl font-black tracking-tight">{data.event.name}</h1>
                 <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{data.event.description}</p>
@@ -380,57 +390,63 @@
           </div>
 
           <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-            <Tabs.List className="grid w-full grid-cols-3">
+            <Tabs.List className="grid w-full grid-cols-3 overflow-x-auto">
               <Tabs.Trigger value="details">Event details</Tabs.Trigger>
               <Tabs.Trigger value="networking">Networking profile</Tabs.Trigger>
               <Tabs.Trigger value="matches">Matches</Tabs.Trigger>
             </Tabs.List>
 
-            <Tabs.Content value="details" className="mt-4">
-              <div class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                <Card className="space-y-4 p-5">
+          <Tabs.Content value="details" className="mt-4">
+            <div class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <Card className="space-y-4 p-5">
+                <CardHeader>
                   <div class="flex items-center gap-2 text-amber-200">
                     <MapPin size={18} />
                     <p class="text-sm font-semibold uppercase tracking-[0.2em]">Event summary</p>
                   </div>
+                </CardHeader>
 
-                  <div class="space-y-4 text-sm leading-6 text-slate-300">
-                    <p>{data.event.description}</p>
-                    <div class="grid gap-3 sm:grid-cols-2">
-                      <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Event ID</p>
-                        <p class="mt-2 font-semibold text-white">{data.event.slug}</p>
-                      </div>
-                      <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Room status</p>
-                        <p class="mt-2 font-semibold text-white">Networking profile complete</p>
-                      </div>
-                    </div>
+                <CardContent className="space-y-4 text-sm leading-6 text-slate-300">
+                  <p>{data.event.description}</p>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <Card className="border-white/10 bg-slate-950/60 p-4">
+                      <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Event ID</p>
+                      <p class="mt-2 font-semibold text-white">{data.event.slug}</p>
+                    </Card>
+                    <Card className="border-white/10 bg-slate-950/60 p-4">
+                      <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Room status</p>
+                      <p class="mt-2 font-semibold text-white">Networking profile complete</p>
+                    </Card>
                   </div>
+                </CardContent>
                 </Card>
 
-                <Card className="space-y-4 p-5">
+              <Card className="space-y-4 p-5">
+                <CardHeader>
                   <div class="flex items-center gap-2 text-cyan-200">
                     <Users size={18} />
                     <p class="text-sm font-semibold uppercase tracking-[0.2em]">Event flow</p>
                   </div>
-                  <ol class="space-y-3 text-sm text-slate-300">
-                    <li class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">1. Attendees join with Google.</li>
-                    <li class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">2. The mandatory networking profile unlocks the workspace.</li>
-                    <li class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">3. Matches are generated with explanations for each suggested intro.</li>
-                  </ol>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-300">
+                  <Card className="border-white/10 bg-slate-950/60 p-4">1. Attendees join with Google.</Card>
+                  <Card className="border-white/10 bg-slate-950/60 p-4">2. The mandatory networking profile unlocks the workspace.</Card>
+                  <Card className="border-white/10 bg-slate-950/60 p-4">3. Matches are generated with explanations for each suggested intro.</Card>
+                </CardContent>
                 </Card>
               </div>
             </Tabs.Content>
 
             <Tabs.Content value="networking" className="mt-4">
               <Card className="space-y-5 p-5">
-                <div class="flex items-center gap-2 text-amber-200">
-                  <Sparkles size={18} />
-                  <p class="text-sm font-semibold uppercase tracking-[0.2em]">Edit networking profile</p>
-                </div>
+                <CardHeader>
+                  <div class="flex items-center gap-2 text-amber-200">
+                    <Sparkles size={18} />
+                    <p class="text-sm font-semibold uppercase tracking-[0.2em]">Edit networking profile</p>
+                  </div>
+                </CardHeader>
 
-                <div class="grid gap-4 md:grid-cols-2">
+                <CardContent className="grid gap-4 md:grid-cols-2">
                   <div class="md:col-span-2">
                     <Label for="workspace-whoTheyAre">Who are you?</Label>
                     <Input id="workspace-whoTheyAre" bind:value={networkingProfile.whoTheyAre} />
@@ -447,7 +463,7 @@
                     <Label for="workspace-expectations">What are your expectations?</Label>
                     <Input id="workspace-expectations" bind:value={networkingProfile.expectations} />
                   </div>
-                </div>
+                </CardContent>
 
                 <div class="flex flex-wrap gap-3">
                   <Button onclick={saveProfile} disabled={savingProfile}>
@@ -477,24 +493,23 @@
                 {#if matches.length}
                   {#each matches as match}
                     <Card className="space-y-4 p-5">
-                      <div class="flex items-start justify-between gap-3">
+                      <CardHeader className="flex items-start justify-between gap-3">
                         <div>
                           <h3 class="text-xl font-bold text-white">{match.name}</h3>
                           <p class="mt-1 text-sm text-slate-300">
                             {match.role} at {match.company}
                           </p>
                         </div>
-                        <div class="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs text-amber-100">
-                          Match
-                        </div>
-                      </div>
+                        <Badge variant="accent">Match</Badge>
+                      </CardHeader>
 
-                      <p class="text-sm leading-6 text-slate-300">{match.about}</p>
+                      <CardContent>
+                        <p class="text-sm leading-6 text-slate-300">{match.about}</p>
                       {#if match.explanation}
-                        <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-200">
-                          <p class="text-xs uppercase tracking-[0.2em] text-cyan-200">Why this match</p>
-                          <p class="mt-2 leading-6">{match.explanation}</p>
-                        </div>
+                        <Alert variant="info" className="mt-4 border-white/10 bg-slate-950/60 text-slate-200">
+                          <AlertTitle className="text-xs uppercase tracking-[0.2em] text-cyan-200">Why this match</AlertTitle>
+                          <AlertDescription className="mt-2 leading-6">{match.explanation}</AlertDescription>
+                        </Alert>
                       {/if}
 
                       <div class="flex flex-wrap gap-2">
@@ -504,6 +519,7 @@
                           </span>
                         {/each}
                       </div>
+                      </CardContent>
                     </Card>
                   {/each}
                 {:else}

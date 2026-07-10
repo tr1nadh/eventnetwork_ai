@@ -1,25 +1,19 @@
 <script>
-  import { Tabs as TabsPrimitive } from 'bits-ui';
-  import { cn } from '$lib/utils';
+	import { Tabs as TabsPrimitive } from "bits-ui";
+	import { cn } from "$lib/utils.js";
 
-  export let className = '';
-  export let value = undefined;
-  export let orientation = 'horizontal';
-  export let loop = false;
-  export let activationMode = 'automatic';
-  export let disabled = false;
-  export let onValueChange = undefined;
+	let {
+		ref = $bindable(null),
+		value = $bindable(""),
+		class: className,
+		...restProps
+	} = $props();
 </script>
 
 <TabsPrimitive.Root
-  {value}
-  {orientation}
-  {loop}
-  {activationMode}
-  {disabled}
-  {onValueChange}
-  class={cn('flex flex-col gap-4', className)}
-  {...$$restProps}
->
-  <slot />
-</TabsPrimitive.Root>
+	bind:ref
+	bind:value
+	data-slot="tabs"
+	class={cn("gap-2 group/tabs flex data-[orientation=horizontal]:flex-col", className)}
+	{...restProps}
+/>

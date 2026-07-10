@@ -7,48 +7,52 @@
     Copy,
     CheckCheck,
     CalendarClock,
-    Search
-  } from '@lucide/svelte';
-  import Navbar from '$lib/components/navbar.svelte';
-  import PageShell from '$lib/components/page-shell.svelte';
-  import { createSupabaseBrowserClient } from '$lib/supabase/client';
-  import { Button } from '$lib/components/ui/button/index.js';
-  import { Badge } from '$lib/components/ui/badge/index.js';
-  import { Input } from '$lib/components/ui/input/index.js';
-  import { goto } from '$app/navigation';
-  import { navigating } from '$app/stores';
-  import { toast } from '$lib/components/ui/sonner/index.js';
+    Search,
+  } from "@lucide/svelte";
+  import Navbar from "$lib/components/navbar.svelte";
+  import PageShell from "$lib/components/page-shell.svelte";
+  import { createSupabaseBrowserClient } from "$lib/supabase/client";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
+  import { goto } from "$app/navigation";
+  import { navigating } from "$app/stores";
+  import { toast } from "$lib/components/ui/sonner/index.js";
 
   export let data;
 
   const supabase = createSupabaseBrowserClient();
   let signingOut = false;
   let copiedSlug = null;
-  
-  $: searchQuery = data.q || '';
+
+  $: searchQuery = data.q || "";
 
   async function signOut() {
     signingOut = true;
     await supabase.auth.signOut();
     signingOut = false;
-    await goto('/');
+    await goto("/");
   }
 
   async function copySlug(slug) {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/event/${slug}`);
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/event/${slug}`,
+      );
       copiedSlug = slug;
-      toast.success('Link copied!');
-      setTimeout(() => { copiedSlug = null; }, 2000);
+      toast.success("Link copied!");
+      setTimeout(() => {
+        copiedSlug = null;
+      }, 2000);
     } catch {
-      toast.error('Could not copy link');
+      toast.error("Could not copy link");
     }
   }
 
   function applyFilter(f) {
     const params = new URLSearchParams(window.location.search);
-    params.set('filter', f);
-    if (searchQuery) params.set('q', searchQuery);
+    params.set("filter", f);
+    if (searchQuery) params.set("q", searchQuery);
     goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 
@@ -56,9 +60,9 @@
     e.preventDefault();
     const params = new URLSearchParams(window.location.search);
     if (searchQuery) {
-      params.set('q', searchQuery);
+      params.set("q", searchQuery);
     } else {
-      params.delete('q');
+      params.delete("q");
     }
     goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
@@ -66,24 +70,27 @@
 
 <svelte:head>
   <title>Events | EventNetwork AI</title>
-  <meta name="description" content="Manage your networking events on EventNetwork AI." />
+  <meta
+    name="description"
+    content="Manage your networking events on EventNetwork AI."
+  />
 </svelte:head>
 
 <PageShell>
   <Navbar user={data.user} {signingOut} onSignOut={signOut} />
 
   <main class="mx-auto max-w-4xl px-4 pb-20 sm:px-6">
-
     <!-- Page header -->
-    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-slide-up">
+    <div
+      class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-slide-up"
+    >
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-amber-300 mb-1">Dashboard</p>
-        <h1 class="text-3xl font-black text-white">Your events</h1>
-        <p class="mt-1.5 text-sm text-ink-400 max-w-sm">Create events, share links, and watch your networking ecosystem grow.</p>
+        <h1 class="text-3xl font-black text-white">Events</h1>
+
       </div>
       <Button
         id="create-event-btn"
-        onclick={() => goto('/events/create')}
+        onclick={() => goto("/events/create")}
         class="gap-2 shrink-0"
         disabled={$navigating}
       >
@@ -93,36 +100,57 @@
     </div>
 
     <!-- Filters and Search -->
-    <div class="mb-6 flex flex-col sm:flex-row gap-4 animate-slide-up sm:items-center justify-between">
-      <div class="flex items-center gap-2 p-1 glass rounded-xl border border-white/8 transition-opacity duration-200" class:opacity-50={$navigating} class:pointer-events-none={$navigating}>
-        <button 
-          class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter === 'all' ? 'bg-white/10 text-white' : 'text-ink-500 hover:text-white'}"
-          onclick={() => applyFilter('all')}
+    <div
+      class="mb-6 flex flex-col sm:flex-row gap-4 animate-slide-up sm:items-center justify-between"
+    >
+      <div
+        class="flex items-center gap-2 p-1 glass rounded-xl border border-white/8 transition-opacity duration-200"
+        class:opacity-50={$navigating}
+        class:pointer-events-none={$navigating}
+      >
+        <button
+          class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter ===
+          'all'
+            ? 'bg-white/10 text-white'
+            : 'text-ink-500 hover:text-white'}"
+          onclick={() => applyFilter("all")}
         >
           All
         </button>
-        <button 
-          class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter === 'joined' ? 'bg-white/10 text-white' : 'text-ink-500 hover:text-white'}"
-          onclick={() => applyFilter('joined')}
+        <button
+          class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter ===
+          'joined'
+            ? 'bg-white/10 text-white'
+            : 'text-ink-500 hover:text-white'}"
+          onclick={() => applyFilter("joined")}
         >
           Joined
         </button>
-        <button 
-          class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter === 'hosting' ? 'bg-white/10 text-white' : 'text-ink-500 hover:text-white'}"
-          onclick={() => applyFilter('hosting')}
+        <button
+          class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter ===
+          'hosting'
+            ? 'bg-white/10 text-white'
+            : 'text-ink-500 hover:text-white'}"
+          onclick={() => applyFilter("hosting")}
         >
           Hosting
         </button>
       </div>
 
-      <form onsubmit={applySearch} class="relative w-full sm:w-64 transition-opacity duration-200" class:opacity-50={$navigating}>
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-500" />
-        <Input 
-          type="search" 
-          placeholder="Search events..." 
+      <form
+        onsubmit={applySearch}
+        class="relative w-full sm:w-64 transition-opacity duration-200"
+        class:opacity-50={$navigating}
+      >
+        <Search
+          class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-500"
+        />
+        <Input
+          type="search"
+          placeholder="Search events..."
           bind:value={searchQuery}
           disabled={$navigating}
-          class="pl-9 bg-white/5 border-white/10 text-white h-10 w-full" 
+          class="pl-9 bg-white/5 border-white/10 text-white h-10 w-full"
         />
       </form>
     </div>
@@ -132,8 +160,12 @@
       {#if $navigating}
         <!-- Skeleton Loaders -->
         {#each Array(3) as _}
-          <div class="glass rounded-2xl p-6 border border-white/8 animate-pulse">
-            <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div
+            class="glass rounded-2xl p-6 border border-white/8 animate-pulse"
+          >
+            <div
+              class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
+            >
               <div class="space-y-4 w-full max-w-md">
                 <div class="space-y-2.5">
                   <div class="h-7 w-2/3 rounded-lg bg-white/10"></div>
@@ -154,12 +186,14 @@
       {:else if data.events.length}
         {#each data.events as event}
           <div class="glass card-hover rounded-2xl p-6 border border-white/8">
-            <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div
+              class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
+            >
               <div class="space-y-3 min-w-0">
                 <div>
                   <h2 class="text-xl font-bold text-white">{event.name}</h2>
                   <p class="mt-1.5 text-sm leading-6 text-ink-400 line-clamp-2">
-                    {event.description ?? 'No description added yet.'}
+                    {event.description ?? "No description added yet."}
                   </p>
                 </div>
 
@@ -181,7 +215,11 @@
 
                   <span class="flex items-center gap-1.5 text-xs text-ink-500">
                     <CalendarClock size={13} />
-                    {new Date(event.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(event.created_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
                   </span>
                 </div>
               </div>
@@ -192,7 +230,7 @@
                   onclick={() => goto(`/event/${event.slug}`)}
                   class="gap-2 whitespace-nowrap"
                 >
-                  Open room
+                  View
                   <ArrowRight size={15} />
                 </Button>
               </div>
@@ -201,15 +239,20 @@
         {/each}
       {:else}
         <!-- Empty state -->
-        <div class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed">
-          <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20">
+        <div
+          class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed"
+        >
+          <div
+            class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20"
+          >
             <Sparkles class="text-amber-300" size={22} />
           </div>
           <h2 class="text-xl font-bold text-white mb-2">No events yet</h2>
           <p class="text-sm text-ink-400 max-w-xs mx-auto mb-6">
-            Create your first event and share the link with attendees. The AI takes it from there.
+            Create your first event and share the link with attendees. The AI
+            takes it from there.
           </p>
-          <Button onclick={() => goto('/events/create')} class="gap-2">
+          <Button onclick={() => goto("/events/create")} class="gap-2">
             <Plus size={16} />
             Create your first event
           </Button>

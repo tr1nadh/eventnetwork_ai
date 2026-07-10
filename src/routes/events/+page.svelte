@@ -128,8 +128,30 @@
     </div>
 
     <!-- Events list -->
-    <div class="space-y-4 animate-slide-up-delay-1 transition-opacity duration-200" class:opacity-50={$navigating}>
-      {#if data.events.length}
+    <div class="space-y-4 animate-slide-up-delay-1">
+      {#if $navigating}
+        <!-- Skeleton Loaders -->
+        {#each Array(3) as _}
+          <div class="glass rounded-2xl p-6 border border-white/8 animate-pulse">
+            <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div class="space-y-4 w-full max-w-md">
+                <div class="space-y-2.5">
+                  <div class="h-7 w-2/3 rounded-lg bg-white/10"></div>
+                  <div class="h-4 w-full rounded-lg bg-white/5"></div>
+                  <div class="h-4 w-4/5 rounded-lg bg-white/5"></div>
+                </div>
+                <div class="flex items-center gap-3 pt-1">
+                  <div class="h-8 w-32 rounded-lg bg-white/10"></div>
+                  <div class="h-4 w-24 rounded-lg bg-white/5"></div>
+                </div>
+              </div>
+              <div class="shrink-0 mt-2 sm:mt-0">
+                <div class="h-10 w-32 rounded-lg bg-white/10"></div>
+              </div>
+            </div>
+          </div>
+        {/each}
+      {:else if data.events.length}
         {#each data.events as event}
           <div class="glass card-hover rounded-2xl p-6 border border-white/8">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">

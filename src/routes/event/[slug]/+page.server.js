@@ -32,15 +32,17 @@ export const load = async ({ params, locals }) => {
 
   let isParticipant = false;
   if (locals.user && data) {
-    const { data: participantData } = await admin
+    // Retrieve participant row
+    const { data: participantData, error: participantError } = await admin
       .from('event_participants')
-      .select('id')
+      .select('status')
       .eq('event_id', data.id)
       .eq('user_id', locals.user.id)
-      .eq('status', 'joined')
       .maybeSingle();
-      
-    if (participantData) isParticipant = true;
+
+    if (participantData && participantData.status === 'joined') {
+      isParticipant = true;
+    }
   }
 
   return {

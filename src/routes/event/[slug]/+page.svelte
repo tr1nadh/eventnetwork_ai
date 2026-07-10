@@ -34,7 +34,7 @@
   let joining = false;
   let savingProfile = false;
   let refreshingMatches = false;
-  let stage = 'preview';
+  let stage = data.isParticipant ? 'workspace' : 'preview';
   let activeTab = 'details';
   let matches = data.suggestedMatches ?? [];
   let networkingProfile = {
@@ -190,7 +190,11 @@ onMount(async () => {
             </Badge>
 
             <div>
-              <h1 class="text-4xl font-black tracking-tight text-white sm:text-6xl mb-4">{data.event.name}</h1>
+              <h1 class="text-4xl font-black tracking-tight text-white sm:text-6xl mb-4">{data.event.name}
+  {#if data.isParticipant}
+    <CheckCheck size={20} class="inline-block text-amber-400 ml-2" />
+  {/if}
+</h1>
               <p class="text-lg leading-relaxed text-ink-300 max-w-2xl">{data.event.description}</p>
             </div>
 
@@ -209,20 +213,20 @@ onMount(async () => {
             </div>
 
             <div class="flex flex-wrap gap-4 pt-2">
-              <Button id="join-event-btn" onclick={joinEvent} disabled={joining} class="h-12 px-6 gap-2 text-base shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all">
-                {#if joining}
-                  <LoaderCircle size={18} class="animate-spin" />
-                  Redirecting…
-                {:else}
-                  <LogIn size={18} />
-                  {#if data.user}Join event{:else}Join with Google{/if}
-                {/if}
-              </Button>
-              {#if data.user}
-                <Button variant="secondary" onclick={() => (stage = 'profile')} class="h-12 px-6 gap-2 text-base">
-                  Continue to profile
-                  <ArrowRight size={18} />
+              {#if !data.isParticipant}
+                <Button id="join-event-btn" onclick={joinEvent} disabled={joining} class="h-12 px-6 gap-2 text-base shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all">
+                  {#if joining}
+                    <LoaderCircle size={18} class="animate-spin" />
+                    Redirecting…
+                  {:else}
+                    <LogIn size={18} />
+                    {#if data.user}Join event{:else}Join with Google{/if}
+                  {/if}
                 </Button>
+              {:else}
+                <div class="flex items-center gap-2 text-amber-400">
+                  <CheckCheck size={18} /> Joined
+                </div>
               {/if}
             </div>
           </div>

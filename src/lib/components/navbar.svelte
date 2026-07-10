@@ -1,6 +1,6 @@
 <script>
   import { goto } from '$app/navigation';
-  import { LogIn, LogOut, Sparkles, UserCircle2, LayoutGrid, CalendarDays, Zap } from '@lucide/svelte';
+  import { LogIn, LogOut, Sparkles, UserCircle2, LayoutGrid } from '@lucide/svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
   import * as Avatar from '$lib/components/ui/avatar/index.js';
   import * as Separator from '$lib/components/ui/separator/index.js';
@@ -45,13 +45,6 @@
             <LayoutGrid size={14} />
             My Events
           </button>
-          <button
-            onclick={() => goto('/organizer')}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-ink-300 transition hover:bg-white/8 hover:text-white"
-          >
-            <CalendarDays size={14} />
-            Analytics
-          </button>
         </div>
 
         <!-- Desktop: show name -->
@@ -93,10 +86,6 @@
             <DropdownMenu.Item onSelect={() => goto('/events')} class="gap-2.5">
               <LayoutGrid size={15} class="text-ink-400" />
               My events
-            </DropdownMenu.Item>
-            <DropdownMenu.Item onSelect={() => goto('/organizer')} class="gap-2.5">
-              <CalendarDays size={15} class="text-ink-400" />
-              Organizer dashboard
             </DropdownMenu.Item>
 
             <Separator.Root class="my-1.5" />

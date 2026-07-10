@@ -115,8 +115,7 @@
     }
     savingProfile = true;
     try {
-      const nextMatches = await fetchRecommendations();
-      matches = nextMatches;
+      // Matches are no longer fetched on save; only the profile is saved.
       // Save networking profile to DB
       const profileRes = await fetch('/api/network_profiles', {
         method: 'POST',
@@ -354,15 +353,15 @@ onMount(async () => {
             </div>
 
             <div class="flex flex-wrap gap-3">
-              <Button id="save-profile-btn" onclick={saveProfile} disabled={savingProfile} class="gap-2">
-                {#if savingProfile}
-                  <LoaderCircle size={15} class="animate-spin" />
-                  Saving & finding matches…
-                {:else}
-                  <CheckCircle2 size={15} />
-                  Save & get matches
-                {/if}
-              </Button>
+                <Button id="save-profile-btn" onclick={saveProfile} disabled={savingProfile} class="gap-2">
+                  {#if savingProfile}
+                    <LoaderCircle size={15} class="animate-spin" />
+                    Saving profile…
+                  {:else}
+                    <CheckCircle2 size={15} />
+                    Save profile
+                  {/if}
+                </Button>
               <Button variant="secondary" onclick={() => (stage = 'preview')} class="gap-2">
                 Back
               </Button>

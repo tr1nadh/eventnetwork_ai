@@ -61,3 +61,67 @@ export async function POST({ request, locals }) {
 
   return json({ event: data }, { status: 201 });
 }
+
+export async function GET({ url, locals }) {
+  if (!locals.user) {
+    throw error(401, 'Unauthorized.');
+  }
+
+  const filter = url.searchParams.get('filter') || 'all';
+  const q = url.searchParams.get('q') || '';
+  const safeQ = q.replace(/"/g, '""');
+
+  const admin = createSupabaseAdminClient();
+
+  const getHostingQuery = () => {
+    let query = admin.from('events').select('id, name, description, slug, created_by, created_at, updated_at')
+      .eq('created_by', locals.user.id);
+    if (q) {
+      query = query.or(`name.ilike.%${safeQ}%,description.ilike.%${safeQ}%`);
+    }
+    return query;
+  };
+
+  const getJoinedQuery = async () => {
+    const { data: joined, error: jErr } = await admin.from('event_attendees').select('event_id').eq('user_id', locals.user.id);
+    const joinedIds = !jErr && joined ? joined.map(j => j.event_id) : [];
+    
+    if (joinedIds.length === 0) return Promise.resolve({ data: [] });
+    
+    let query = admin.from('events').select('id, name, description, slug, created_by, created_at, updated_at')
+      .in('id', joinedIds);
+    if (q) {
+      query = query.or(`name.ilike.%${safeQ}%,description.ilike.%${safeQ}%`);
+    }
+    return query;
+  };
+
+  try {
+    let events = [];
+
+    if (filter === 'hosting') {
+      const { data } = await getHostingQuery();
+      events = data || [];
+    } else if (filter === 'joined') {
+      const { data } = await getJoinedQuery();
+      events = data || [];
+    } else {
+      // 'all'
+      const [hostingRes, joinedRes] = await Promise.all([
+        getHostingQuery(),
+        getJoinedQuery()
+      ]);
+      
+      const combined = [...(hostingRes.data || []), ...(joinedRes.data || [])];
+      // Deduplicate by ID
+      events = Array.from(new Map(combined.map(e => [e.id, e])).values());
+    }
+
+    // Sort descending by created_at
+    events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    return json({ events });
+  } catch (fetchError) {
+    throw error(500, fetchError.message || 'Error fetching events');
+  }
+}

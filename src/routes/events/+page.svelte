@@ -6,13 +6,15 @@
     Link as LinkIcon,
     Copy,
     CheckCheck,
-    CalendarClock
+    CalendarClock,
+    Search
   } from '@lucide/svelte';
   import Navbar from '$lib/components/navbar.svelte';
   import PageShell from '$lib/components/page-shell.svelte';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
+  import { Input } from '$lib/components/ui/input/index.js';
   import { goto } from '$app/navigation';
   import { toast } from '$lib/components/ui/sonner/index.js';
 
@@ -21,6 +23,8 @@
   const supabase = createSupabaseBrowserClient();
   let signingOut = false;
   let copiedSlug = null;
+  
+  $: searchQuery = data.q || '';
 
   async function signOut() {
     signingOut = true;
@@ -38,6 +42,24 @@
     } catch {
       toast.error('Could not copy link');
     }
+  }
+
+  function applyFilter(f) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('filter', f);
+    if (searchQuery) params.set('q', searchQuery);
+    goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+  }
+
+  function applySearch(e) {
+    e.preventDefault();
+    const params = new URLSearchParams(window.location.search);
+    if (searchQuery) {
+      params.set('q', searchQuery);
+    } else {
+      params.delete('q');
+    }
+    goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 </script>
 
@@ -68,6 +90,40 @@
       </Button>
     </div>
 
+    <!-- Filters and Search -->
+    <div class="mb-6 flex flex-col sm:flex-row gap-4 animate-slide-up sm:items-center justify-between">
+      <div class="flex items-center gap-2 p-1 glass rounded-xl border border-white/8">
+        <button 
+          class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter === 'all' ? 'bg-white/10 text-white' : 'text-ink-500 hover:text-white'}"
+          onclick={() => applyFilter('all')}
+        >
+          All
+        </button>
+        <button 
+          class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter === 'joined' ? 'bg-white/10 text-white' : 'text-ink-500 hover:text-white'}"
+          onclick={() => applyFilter('joined')}
+        >
+          Joined
+        </button>
+        <button 
+          class="rounded-lg px-4 py-1.5 text-sm font-semibold transition {data.filter === 'hosting' ? 'bg-white/10 text-white' : 'text-ink-500 hover:text-white'}"
+          onclick={() => applyFilter('hosting')}
+        >
+          Hosting
+        </button>
+      </div>
+
+      <form onsubmit={applySearch} class="relative w-full sm:w-64">
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-500" />
+        <Input 
+          type="search" 
+          placeholder="Search events..." 
+          bind:value={searchQuery}
+          class="pl-9 bg-white/5 border-white/10 text-white h-10 w-full" 
+        />
+      </form>
+    </div>
+
     <!-- Events list -->
     <div class="space-y-4 animate-slide-up-delay-1">
       {#if data.events.length}
@@ -75,11 +131,6 @@
           <div class="glass card-hover rounded-2xl p-6 border border-white/8">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div class="space-y-3 min-w-0">
-                <Badge variant="secondary" class="gap-1.5 border-amber-400/20 bg-amber-400/8 text-amber-200 text-[10px] font-bold uppercase tracking-widest">
-                  <Sparkles size={12} class="text-amber-400" />
-                  Private event
-                </Badge>
-
                 <div>
                   <h2 class="text-xl font-bold text-white">{event.name}</h2>
                   <p class="mt-1.5 text-sm leading-6 text-ink-400 line-clamp-2">

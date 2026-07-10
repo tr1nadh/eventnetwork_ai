@@ -1,6 +1,7 @@
 <script>
   import { goto } from '$app/navigation';
   import {
+    ArrowLeft,
     ArrowRight,
     LoaderCircle,
     LogIn,
@@ -178,50 +179,59 @@
   <Navbar user={data.user} {signingOut} onSignOut={signOut} onSignIn={joinEvent} />
 
   <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+    <div class="mb-6 animate-slide-up">
+      <button onclick={() => goto('/events')} class="inline-flex items-center gap-2 text-sm font-semibold text-ink-500 transition hover:text-white">
+        <ArrowLeft size={16} />
+        Back to events
+      </button>
+    </div>
 
     <!-- ─── PREVIEW STAGE ─── -->
     {#if stage === 'preview'}
       <div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start animate-fade-in">
 
         <!-- Left: Event info -->
-        <div class="glass rounded-2xl border border-white/8 overflow-hidden">
-          <div class="h-0.5 bg-gradient-to-r from-amber-400 via-amber-300/50 to-transparent"></div>
-          <div class="p-7 space-y-6">
-            <Badge variant="secondary" class="gap-2 border-amber-400/20 bg-amber-400/8 text-amber-200 text-[10px] font-bold uppercase tracking-widest">
-              <Sparkles size={12} class="text-amber-400" />
+        <div class="glass rounded-3xl border border-white/8 overflow-hidden">
+          <div class="h-1 bg-gradient-to-r from-amber-400 via-amber-300/50 to-transparent"></div>
+          <div class="p-8 sm:p-10 space-y-8">
+            <Badge variant="secondary" class="gap-2 border-amber-400/20 bg-amber-400/8 text-amber-200 text-xs font-bold uppercase tracking-widest px-3 py-1.5">
+              <Sparkles size={14} class="text-amber-400" />
               Event preview
             </Badge>
 
             <div>
-              <h1 class="text-4xl font-black tracking-tight text-white sm:text-5xl">{data.event.name}</h1>
-              <p class="mt-3 text-base leading-7 text-ink-300 max-w-xl">{data.event.description}</p>
+              <h1 class="text-4xl font-black tracking-tight text-white sm:text-6xl mb-4">{data.event.name}</h1>
+              <p class="text-lg leading-relaxed text-ink-300 max-w-2xl">{data.event.description}</p>
             </div>
 
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="glass rounded-xl p-4 border border-white/6">
-                <p class="text-[10px] uppercase tracking-widest text-ink-500 mb-2">Event ID</p>
-                <p class="text-sm font-mono font-semibold text-white">{data.event.slug}</p>
+            <div class="grid gap-4 sm:grid-cols-2 mt-4">
+              <div class="glass rounded-2xl p-5 border border-white/6 flex flex-col justify-center">
+                <p class="text-xs uppercase tracking-widest text-ink-500 mb-2">Event ID</p>
+                <p class="text-base font-mono font-semibold text-white">{data.event.slug}</p>
               </div>
-              <div class="glass rounded-xl p-4 border border-white/6">
-                <p class="text-[10px] uppercase tracking-widest text-ink-500 mb-2">Access</p>
-                <p class="text-sm font-semibold text-white">Google sign-in required</p>
+              <div class="glass rounded-2xl p-5 border border-white/6 flex flex-col justify-center">
+                <p class="text-xs uppercase tracking-widest text-ink-500 mb-2">Access Requirements</p>
+                <p class="text-base font-semibold text-white flex items-center gap-2">
+                  <LogIn size={16} class="text-ink-400"/>
+                  Google Sign-in
+                </p>
               </div>
             </div>
 
-            <div class="flex flex-wrap gap-3">
-              <Button id="join-event-btn" onclick={joinEvent} disabled={joining} class="gap-2">
+            <div class="flex flex-wrap gap-4 pt-2">
+              <Button id="join-event-btn" onclick={joinEvent} disabled={joining} class="h-12 px-6 gap-2 text-base shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all">
                 {#if joining}
-                  <LoaderCircle size={15} class="animate-spin" />
+                  <LoaderCircle size={18} class="animate-spin" />
                   Redirecting…
                 {:else}
-                  <LogIn size={15} />
+                  <LogIn size={18} />
                   {#if data.user}Join event{:else}Join with Google{/if}
                 {/if}
               </Button>
               {#if data.user}
-                <Button variant="secondary" onclick={() => (stage = 'profile')} class="gap-2">
-                  <ArrowRight size={15} />
+                <Button variant="secondary" onclick={() => (stage = 'profile')} class="h-12 px-6 gap-2 text-base">
                   Continue to profile
+                  <ArrowRight size={18} />
                 </Button>
               {/if}
             </div>
@@ -229,27 +239,27 @@
         </div>
 
         <!-- Right: What happens next -->
-        <div class="glass rounded-2xl border border-white/8 p-7">
-          <div class="flex items-center gap-2 mb-6">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-400/10 border border-cyan-400/20">
-              <Users size={15} class="text-cyan-300" />
+        <div class="glass rounded-3xl border border-white/8 p-8 sm:p-10">
+          <div class="flex items-center gap-3 mb-8">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10 border border-cyan-400/20">
+              <Users size={20} class="text-cyan-300" />
             </div>
-            <p class="text-xs font-bold uppercase tracking-widest text-cyan-300">What happens next</p>
+            <p class="text-sm font-bold uppercase tracking-widest text-cyan-300">What happens next</p>
           </div>
 
-          <ol class="space-y-4">
+          <ol class="space-y-6">
             {#each [
               { icon: LogIn, title: 'Sign in with Google', desc: 'Confirm your attendance with a quick OAuth login.' },
               { icon: UserCircle2, title: 'Fill your profile', desc: 'A short networking profile so the AI understands your intent.' },
               { icon: Brain, title: 'Review AI matches', desc: 'See the most relevant people and why each match was made.' },
             ] as step, i}
-              <li class="flex items-start gap-3">
-                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/8 border border-white/10 text-xs font-bold text-ink-400">
+              <li class="flex items-start gap-4">
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/8 border border-white/10 text-sm font-bold text-ink-400 mt-0.5">
                   {i + 1}
                 </div>
                 <div>
-                  <p class="text-sm font-semibold text-white">{step.title}</p>
-                  <p class="text-xs leading-5 text-ink-400 mt-0.5">{step.desc}</p>
+                  <p class="text-base font-semibold text-white mb-1">{step.title}</p>
+                  <p class="text-sm leading-relaxed text-ink-400">{step.desc}</p>
                 </div>
               </li>
             {/each}
@@ -312,32 +322,32 @@
 
     <!-- ─── WORKSPACE STAGE ─── -->
     {:else}
-      <div class="space-y-6 animate-fade-in">
+      <div class="space-y-8 animate-fade-in">
 
         <!-- Workspace header -->
-        <div class="glass rounded-2xl border border-emerald-400/15 bg-emerald-400/4 p-6">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="space-y-2">
-              <Badge variant="secondary" class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-[10px] font-bold uppercase tracking-widest">
-                <CheckCircle2 size={12} class="text-emerald-400" />
+        <div class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div class="space-y-3">
+              <Badge variant="secondary" class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-widest px-3 py-1.5">
+                <CheckCircle2 size={14} class="text-emerald-400" />
                 Joined event
               </Badge>
-              <h1 class="text-3xl font-black tracking-tight text-white">{data.event.name}</h1>
-              <p class="text-sm leading-6 text-ink-400 max-w-xl">{data.event.description}</p>
+              <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{data.event.name}</h1>
+              <p class="text-base leading-relaxed text-ink-300 max-w-2xl">{data.event.description}</p>
             </div>
-            <div class="flex flex-wrap gap-3 shrink-0">
-              <Button variant="secondary" onclick={refreshMatches} disabled={refreshingMatches} class="gap-2">
+            <div class="flex flex-wrap gap-4 shrink-0 mt-2 lg:mt-0">
+              <Button variant="secondary" onclick={refreshMatches} disabled={refreshingMatches} class="h-12 px-6 gap-2 text-base">
                 {#if refreshingMatches}
-                  <LoaderCircle size={15} class="animate-spin" />
+                  <LoaderCircle size={18} class="animate-spin" />
                   Refreshing…
                 {:else}
-                  <RefreshCcw size={15} />
+                  <RefreshCcw size={18} />
                   Refresh matches
                 {/if}
               </Button>
-              <Button onclick={() => (stage = 'profile')} class="gap-2">
-                <ArrowRight size={15} />
+              <Button onclick={() => (stage = 'profile')} class="h-12 px-6 gap-2 text-base">
                 Edit profile
+                <ArrowRight size={18} />
               </Button>
             </div>
           </div>
@@ -345,24 +355,24 @@
 
         <!-- Tabs -->
         <Tabs.Root value={activeTab} onValueChange={(v) => (activeTab = v)}>
-          <Tabs.List class="glass rounded-xl border border-white/8 p-1 grid w-full grid-cols-3 h-auto gap-1">
+          <Tabs.List class="glass rounded-2xl border border-white/8 p-1.5 grid w-full grid-cols-3 h-auto gap-1.5">
             <Tabs.Trigger
               value="details"
-              class="rounded-lg py-2 text-sm font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500"
+              class="rounded-xl py-2.5 text-base font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 transition-all"
             >
               Event details
             </Tabs.Trigger>
             <Tabs.Trigger
               value="networking"
-              class="rounded-lg py-2 text-sm font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500"
+              class="rounded-xl py-2.5 text-base font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 transition-all"
             >
               My profile
             </Tabs.Trigger>
             <Tabs.Trigger
               value="matches"
-              class="rounded-lg py-2 text-sm font-semibold data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500"
+              class="rounded-xl py-2.5 text-base font-semibold data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 transition-all"
             >
-              Matches {#if matches.length}<span class="ml-1 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">{matches.length}</span>{/if}
+              Matches {#if matches.length}<span class="ml-2 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-bold text-amber-300">{matches.length}</span>{/if}
             </Tabs.Trigger>
           </Tabs.List>
 

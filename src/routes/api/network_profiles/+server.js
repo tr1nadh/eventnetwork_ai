@@ -18,7 +18,7 @@ export async function GET({ url, cookies }) {
 
   const { data: profile, error: fetchError } = await supabase
     .from('network_profiles')
-    .select('display_name, profession, looking_for, event_expectation')
+    .select('display_name, what_i_do, looking_for, about_me')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
@@ -34,11 +34,11 @@ export async function GET({ url, cookies }) {
   return json({
     profile: {
       whoTheyAre: profile.display_name,
-      whatTheyDo: profile.profession,
+      whatTheyDo: profile.what_i_do,
       whoTheyWant: Array.isArray(profile.looking_for)
         ? profile.looking_for.join(', ')
         : profile.looking_for,
-      expectations: profile.event_expectation
+      expectations: profile.about_me
     }
   });
 }
@@ -64,19 +64,19 @@ export async function POST({ request, cookies }) {
     ? whoTheyWant.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
 
-  const { data: upsertData, error } = await supabase.from('network_profiles')
-    .upsert(
-      {
-        user_id: user.id,
-        event_id,
-        display_name: whoTheyAre,
-        profession: whatTheyDo,
-        looking_for: lookingForArray,
-        event_expectation: expectations
-      },
-      { onConflict: 'user_id,event_id', returning: 'representation' }
-    )
-    .select();
+    const { data: upsertData, error } = await supabase.from('network_profiles')
+      .upsert(
+        {
+          user_id: user.id,
+          event_id,
+          display_name: whoTheyAre,
+          what_i_do: whatTheyDo,
+          looking_for: lookingForArray,
+          about_me: expectations
+        },
+        { onConflict: 'user_id,event_id', returning: 'representation' }
+      )
+      .select();
 
   if (error) {
     console.error('Supabase upsert error', error);

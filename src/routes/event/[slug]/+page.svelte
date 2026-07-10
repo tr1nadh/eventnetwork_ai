@@ -194,10 +194,10 @@ onMount(async () => {
   });
 
   const profileFields = [
-    { key: 'whoTheyAre', label: 'Display name (Prefilled from Google, editable)', placeholder: 'Builder, founder, designer, student, operator…', id: 'whoTheyAre', wsId: 'ws-whoTheyAre' },
-    { key: 'whatTheyDo', label: 'What do you do?', placeholder: 'I build consumer AI tools for early-stage startups.', id: 'whatTheyDo', wsId: 'ws-whatTheyDo', suggestions: ['AI Engineer', 'Founder', 'Product Designer', 'Researcher'] },
-    { key: 'whoTheyWant', label: 'Who would you like to meet?', placeholder: 'Founders, product designers, AI engineers, investors…', id: 'whoTheyWant', wsId: 'ws-whoTheyWant', suggestions: ['Investors', 'Co‑founders', 'Mentors', 'Strategic Partners'] },
-    { key: 'expectations', label: 'What are you hoping to achieve at this event?', placeholder: 'Looking for meaningful intros, cofounder chats, and practical collaborations.', id: 'expectations', wsId: 'ws-expectations' },
+    { key: 'whoTheyAre', label: 'Display Name', placeholder: "Enter the name you'd like other attendees to see during networking.", id: 'whoTheyAre', wsId: 'ws-whoTheyAre' },
+    { key: 'whatTheyDo', label: 'What do you do?', placeholder: "Tell us what you're currently working on. This could be your job, startup, side project, research, freelancing, or anything you're actively building.", id: 'whatTheyDo', wsId: 'ws-whatTheyDo', suggestions: ['AI Engineer', 'Founder', 'Product Designer', 'Researcher'] },
+    { key: 'whoTheyWant', label: 'Who are you looking to meet?', placeholder: "Describe the people you'd like to connect with and why. For example, you might be looking for a technical co-founder, investors, designers, developers, mentors, recruiters, or collaborators for a project.", id: 'whoTheyWant', wsId: 'ws-whoTheyWant', suggestions: ['Investors', 'Co‑founders', 'Mentors', 'Strategic Partners'] },
+    { key: 'expectations', label: 'Tell others about yourself', placeholder: "Share a little about yourself, including your experience, interests, skills, achievements, or the kind of work you're passionate about. This helps others understand who you are and makes AI matching more accurate.", id: 'expectations', wsId: 'ws-expectations' },
   ];
 </script>
 
@@ -330,13 +330,23 @@ onMount(async () => {
                   {#if loadingProfile}
                     <div class="h-10 bg-white/5 rounded animate-pulse"></div>
                   {:else}
-                    <Input
-                      id={field.id}
-                      bind:value={networkingProfile[field.key]}
-                      placeholder={field.placeholder}
-                      class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-violet-400/50 focus:ring-violet-400/20"
-                      list={field.suggestions ? field.key + '-list' : undefined}
-                    />
+                    {#if field.key === 'whoTheyAre'}
+                      <Input
+                        id={field.id}
+                        bind:value={networkingProfile[field.key]}
+                        placeholder={field.placeholder}
+                        class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-violet-400/50 focus:ring-violet-400/20"
+                        list={field.suggestions ? field.key + '-list' : undefined}
+                      />
+                    {:else}
+                      <textarea
+                        id={field.id}
+                        bind:value={networkingProfile[field.key]}
+                        placeholder={field.placeholder}
+                        class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-violet-400/50 focus:ring-violet-400/20 w-full rounded-md p-2"
+                        rows="4"
+                      ></textarea>
+                    {/if}
                   {/if}
                   {#if loadError && field.key === 'whoTheyAre'}
                     <p class="text-sm text-amber-300">{loadError}</p>

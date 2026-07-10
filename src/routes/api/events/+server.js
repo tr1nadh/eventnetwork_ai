@@ -83,7 +83,10 @@ export async function GET({ url, locals }) {
   };
 
   const getJoinedQuery = async () => {
-    const { data: joined, error: jErr } = await admin.from('event_attendees').select('event_id').eq('user_id', locals.user.id);
+    const { data: joined, error: jErr } = await admin.from('event_participants')
+      .select('event_id')
+      .eq('user_id', locals.user.id)
+      .eq('status', 'joined');
     const joinedIds = !jErr && joined ? joined.map(j => j.event_id) : [];
     
     if (joinedIds.length === 0) return Promise.resolve({ data: [] });

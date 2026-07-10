@@ -45,10 +45,32 @@ export const load = async ({ params, locals }) => {
     }
   }
 
-  return {
-    event: data,
-    suggestedMatches: demoAttendees.slice(0, 3),
-    user: locals.user,
-    isParticipant
-  };
-};
+  // After checking participant status, load the user's network profile if they have joined
+let networkProfile = null;
+if (isParticipant) {
+  const { data: profileData, error: profileError } = await admin
+    .from('network_profiles')
+    .select('display_name, profession, looking_for, event_expectation')
+    .eq('event_id', data.id)
+    .eq('user_id', locals.user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error('Failed to load network profile:', profileError);
+  } else if (profileData) {
+    networkProfile = {
+      whoTheyAre: profileData.display_name,
+      whatTheyDo: profileData.profession,
+      whoTheyWant: Array.isArray(profileData.looking_for) ? profileData.looking_for.join(', ') : profileData.looking_for,
+      expectations: profileData.event_expectation
+    };
+  }
+}
+
+return {
+  event: data,
+  suggestedMatches: demoAttendees.slice(0, 3),
+  user: locals.user,
+  isParticipant,
+  networkProfile
+};};

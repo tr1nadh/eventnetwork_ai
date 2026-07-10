@@ -34,6 +34,9 @@
   let signingOut = false;
   let joining = false;
   let savingProfile = false;
+  let loadingProfile = false;
+  let loadError = '';
+  let profileLoaded = false;
   let refreshingMatches = false;
   let stage = data.isParticipant ? 'workspace' : 'preview';
   let activeTab = 'details';
@@ -44,6 +47,10 @@
     whoTheyWant: '',
     expectations: ''
   };
+  // If server provided a network profile, use it as initial data
+  if (data.networkProfile) {
+    networkingProfile = { ...networkingProfile, ...data.networkProfile };
+  }
 
   async function signOut() {
     signingOut = true;
@@ -140,6 +147,21 @@
     }
   }
 
+  async function loadNetworkProfile() {
+    loadingProfile = true;
+    try {
+      const res = await fetch(`/api/network_profiles/${data.event.id}`);
+      if (!res.ok) throw new Error('Failed to load profile');
+      const data = await res.json();
+      if (data.profile) networkingProfile = data.profile;
+      profileLoaded = true;
+    } catch (e) {
+      loadError = 'Could not load your saved profile.';
+    } finally {
+      loadingProfile = false;
+    }
+  }
+
   function loadStoredWorkspace(userId) {
   // Placeholder: currently no persisted workspace data
 }
@@ -150,6 +172,10 @@ onMount(async () => {
     loadStoredWorkspace(data.user.id);
     if (data.user?.user_metadata?.full_name) {
       networkingProfile.whoTheyAre = data.user.user_metadata.full_name;
+    }
+    // If participant and profile not yet loaded, fetch it
+    if (data.isParticipant && !profileLoaded) {
+      await loadNetworkProfile();
     }
   });
 
@@ -287,13 +313,20 @@ onMount(async () => {
                   <Label for={field.id} class="text-xs font-semibold uppercase tracking-widest text-ink-400">
                     {field.label}
                   </Label>
-                  <Input
-                    id={field.id}
-                    bind:value={networkingProfile[field.key]}
-                    placeholder={field.placeholder}
-                    class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-violet-400/50 focus:ring-violet-400/20"
-                    list={field.suggestions ? field.key + '-list' : undefined}
-                  />
+                  {#if loadingProfile}
+                    <div class="h-10 bg-white/5 rounded animate-pulse"></div>
+                  {:else}
+                    <Input
+                      id={field.id}
+                      bind:value={networkingProfile[field.key]}
+                      placeholder={field.placeholder}
+                      class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-violet-400/50 focus:ring-violet-400/20"
+                      list={field.suggestions ? field.key + '-list' : undefined}
+                    />
+                  {/if}
+                  {#if loadError && field.key === 'whoTheyAre'}
+                    <p class="text-sm text-amber-300">{loadError}</p>
+                  {/if}
                   {#if field.suggestions}
                     <datalist id={field.key + '-list'}>
                       {#each field.suggestions as suggestion}

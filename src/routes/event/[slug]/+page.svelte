@@ -13,7 +13,8 @@
     Brain,
     UserCircle2,
     Target,
-    MessageSquare
+    MessageSquare,
+    Info
   } from '@lucide/svelte';
   import Navbar from '$lib/components/navbar.svelte';
   import PageShell from '$lib/components/page-shell.svelte';
@@ -330,9 +331,9 @@ onMount(async () => {
         <div class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10">
           <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div class="space-y-3">
-              <Badge variant="secondary" class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-widest px-3 py-1.5">
+              <Badge variant="secondary" class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-widest px-3 py-3">
                 <CheckCircle2 size={14} class="text-emerald-400" />
-                Joined event
+                Joined
               </Badge>
               <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{data.event.name}</h1>
               <p class="text-base leading-relaxed text-ink-300 max-w-2xl">{data.event.description}</p>
@@ -340,28 +341,30 @@ onMount(async () => {
           </div>
         </div>
 
-        <!-- Tabs -->
-        <Tabs.Root value={activeTab} onValueChange={(v) => (activeTab = v)}>
-          <Tabs.List class="glass rounded-2xl border border-white/8 p-1.5 grid w-full grid-cols-3 h-auto gap-1.5">
-            <Tabs.Trigger
-              value="details"
-              class="rounded-xl py-2.5 text-base font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 transition-all"
-            >
-              Event details
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="networking"
-              class="rounded-xl py-2.5 text-base font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 transition-all"
-            >
-              My profile
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="matches"
-              class="rounded-xl py-2.5 text-base font-semibold data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 transition-all"
-            >
-              Matches {#if matches.length}<span class="ml-2 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-bold text-amber-300">{matches.length}</span>{/if}
-            </Tabs.Trigger>
-          </Tabs.List>
+ <Tabs.Root value={activeTab} onValueChange={(v) => (activeTab = v)}>
+  <Tabs.List class="glass rounded-xl flex overflow-hidden divide-x divide-white/10">
+    <Tabs.Trigger
+      value="details"
+      class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
+    >
+      <Info size={16} class="inline-block mr-1 align-text-bottom" />
+      Details
+    </Tabs.Trigger>
+    <Tabs.Trigger
+      value="networking"
+      class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
+    >
+      <UserCircle2 size={16} class="inline-block mr-1 align-text-bottom" />
+      My profile
+    </Tabs.Trigger>
+    <Tabs.Trigger
+      value="matches"
+      class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
+    >
+      <Users size={16} class="inline-block mr-1 align-text-bottom" />
+      Matches {#if matches.length}<span class="ml-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-bold text-amber-300">{matches.length}</span>{/if}
+    </Tabs.Trigger>
+  </Tabs.List>
 
           <!-- Details tab -->
           <Tabs.Content value="details" class="mt-4">

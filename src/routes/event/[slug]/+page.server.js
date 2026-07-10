@@ -10,7 +10,7 @@ export const load = async ({ params, locals }) => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       },
-      suggestedMatches: demoAttendees.slice(0, 3),
+      suggestedMatches: [],
       user: locals.user
     };
   }
@@ -69,7 +69,7 @@ if (isParticipant) {
 
 return {
   event: data,
-  suggestedMatches: demoAttendees.slice(0, 3),
+  suggestedMatches: [],
   user: locals.user,
   isParticipant,
   networkProfile

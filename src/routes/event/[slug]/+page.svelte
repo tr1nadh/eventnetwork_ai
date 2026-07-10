@@ -387,16 +387,16 @@ onMount(async () => {
 
         <!-- Workspace header -->
         <div class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10">
-          <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div class="space-y-3">
-              <Badge variant="secondary" class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-widest px-3 py-3">
-                <CheckCircle2 size={14} class="text-emerald-400" />
-                Joined
-              </Badge>
-              <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{data.event.name}</h1>
-              <p class="text-base leading-relaxed text-ink-300 max-w-2xl">{data.event.description}</p>
-            </div>
-          </div>
+          <div class="flex flex-col items-center gap-6">
+      <div class="space-y-3 text-center">
+        <Badge variant="secondary" class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-widest px-3 py-3">
+          <CheckCircle2 size={14} class="text-emerald-400" />
+          Joined
+        </Badge>
+        <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{data.event.name}</h1>
+        <p class="text-base leading-relaxed text-ink-300 max-w-2xl mx-auto">{data.event.description}</p>
+      </div>
+    </div>
         </div>
 
  <Tabs.Root value={activeTab} onValueChange={(v) => (activeTab = v)}>
@@ -495,15 +495,6 @@ onMount(async () => {
                   {:else}
                     <CheckCircle2 size={15} />
                     Save changes
-                  {/if}
-                </Button>
-                <Button variant="secondary" onclick={refreshMatches} disabled={refreshingMatches} class="gap-2">
-                  {#if refreshingMatches}
-                    <LoaderCircle size={15} class="animate-spin" />
-                    Refreshing…
-                  {:else}
-                    <RefreshCcw size={15} />
-                    Refresh matches
                   {/if}
                 </Button>
               </div>

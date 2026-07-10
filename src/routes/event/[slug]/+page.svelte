@@ -105,7 +105,16 @@
     try {
       const nextMatches = await fetchRecommendations();
       matches = nextMatches;
-      storeWorkspace(data.user.id, nextMatches);
+      // Save networking profile to DB
+      const profileRes = await fetch('/api/network_profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: networkingProfile, event_id: data.event.id })
+      });
+      const profilePayload = await profileRes.json();
+      if (!profileRes.ok) {
+        throw new Error(profilePayload.error ?? 'Failed to save networking profile');
+      }
       stage = 'workspace';
       activeTab = 'details';
       toast.success('Networking profile saved', { description: 'Your event workspace is ready.' });
@@ -122,7 +131,6 @@
     try {
       const nextMatches = await fetchRecommendations();
       matches = nextMatches;
-      storeWorkspace(data.user.id, nextMatches);
       toast.success('Matches refreshed', { description: 'The recommendations are up to date.' });
     } catch (error) {
       toast.error('Could not refresh matches', { description: error instanceof Error ? error.message : 'Please try again.' });
@@ -131,7 +139,11 @@
     }
   }
 
-  onMount(async () => {
+  function loadStoredWorkspace(userId) {
+  // Placeholder: currently no persisted workspace data
+}
+
+onMount(async () => {
     if (!data.user) return;
     // Load any saved workspace data
     loadStoredWorkspace(data.user.id);

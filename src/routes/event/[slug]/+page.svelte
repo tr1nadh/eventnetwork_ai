@@ -337,21 +337,6 @@ onMount(async () => {
               <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{data.event.name}</h1>
               <p class="text-base leading-relaxed text-ink-300 max-w-2xl">{data.event.description}</p>
             </div>
-            <div class="flex flex-wrap gap-4 shrink-0 mt-2 lg:mt-0">
-              <Button variant="secondary" onclick={refreshMatches} disabled={refreshingMatches} class="h-12 px-6 gap-2 text-base">
-                {#if refreshingMatches}
-                  <LoaderCircle size={18} class="animate-spin" />
-                  Refreshing…
-                {:else}
-                  <RefreshCcw size={18} />
-                  Refresh matches
-                {/if}
-              </Button>
-              <Button onclick={() => (stage = 'profile')} class="h-12 px-6 gap-2 text-base">
-                Edit profile
-                <ArrowRight size={18} />
-              </Button>
-            </div>
           </div>
         </div>
 

@@ -38,11 +38,14 @@
   let loadError = '';
   let profileLoaded = false;
   let refreshingMatches = false;
-  let stage = data.isParticipant ? 'workspace' : 'preview';
   let activeTab = 'details';
+  let stage = data.isParticipant ? 'workspace' : 'preview';
+  $: if (activeTab === 'networking' && data.isParticipant && !profileLoaded) {
+    loadNetworkProfile();
+  }
   let matches = data.suggestedMatches ?? [];
   let networkingProfile = {
-    whoTheyAre: data.user?.user_metadata?.full_name ?? '',
+    whoTheyAre: '',
     whatTheyDo: '',
     whoTheyWant: '',
     expectations: ''
@@ -117,12 +120,25 @@
       const profileRes = await fetch('/api/network_profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        mode: 'same-origin',
         body: JSON.stringify({ profile: networkingProfile, event_id: data.event.id })
       });
       const profilePayload = await profileRes.json();
       if (!profileRes.ok) {
         throw new Error(profilePayload.error ?? 'Failed to save networking profile');
       }
+      // Transform DB row to UI shape
+      const normalizeProfile = (p) => ({
+        whoTheyAre: p.display_name,
+        whatTheyDo: p.profession,
+        whoTheyWant: Array.isArray(p.looking_for) ? p.looking_for.join(', ') : p.looking_for,
+        expectations: p.event_expectation
+      });
+      if (profilePayload.profile) {
+        networkingProfile = { ...networkingProfile, ...normalizeProfile(profilePayload.profile) };
+      }
+      profileLoaded = true;
       stage = 'workspace';
       activeTab = 'details';
       toast.success('Networking profile saved', { description: 'Your event workspace is ready.' });
@@ -150,11 +166,20 @@
   async function loadNetworkProfile() {
     loadingProfile = true;
     try {
-      const res = await fetch(`/api/network_profiles/${data.event.id}`);
-      if (!res.ok) throw new Error('Failed to load profile');
-      const data = await res.json();
-      if (data.profile) networkingProfile = data.profile;
-      profileLoaded = true;
+    console.log('Loading network profile for event', data.event.id);
+    const res = await fetch(`/api/network_profiles?event_id=${data.event.id}`, {
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      console.error('Failed to load profile', err);
+      toast.error('Failed to load profile', { description: err.error ?? 'Unknown error' });
+      throw new Error('Failed to load profile');
+    }
+    const data = await res.json();
+    console.log('Profile load response', data);
+    if (data.profile) networkingProfile = data.profile;
+    profileLoaded = true;
     } catch (e) {
       loadError = 'Could not load your saved profile.';
     } finally {
@@ -170,7 +195,7 @@ onMount(async () => {
     if (!data.user) return;
     // Load any saved workspace data
     loadStoredWorkspace(data.user.id);
-    if (data.user?.user_metadata?.full_name) {
+    if (data.user?.user_metadata?.full_name && !networkingProfile.whoTheyAre && !profileLoaded) {
       networkingProfile.whoTheyAre = data.user.user_metadata.full_name;
     }
     // If participant and profile not yet loaded, fetch it

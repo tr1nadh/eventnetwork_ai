@@ -117,24 +117,15 @@ export async function GET({ url, locals }) {
       } else if (filter === 'joined') {
         const { data } = await getJoinedQuery();
         events = data || [];
-      } else {
-        // 'all'
-        const [hostingRes, joinedRes] = await Promise.all([
-          getHostingQuery(),
-          getJoinedQuery()
-        ]);
-        
-        const combined = [...(hostingRes.data || []), ...(joinedRes.data || [])];
-        // Deduplicate by ID, preferring joined flag true if present
-        const map = new Map();
-        for (const e of combined) {
-          const existing = map.get(e.id);
-          if (!existing || e.joined) {
-            map.set(e.id, e);
-          }
+      } else if (filter === 'all') {
+          // Fetch all public events (no host/join restriction)
+          const { data, error } = await admin
+            .from('events')
+            .select('id, name, description, slug, created_by, created_at, updated_at')
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          events = data || [];
         }
-        events = Array.from(map.values());
-      }
 
     // Sort descending by created_at
     events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));

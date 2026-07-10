@@ -35,6 +35,7 @@
   let joining = false;
   let savingProfile = false;
   let loadingProfile = false;
+  let pageLoading = true;
   let loadError = '';
   let profileLoaded = false;
   let refreshingMatches = false;
@@ -149,20 +150,6 @@
     }
   }
 
-  async function refreshMatches() {
-    if (!data.user) return;
-    refreshingMatches = true;
-    try {
-      const nextMatches = await fetchRecommendations();
-      matches = nextMatches;
-      toast.success('Matches refreshed', { description: 'The recommendations are up to date.' });
-    } catch (error) {
-      toast.error('Could not refresh matches', { description: error instanceof Error ? error.message : 'Please try again.' });
-    } finally {
-      refreshingMatches = false;
-    }
-  }
-
   async function loadNetworkProfile() {
     loadingProfile = true;
     try {
@@ -192,16 +179,19 @@
 }
 
 onMount(async () => {
-    if (!data.user) return;
+    if (!data.user) {
+      pageLoading = false;
+      return;
+    }
     // Load any saved workspace data
     loadStoredWorkspace(data.user.id);
-    if (data.user?.user_metadata?.full_name && !networkingProfile.whoTheyAre && !profileLoaded) {
-      networkingProfile.whoTheyAre = data.user.user_metadata.full_name;
-    }
-    // If participant and profile not yet loaded, fetch it
-    if (data.isParticipant && !profileLoaded) {
+    // Load network profile first if participant
+    if (data.isParticipant) {
       await loadNetworkProfile();
     }
+    // If no saved profile, prefill from Google
+    // Page data ready – stop showing skeleton
+    pageLoading = false;
   });
 
   const profileFields = [
@@ -386,18 +376,27 @@ onMount(async () => {
       <div class="space-y-8 animate-fade-in">
 
         <!-- Workspace header -->
-        <div class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10">
-          <div class="flex flex-col items-center gap-6">
-      <div class="space-y-3 text-center">
-        <Badge variant="secondary" class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-widest px-3 py-3">
-          <CheckCircle2 size={14} class="text-emerald-400" />
-          Joined
-        </Badge>
-        <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{data.event.name}</h1>
-        <p class="text-base leading-relaxed text-ink-300 max-w-2xl mx-auto">{data.event.description}</p>
-      </div>
-    </div>
-        </div>
+        {#if pageLoading}
+          <div class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10">
+            <div class="flex flex-col items-center gap-6 animate-pulse">
+              <div class="h-8 w-48 bg-ink-400 rounded"></div>
+              <div class="h-4 w-96 bg-ink-400 rounded"></div>
+            </div>
+          </div>
+        {:else}
+          <div class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10">
+            <div class="flex flex-col items-center gap-6">
+              <div class="space-y-3 text-center">
+                <Badge variant="secondary" class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-widest px-3 py-3">
+                  <CheckCircle2 size={14} class="text-emerald-400" />
+                  Joined
+                </Badge>
+                <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{data.event.name}</h1>
+                <p class="text-base leading-relaxed text-ink-300 max-w-2xl mx-auto">{data.event.description}</p>
+              </div>
+            </div>
+          </div>
+        {/if}
 
  <Tabs.Root value={activeTab} onValueChange={(v) => (activeTab = v)}>
   <Tabs.List class="glass rounded-xl flex overflow-hidden divide-x divide-white/10">

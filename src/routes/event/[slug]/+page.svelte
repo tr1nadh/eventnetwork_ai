@@ -8,18 +8,15 @@
     Sparkles,
     Users,
     CheckCircle2,
-    RefreshCcw
+    RefreshCcw,
+    Brain,
+    UserCircle2,
+    Target,
+    MessageSquare
   } from '@lucide/svelte';
   import Navbar from '$lib/components/navbar.svelte';
+  import PageShell from '$lib/components/page-shell.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
-  import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-    CardContent
-  } from '$lib/components/ui/card/index.js';
-  import { Alert, AlertTitle, AlertDescription } from '$lib/components/ui/alert/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
   import { Label } from '$lib/components/ui/label/index.js';
   import { toast } from '$lib/components/ui/sonner/index.js';
@@ -54,13 +51,10 @@
 
   function loadStoredWorkspace(userId) {
     if (typeof localStorage === 'undefined') return;
-
     const rawProfile = localStorage.getItem(profileKey(userId));
     if (!rawProfile) return;
-
     try {
       const stored = JSON.parse(rawProfile);
-
       networkingProfile = {
         whoTheyAre: stored.profile?.whoTheyAre ?? '',
         whatTheyDo: stored.profile?.whatTheyDo ?? '',
@@ -78,10 +72,7 @@
   function storeWorkspace(userId, nextMatches) {
     localStorage.setItem(
       profileKey(userId),
-      JSON.stringify({
-        profile: networkingProfile,
-        matches: nextMatches
-      })
+      JSON.stringify({ profile: networkingProfile, matches: nextMatches })
     );
     localStorage.removeItem(pendingJoinKey);
   }
@@ -96,39 +87,21 @@
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/event/${data.event.slug}`
-      }
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/event/${data.event.slug}` }
     });
-
-    if (error) {
-      toast.error('Google sign-in failed', {
-        description: error.message
-      });
-    }
+    if (error) toast.error('Google sign-in failed', { description: error.message });
   }
 
   async function joinEvent() {
     if (joining) return;
-
     joining = true;
-
     try {
       localStorage.setItem(pendingJoinKey, '1');
-
-      if (!data.user) {
-        await signInWithGoogle();
-        return;
-      }
-
+      if (!data.user) { await signInWithGoogle(); return; }
       stage = 'profile';
-      toast.success('Joined event', {
-        description: 'Complete your networking profile to unlock event tabs and matches.'
-      });
+      toast.success('Joined event', { description: 'Complete your networking profile to unlock matches.' });
     } catch (error) {
-      toast.error('Could not join event', {
-        description: error instanceof Error ? error.message : 'Please try again.'
-      });
+      toast.error('Could not join event', { description: error instanceof Error ? error.message : 'Please try again.' });
     } finally {
       joining = false;
     }
@@ -137,47 +110,29 @@
   async function fetchRecommendations() {
     const response = await fetch('/api/recommendations', {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        profile: networkingProfile
-      })
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ profile: networkingProfile })
     });
-
     const payload = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(payload?.error ?? 'Unable to build recommendations.');
-    }
-
+    if (!response.ok) throw new Error(payload?.error ?? 'Unable to build recommendations.');
     return payload?.recommendations ?? [];
   }
 
   async function saveProfile() {
     if (!data.user) {
-      toast.error('Sign in first', {
-        description: 'You need a Google account before saving your networking profile.'
-      });
+      toast.error('Sign in first', { description: 'You need a Google account before saving your networking profile.' });
       return;
     }
-
     savingProfile = true;
-
     try {
       const nextMatches = await fetchRecommendations();
       matches = nextMatches;
       storeWorkspace(data.user.id, nextMatches);
       stage = 'workspace';
       activeTab = 'details';
-
-      toast.success('Networking profile saved', {
-        description: 'Your event workspace is ready.'
-      });
+      toast.success('Networking profile saved', { description: 'Your event workspace is ready.' });
     } catch (error) {
-      toast.error('Could not save profile', {
-        description: error instanceof Error ? error.message : 'Please try again.'
-      });
+      toast.error('Could not save profile', { description: error instanceof Error ? error.message : 'Please try again.' });
     } finally {
       savingProfile = false;
     }
@@ -185,353 +140,378 @@
 
   async function refreshMatches() {
     if (!data.user) return;
-
     refreshingMatches = true;
-
     try {
       const nextMatches = await fetchRecommendations();
       matches = nextMatches;
       storeWorkspace(data.user.id, nextMatches);
-      toast.success('Matches refreshed', {
-        description: 'The recommendations are up to date.'
-      });
+      toast.success('Matches refreshed', { description: 'The recommendations are up to date.' });
     } catch (error) {
-      toast.error('Could not refresh matches', {
-        description: error instanceof Error ? error.message : 'Please try again.'
-      });
+      toast.error('Could not refresh matches', { description: error instanceof Error ? error.message : 'Please try again.' });
     } finally {
       refreshingMatches = false;
     }
   }
 
-  function setActiveTab(value) {
-    activeTab = value;
-  }
-
   onMount(() => {
     if (!data.user) return;
-
     const pendingJoin = localStorage.getItem(pendingJoinKey) === '1';
-
-    if (pendingJoin) {
-      stage = 'profile';
-    }
-
+    if (pendingJoin) stage = 'profile';
     loadStoredWorkspace(data.user.id);
-
-    if (stage !== 'workspace' && pendingJoin) {
-      stage = 'profile';
-    }
+    if (stage !== 'workspace' && pendingJoin) stage = 'profile';
   });
+
+  const profileFields = [
+    { key: 'whoTheyAre', label: 'Who are you?', placeholder: 'Builder, founder, designer, student, operator…', id: 'whoTheyAre', wsId: 'ws-whoTheyAre' },
+    { key: 'whatTheyDo', label: 'What do you do?', placeholder: 'I build consumer AI tools for early-stage startups.', id: 'whatTheyDo', wsId: 'ws-whatTheyDo' },
+    { key: 'whoTheyWant', label: 'Who do you want to meet?', placeholder: 'Founders, product designers, AI engineers, investors…', id: 'whoTheyWant', wsId: 'ws-whoTheyWant' },
+    { key: 'expectations', label: 'What are your expectations?', placeholder: 'Looking for meaningful intros, cofounder chats, and practical collaborations.', id: 'expectations', wsId: 'ws-expectations' },
+  ];
 </script>
 
 <svelte:head>
   <title>{data.event.name} | EventNetwork AI</title>
+  <meta name="description" content="Join {data.event.name} on EventNetwork AI and get AI-powered networking matches." />
 </svelte:head>
 
-<main class="min-h-screen bg-[#050816] text-white">
-  <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(250,204,21,0.16),_transparent_36%),radial-gradient(circle_at_85%_20%,_rgba(45,212,191,0.16),_transparent_32%),linear-gradient(180deg,_rgba(2,6,23,0.96),_rgba(2,6,23,1))]"></div>
-  <section class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <Navbar user={data.user} {signingOut} onSignOut={signOut} onSignIn={joinEvent} />
+<PageShell>
+  <Navbar user={data.user} {signingOut} onSignOut={signOut} onSignIn={joinEvent} />
 
+  <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+
+    <!-- ─── PREVIEW STAGE ─── -->
     {#if stage === 'preview'}
-      <div class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-        <Card className="space-y-6 p-6">
-          <Badge variant="secondary" className="gap-2 px-4 py-2 text-sm text-slate-200">
-            <Sparkles size={16} class="text-amber-300" />
-            Event preview
-          </Badge>
+      <div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start animate-fade-in">
 
-          <CardHeader className="space-y-3">
-            <CardTitle className="text-4xl sm:text-5xl">{data.event.name}</CardTitle>
-            <CardDescription className="max-w-3xl text-base leading-7">{data.event.description}</CardDescription>
-          </CardHeader>
+        <!-- Left: Event info -->
+        <div class="glass rounded-2xl border border-white/8 overflow-hidden">
+          <div class="h-0.5 bg-gradient-to-r from-amber-400 via-amber-300/50 to-transparent"></div>
+          <div class="p-7 space-y-6">
+            <Badge variant="secondary" class="gap-2 border-amber-400/20 bg-amber-400/8 text-amber-200 text-[10px] font-bold uppercase tracking-widest">
+              <Sparkles size={12} class="text-amber-400" />
+              Event preview
+            </Badge>
 
-          <div class="grid gap-3 sm:grid-cols-2">
-            <Card className="border-white/10 bg-slate-950/60 p-4">
-              <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Event ID</p>
-              <p class="mt-2 text-sm font-semibold text-white">{data.event.slug}</p>
-            </Card>
-            <Card className="border-white/10 bg-slate-950/60 p-4">
-              <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Organizer access</p>
-              <p class="mt-2 text-sm font-semibold text-white">Google sign-in required</p>
-            </Card>
-          </div>
-
-          <div class="flex flex-wrap gap-3">
-            <Button onclick={joinEvent} disabled={joining}>
-              {#if joining}
-                <LoaderCircle size={16} class="animate-spin" />
-                Redirecting
-              {:else}
-                <LogIn size={16} />
-                {#if data.user}Join event{:else}Join with Google{/if}
-              {/if}
-            </Button>
-            {#if data.user}
-              <Button variant="secondary" onclick={() => (stage = 'profile')}>
-                <ArrowRight size={16} />
-                Continue
-              </Button>
-            {/if}
-          </div>
-        </Card>
-
-        <Card className="space-y-5 p-6">
-          <CardHeader>
-            <div class="flex items-center gap-2 text-cyan-200">
-              <Users size={18} />
-              <p class="text-sm font-semibold uppercase tracking-[0.2em]">What happens next</p>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-4 text-sm leading-6 text-slate-300">
-            <Card className="border-white/10 bg-slate-950/60 p-4">1. Sign in with Google to confirm your attendance.</Card>
-            <Card className="border-white/10 bg-slate-950/60 p-4">2. Fill a short networking profile so the AI can understand your intent.</Card>
-            <Card className="border-white/10 bg-slate-950/60 p-4">3. Review event details, edit your profile, and explore the best matches.</Card>
-          </CardContent>
-        </Card>
-      </div>
-    {:else if stage === 'profile'}
-      <div class="mx-auto max-w-4xl">
-        <Card className="space-y-6 p-6">
-          <CardHeader className="space-y-2">
-            <Badge variant="accent" className="w-fit uppercase tracking-[0.18em]">Mandatory profile</Badge>
-            <CardTitle className="text-3xl">Tell us who you are</CardTitle>
-            <CardDescription>
-              This profile powers the semantic matching engine and will be visible only inside your event workspace.
-            </CardDescription>
-          </CardHeader>
-
-          <div class="grid gap-4 md:grid-cols-2">
-            <div class="md:col-span-2">
-              <Label for="whoTheyAre">Who are you?</Label>
-              <Input
-                id="whoTheyAre"
-                bind:value={networkingProfile.whoTheyAre}
-                placeholder="Builder, founder, designer, student, operator..."
-              />
+            <div>
+              <h1 class="text-4xl font-black tracking-tight text-white sm:text-5xl">{data.event.name}</h1>
+              <p class="mt-3 text-base leading-7 text-ink-300 max-w-xl">{data.event.description}</p>
             </div>
 
-            <div class="md:col-span-2">
-              <Label for="whatTheyDo">What do you do?</Label>
-              <Input
-                id="whatTheyDo"
-                bind:value={networkingProfile.whatTheyDo}
-                placeholder="I build consumer AI tools for early-stage startups."
-              />
-            </div>
-
-            <div class="md:col-span-2">
-              <Label for="whoTheyWant">Who do you want to network with?</Label>
-              <Input
-                id="whoTheyWant"
-                bind:value={networkingProfile.whoTheyWant}
-                placeholder="Founders, product designers, AI engineers, investors..."
-              />
-            </div>
-
-            <div class="md:col-span-2">
-              <Label for="expectations">What are your expectations?</Label>
-              <Input
-                id="expectations"
-                bind:value={networkingProfile.expectations}
-                placeholder="Looking for meaningful intros, cofounder chats, and practical collaborations."
-              />
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-3">
-            <Button onclick={saveProfile} disabled={savingProfile}>
-              {#if savingProfile}
-                <LoaderCircle size={16} class="animate-spin" />
-                Saving
-              {:else}
-                <CheckCircle2 size={16} />
-                Save networking profile
-              {/if}
-            </Button>
-            <Button variant="secondary" onclick={() => (stage = 'preview')}>
-              Back to event preview
-            </Button>
-          </div>
-        </Card>
-      </div>
-    {:else}
-      <div class="space-y-6">
-        <Card className="space-y-5 p-6">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div class="space-y-3">
-              <Badge variant="success" className="gap-2">
-                <CheckCircle2 size={14} />
-                Joined event
-              </Badge>
-              <div>
-                <h1 class="text-4xl font-black tracking-tight">{data.event.name}</h1>
-                <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{data.event.description}</p>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="glass rounded-xl p-4 border border-white/6">
+                <p class="text-[10px] uppercase tracking-widest text-ink-500 mb-2">Event ID</p>
+                <p class="text-sm font-mono font-semibold text-white">{data.event.slug}</p>
+              </div>
+              <div class="glass rounded-xl p-4 border border-white/6">
+                <p class="text-[10px] uppercase tracking-widest text-ink-500 mb-2">Access</p>
+                <p class="text-sm font-semibold text-white">Google sign-in required</p>
               </div>
             </div>
 
             <div class="flex flex-wrap gap-3">
-              <Button variant="secondary" onclick={refreshMatches} disabled={refreshingMatches}>
-                {#if refreshingMatches}
-                  <LoaderCircle size={16} class="animate-spin" />
-                  Refreshing
+              <Button id="join-event-btn" onclick={joinEvent} disabled={joining} class="gap-2">
+                {#if joining}
+                  <LoaderCircle size={15} class="animate-spin" />
+                  Redirecting…
                 {:else}
-                  <RefreshCcw size={16} />
-                  Refresh matches
+                  <LogIn size={15} />
+                  {#if data.user}Join event{:else}Join with Google{/if}
                 {/if}
               </Button>
-              <Button onclick={() => (stage = 'profile')}>
-                <ArrowRight size={16} />
-                Edit networking profile
+              {#if data.user}
+                <Button variant="secondary" onclick={() => (stage = 'profile')} class="gap-2">
+                  <ArrowRight size={15} />
+                  Continue to profile
+                </Button>
+              {/if}
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: What happens next -->
+        <div class="glass rounded-2xl border border-white/8 p-7">
+          <div class="flex items-center gap-2 mb-6">
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-400/10 border border-cyan-400/20">
+              <Users size={15} class="text-cyan-300" />
+            </div>
+            <p class="text-xs font-bold uppercase tracking-widest text-cyan-300">What happens next</p>
+          </div>
+
+          <ol class="space-y-4">
+            {#each [
+              { icon: LogIn, title: 'Sign in with Google', desc: 'Confirm your attendance with a quick OAuth login.' },
+              { icon: UserCircle2, title: 'Fill your profile', desc: 'A short networking profile so the AI understands your intent.' },
+              { icon: Brain, title: 'Review AI matches', desc: 'See the most relevant people and why each match was made.' },
+            ] as step, i}
+              <li class="flex items-start gap-3">
+                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/8 border border-white/10 text-xs font-bold text-ink-400">
+                  {i + 1}
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-white">{step.title}</p>
+                  <p class="text-xs leading-5 text-ink-400 mt-0.5">{step.desc}</p>
+                </div>
+              </li>
+            {/each}
+          </ol>
+        </div>
+      </div>
+
+    <!-- ─── PROFILE STAGE ─── -->
+    {:else if stage === 'profile'}
+      <div class="mx-auto max-w-2xl animate-slide-up">
+        <div class="glass rounded-2xl border border-violet-400/15 overflow-hidden">
+          <div class="h-0.5 bg-gradient-to-r from-violet-400 via-cyan-400/60 to-transparent"></div>
+          <div class="p-7 space-y-6">
+            <div>
+              <Badge variant="secondary" class="mb-3 gap-2 border-violet-400/20 bg-violet-400/8 text-violet-200 text-[10px] font-bold uppercase tracking-widest">
+                <Brain size={12} class="text-violet-300" />
+                Networking profile
+              </Badge>
+              <h1 class="text-3xl font-black text-white">Tell us who you are</h1>
+              <p class="mt-2 text-sm leading-6 text-ink-400">
+                This profile powers the semantic matching engine. It's only visible inside your event workspace.
+              </p>
+            </div>
+
+            <div class="h-px bg-white/6"></div>
+
+            <div class="space-y-4">
+              {#each profileFields as field}
+                <div class="space-y-1.5">
+                  <Label for={field.id} class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+                    {field.label}
+                  </Label>
+                  <Input
+                    id={field.id}
+                    bind:value={networkingProfile[field.key]}
+                    placeholder={field.placeholder}
+                    class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-violet-400/50 focus:ring-violet-400/20"
+                  />
+                </div>
+              {/each}
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <Button id="save-profile-btn" onclick={saveProfile} disabled={savingProfile} class="gap-2">
+                {#if savingProfile}
+                  <LoaderCircle size={15} class="animate-spin" />
+                  Saving & finding matches…
+                {:else}
+                  <CheckCircle2 size={15} />
+                  Save & get matches
+                {/if}
+              </Button>
+              <Button variant="secondary" onclick={() => (stage = 'preview')} class="gap-2">
+                Back
               </Button>
             </div>
           </div>
+        </div>
+      </div>
 
-          <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-            <Tabs.List className="grid w-full grid-cols-3 overflow-x-auto">
-              <Tabs.Trigger value="details">Event details</Tabs.Trigger>
-              <Tabs.Trigger value="networking">Networking profile</Tabs.Trigger>
-              <Tabs.Trigger value="matches">Matches</Tabs.Trigger>
-            </Tabs.List>
+    <!-- ─── WORKSPACE STAGE ─── -->
+    {:else}
+      <div class="space-y-6 animate-fade-in">
 
-          <Tabs.Content value="details" className="mt-4">
-            <div class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              <Card className="space-y-4 p-5">
-                <CardHeader>
-                  <div class="flex items-center gap-2 text-amber-200">
-                    <MapPin size={18} />
-                    <p class="text-sm font-semibold uppercase tracking-[0.2em]">Event summary</p>
-                  </div>
-                </CardHeader>
+        <!-- Workspace header -->
+        <div class="glass rounded-2xl border border-emerald-400/15 bg-emerald-400/4 p-6">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div class="space-y-2">
+              <Badge variant="secondary" class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-[10px] font-bold uppercase tracking-widest">
+                <CheckCircle2 size={12} class="text-emerald-400" />
+                Joined event
+              </Badge>
+              <h1 class="text-3xl font-black tracking-tight text-white">{data.event.name}</h1>
+              <p class="text-sm leading-6 text-ink-400 max-w-xl">{data.event.description}</p>
+            </div>
+            <div class="flex flex-wrap gap-3 shrink-0">
+              <Button variant="secondary" onclick={refreshMatches} disabled={refreshingMatches} class="gap-2">
+                {#if refreshingMatches}
+                  <LoaderCircle size={15} class="animate-spin" />
+                  Refreshing…
+                {:else}
+                  <RefreshCcw size={15} />
+                  Refresh matches
+                {/if}
+              </Button>
+              <Button onclick={() => (stage = 'profile')} class="gap-2">
+                <ArrowRight size={15} />
+                Edit profile
+              </Button>
+            </div>
+          </div>
+        </div>
 
-                <CardContent className="space-y-4 text-sm leading-6 text-slate-300">
-                  <p>{data.event.description}</p>
-                  <div class="grid gap-3 sm:grid-cols-2">
-                    <Card className="border-white/10 bg-slate-950/60 p-4">
-                      <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Event ID</p>
-                      <p class="mt-2 font-semibold text-white">{data.event.slug}</p>
-                    </Card>
-                    <Card className="border-white/10 bg-slate-950/60 p-4">
-                      <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Room status</p>
-                      <p class="mt-2 font-semibold text-white">Networking profile complete</p>
-                    </Card>
-                  </div>
-                </CardContent>
-                </Card>
+        <!-- Tabs -->
+        <Tabs.Root value={activeTab} onValueChange={(v) => (activeTab = v)}>
+          <Tabs.List class="glass rounded-xl border border-white/8 p-1 grid w-full grid-cols-3 h-auto gap-1">
+            <Tabs.Trigger
+              value="details"
+              class="rounded-lg py-2 text-sm font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500"
+            >
+              Event details
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="networking"
+              class="rounded-lg py-2 text-sm font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500"
+            >
+              My profile
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="matches"
+              class="rounded-lg py-2 text-sm font-semibold data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500"
+            >
+              Matches {#if matches.length}<span class="ml-1 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">{matches.length}</span>{/if}
+            </Tabs.Trigger>
+          </Tabs.List>
 
-              <Card className="space-y-4 p-5">
-                <CardHeader>
-                  <div class="flex items-center gap-2 text-cyan-200">
-                    <Users size={18} />
-                    <p class="text-sm font-semibold uppercase tracking-[0.2em]">Event flow</p>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm text-slate-300">
-                  <Card className="border-white/10 bg-slate-950/60 p-4">1. Attendees join with Google.</Card>
-                  <Card className="border-white/10 bg-slate-950/60 p-4">2. The mandatory networking profile unlocks the workspace.</Card>
-                  <Card className="border-white/10 bg-slate-950/60 p-4">3. Matches are generated with explanations for each suggested intro.</Card>
-                </CardContent>
-                </Card>
-              </div>
-            </Tabs.Content>
-
-            <Tabs.Content value="networking" className="mt-4">
-              <Card className="space-y-5 p-5">
-                <CardHeader>
-                  <div class="flex items-center gap-2 text-amber-200">
-                    <Sparkles size={18} />
-                    <p class="text-sm font-semibold uppercase tracking-[0.2em]">Edit networking profile</p>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="grid gap-4 md:grid-cols-2">
-                  <div class="md:col-span-2">
-                    <Label for="workspace-whoTheyAre">Who are you?</Label>
-                    <Input id="workspace-whoTheyAre" bind:value={networkingProfile.whoTheyAre} />
-                  </div>
-                  <div class="md:col-span-2">
-                    <Label for="workspace-whatTheyDo">What do you do?</Label>
-                    <Input id="workspace-whatTheyDo" bind:value={networkingProfile.whatTheyDo} />
-                  </div>
-                  <div class="md:col-span-2">
-                    <Label for="workspace-whoTheyWant">Who do you want to network with?</Label>
-                    <Input id="workspace-whoTheyWant" bind:value={networkingProfile.whoTheyWant} />
-                  </div>
-                  <div class="md:col-span-2">
-                    <Label for="workspace-expectations">What are your expectations?</Label>
-                    <Input id="workspace-expectations" bind:value={networkingProfile.expectations} />
-                  </div>
-                </CardContent>
-
-                <div class="flex flex-wrap gap-3">
-                  <Button onclick={saveProfile} disabled={savingProfile}>
-                    {#if savingProfile}
-                      <LoaderCircle size={16} class="animate-spin" />
-                      Saving
-                    {:else}
-                      <CheckCircle2 size={16} />
-                      Save changes
-                    {/if}
-                  </Button>
-                  <Button variant="secondary" onclick={refreshMatches} disabled={refreshingMatches}>
-                    {#if refreshingMatches}
-                      <LoaderCircle size={16} class="animate-spin" />
-                      Refreshing
-                    {:else}
-                      <RefreshCcw size={16} />
-                      Refresh matches
-                    {/if}
-                  </Button>
+          <!-- Details tab -->
+          <Tabs.Content value="details" class="mt-4">
+            <div class="grid gap-5 lg:grid-cols-2">
+              <div class="glass rounded-2xl border border-white/8 p-6">
+                <div class="flex items-center gap-2 mb-5">
+                  <MapPin size={15} class="text-amber-300" />
+                  <p class="text-xs font-bold uppercase tracking-widest text-amber-300">Event summary</p>
                 </div>
-              </Card>
-            </Tabs.Content>
+                <p class="text-sm leading-6 text-ink-300 mb-4">{data.event.description}</p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div class="glass rounded-xl p-3 border border-white/6">
+                    <p class="text-[10px] uppercase tracking-widest text-ink-500 mb-1.5">Event ID</p>
+                    <p class="text-sm font-mono font-semibold text-white">{data.event.slug}</p>
+                  </div>
+                  <div class="glass rounded-xl p-3 border border-white/6">
+                    <p class="text-[10px] uppercase tracking-widest text-ink-500 mb-1.5">Room status</p>
+                    <p class="text-sm font-semibold text-emerald-300">Profile complete ✓</p>
+                  </div>
+                </div>
+              </div>
 
-            <Tabs.Content value="matches" className="mt-4">
-              <div class="grid gap-4 lg:grid-cols-3">
-                {#if matches.length}
-                  {#each matches as match}
-                    <Card className="space-y-4 p-5">
-                      <CardHeader className="flex items-start justify-between gap-3">
+              <div class="glass rounded-2xl border border-white/8 p-6">
+                <div class="flex items-center gap-2 mb-5">
+                  <Users size={15} class="text-cyan-300" />
+                  <p class="text-xs font-bold uppercase tracking-widest text-cyan-300">Event flow</p>
+                </div>
+                <ol class="space-y-3">
+                  {#each [
+                    'Attendees join with Google.',
+                    'The mandatory networking profile unlocks the workspace.',
+                    'Matches are generated with explanations for each suggested intro.',
+                  ] as step, i}
+                    <li class="flex items-start gap-3">
+                      <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/8 text-[10px] font-bold text-ink-500">{i + 1}</span>
+                      <p class="text-sm text-ink-300">{step}</p>
+                    </li>
+                  {/each}
+                </ol>
+              </div>
+            </div>
+          </Tabs.Content>
+
+          <!-- Networking profile tab -->
+          <Tabs.Content value="networking" class="mt-4">
+            <div class="glass rounded-2xl border border-white/8 p-6">
+              <div class="flex items-center gap-2 mb-5">
+                <Sparkles size={15} class="text-amber-300" />
+                <p class="text-xs font-bold uppercase tracking-widest text-amber-300">Edit networking profile</p>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2 mb-5">
+                {#each profileFields as field}
+                  <div class="space-y-1.5">
+                    <Label for={field.wsId} class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+                      {field.label}
+                    </Label>
+                    <Input
+                      id={field.wsId}
+                      bind:value={networkingProfile[field.key]}
+                      class="bg-white/4 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+                    />
+                  </div>
+                {/each}
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <Button onclick={saveProfile} disabled={savingProfile} class="gap-2">
+                  {#if savingProfile}
+                    <LoaderCircle size={15} class="animate-spin" />
+                    Saving…
+                  {:else}
+                    <CheckCircle2 size={15} />
+                    Save changes
+                  {/if}
+                </Button>
+                <Button variant="secondary" onclick={refreshMatches} disabled={refreshingMatches} class="gap-2">
+                  {#if refreshingMatches}
+                    <LoaderCircle size={15} class="animate-spin" />
+                    Refreshing…
+                  {:else}
+                    <RefreshCcw size={15} />
+                    Refresh matches
+                  {/if}
+                </Button>
+              </div>
+            </div>
+          </Tabs.Content>
+
+          <!-- Matches tab -->
+          <Tabs.Content value="matches" class="mt-4">
+            {#if matches.length}
+              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {#each matches as match, i}
+                  <div class="glass card-hover rounded-2xl border border-white/8 overflow-hidden">
+                    <!-- Match strength bar -->
+                    <div class="h-0.5 bg-gradient-to-r from-amber-400 to-cyan-400" style="width: {Math.max(60, 100 - i * 12)}%"></div>
+
+                    <div class="p-5 space-y-4">
+                      <div class="flex items-start justify-between gap-3">
                         <div>
-                          <h3 class="text-xl font-bold text-white">{match.name}</h3>
-                          <p class="mt-1 text-sm text-slate-300">
-                            {match.role} at {match.company}
-                          </p>
+                          <h3 class="text-base font-bold text-white">{match.name}</h3>
+                          <p class="mt-0.5 text-xs text-ink-400">{match.role} · {match.company}</p>
                         </div>
-                        <Badge variant="accent">Match</Badge>
-                      </CardHeader>
+                        <span class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300">
+                          Match
+                        </span>
+                      </div>
 
-                      <CardContent>
-                        <p class="text-sm leading-6 text-slate-300">{match.about}</p>
+                      <p class="text-xs leading-5 text-ink-300">{match.about}</p>
+
                       {#if match.explanation}
-                        <Alert variant="info" className="mt-4 border-white/10 bg-slate-950/60 text-slate-200">
-                          <AlertTitle className="text-xs uppercase tracking-[0.2em] text-cyan-200">Why this match</AlertTitle>
-                          <AlertDescription className="mt-2 leading-6">{match.explanation}</AlertDescription>
-                        </Alert>
+                        <div class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-3">
+                          <p class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-1.5">Why this match</p>
+                          <p class="text-xs leading-5 text-ink-300">{match.explanation}</p>
+                        </div>
                       {/if}
 
-                      <div class="flex flex-wrap gap-2">
-                        {#each match.tags.slice(0, 4) as tag}
-                          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
-                            #{tag}
-                          </span>
-                        {/each}
-                      </div>
-                      </CardContent>
-                    </Card>
-                  {/each}
-                {:else}
-                  <Card className="p-6">
-                    <p class="text-sm text-slate-300">No matches available yet. Save your profile to generate recommendations.</p>
-                  </Card>
-                {/if}
+                      {#if match.tags?.length}
+                        <div class="flex flex-wrap gap-1.5">
+                          {#each match.tags.slice(0, 4) as tag}
+                            <span class="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] text-ink-400">
+                              #{tag}
+                            </span>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                {/each}
               </div>
-            </Tabs.Content>
-          </Tabs.Root>
-        </Card>
+            {:else}
+              <div class="glass rounded-2xl border border-white/8 border-dashed p-12 text-center">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20">
+                  <Brain size={22} class="text-amber-300" />
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">No matches yet</h3>
+                <p class="text-sm text-ink-400 max-w-xs mx-auto mb-5">
+                  Save your networking profile to generate AI-powered recommendations.
+                </p>
+                <Button onclick={() => (activeTab = 'networking')} class="gap-2">
+                  <Sparkles size={15} />
+                  Fill your profile
+                </Button>
+              </div>
+            {/if}
+          </Tabs.Content>
+        </Tabs.Root>
       </div>
     {/if}
-  </section>
-</main>
+  </main>
+</PageShell>

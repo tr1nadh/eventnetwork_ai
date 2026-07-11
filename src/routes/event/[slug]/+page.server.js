@@ -58,10 +58,18 @@ if (isParticipant) {
   if (profileError) {
     console.error('Failed to load network profile:', profileError);
   } else if (profileData) {
+    let lookingForStr = profileData.looking_for ?? '';
+    try {
+      const parsed = JSON.parse(lookingForStr);
+      if (Array.isArray(parsed)) {
+        lookingForStr = parsed.join(', ');
+      }
+    } catch (e) {}
+
     networkProfile = {
       whoTheyAre: profileData.display_name,
       whatTheyDo: profileData.what_i_do,
-      whoTheyWant: Array.isArray(profileData.looking_for) ? profileData.looking_for.join(', ') : profileData.looking_for,
+      whoTheyWant: lookingForStr,
       expectations: profileData.about_me
     };
   }

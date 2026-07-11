@@ -31,13 +31,22 @@ export async function GET({ url, cookies }) {
     return json({ profile: null });
   }
 
+  // Normalise looking_for: handle legacy JSON array strings
+  let lookingForStr = profile.looking_for ?? '';
+  try {
+    const parsed = JSON.parse(lookingForStr);
+    if (Array.isArray(parsed)) {
+      lookingForStr = parsed.join(', ');
+    }
+  } catch (e) {
+    // Keep as is if not valid JSON
+  }
+
   return json({
     profile: {
       whoTheyAre: profile.display_name,
       whatTheyDo: profile.what_i_do,
-      whoTheyWant: Array.isArray(profile.looking_for)
-        ? profile.looking_for.join(', ')
-        : profile.looking_for,
+      whoTheyWant: lookingForStr,
       expectations: profile.about_me
     }
   });
@@ -60,23 +69,21 @@ export async function POST({ request, cookies }) {
 
   const { whoTheyAre, whatTheyDo, whoTheyWant, expectations } = profile;
 
-  const lookingForArray = typeof whoTheyWant === 'string'
-    ? whoTheyWant.split(',').map((s) => s.trim()).filter(Boolean)
-    : [];
+  const lookingForStr = whoTheyWant || '';
 
-    const { data: upsertData, error } = await supabase.from('network_profiles')
-      .upsert(
-        {
-          user_id: user.id,
-          event_id,
-          display_name: whoTheyAre,
-          what_i_do: whatTheyDo,
-          looking_for: lookingForArray,
-          about_me: expectations
-        },
-        { onConflict: 'user_id,event_id', returning: 'representation' }
-      )
-      .select();
+  const { data: upsertData, error } = await supabase.from('network_profiles')
+    .upsert(
+      {
+        user_id: user.id,
+        event_id,
+        display_name: whoTheyAre,
+        what_i_do: whatTheyDo,
+        looking_for: lookingForStr,
+        about_me: expectations
+      },
+      { onConflict: 'user_id,event_id', returning: 'representation' }
+    )
+    .select();
 
   if (error) {
     console.error('Supabase upsert error', error);

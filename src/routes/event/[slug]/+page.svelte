@@ -733,7 +733,7 @@
               <div class="flex items-center gap-3">
                 <Button variant="outline" class="border-white/10 text-white hover:bg-white/10" onclick={() => (editProfileOpen = true)}>
                   <UserCircle2 size={15} class="mr-2" />
-                  Edit profile
+                  Edit network profile
                 </Button>
                 <Button class="gap-2" onclick={fetchMatches} disabled={refreshingMatches}>
                   {#if refreshingMatches}
@@ -825,13 +825,6 @@
                   Save your networking profile to generate AI-powered
                   recommendations.
                 </p>
-                <Button
-                  onclick={() => (editProfileOpen = true)}
-                  class="gap-2"
-                >
-                  <Sparkles size={15} />
-                  Fill your profile
-                </Button>
               </div>
             {/if}
           </Tabs.Content>

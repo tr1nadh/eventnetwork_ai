@@ -67,7 +67,7 @@ export async function POST({ request, cookies }) {
   }
 
 
-  const { whoTheyAre, whatTheyDo, whoTheyWant, expectations } = profile;
+  const { whoTheyAre, whatTheyDo, whoTheyWant, expectations, about_user_embed, looking_for_embed } = profile;
 
   // Ensure looking_for is stored as plain text – convert any array to a CSV string
   const lookingForStr = Array.isArray(whoTheyWant)
@@ -82,7 +82,9 @@ export async function POST({ request, cookies }) {
         display_name: whoTheyAre,
         what_i_do: whatTheyDo,
         looking_for: lookingForStr,
-        about_me: expectations
+        about_me: expectations,
+        about_user_embed,
+        looking_for_embed,
       },
       { onConflict: 'user_id,event_id', returning: 'representation' }
     )

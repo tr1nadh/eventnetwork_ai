@@ -25,6 +25,22 @@
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  
+  // Embedding helper – calls server-side /api/embeddings to keep the API key secure
+  async function generateEmbedding(text) {
+    const res = await fetch('/api/embeddings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? 'Embedding generation failed');
+    }
+    const { embedding } = await res.json();
+    return embedding;
+  }
   import { createSupabaseBrowserClient } from "$lib/supabase/client";
   import { onMount } from "svelte";
 
@@ -134,15 +150,29 @@
     }
     savingProfile = true;
     try {
-      // Matches are no longer fetched on save; only the profile is saved.
-      // Save networking profile to DB
+      // Step 1: Build texts for embeddings
+      const aboutUserText = `What I do:\n${networkingProfile.whatTheyDo}` +
+        (networkingProfile.expectations ? `\n\nAbout me:\n${networkingProfile.expectations}` : '');
+      const lookingForText = `Looking for:\n${networkingProfile.whoTheyWant}`;
+
+      // Step 2: Generate embeddings (parallel)
+      const [aboutUserEmbed, lookingForEmbed] = await Promise.all([
+        generateEmbedding(aboutUserText),
+        generateEmbedding(lookingForText),
+      ]);
+
+      // Step 3: Save networking profile with embeddings
       const profileRes = await fetch("/api/network_profiles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         mode: "same-origin",
         body: JSON.stringify({
-          profile: networkingProfile,
+          profile: {
+            ...networkingProfile,
+            about_user_embed: aboutUserEmbed,
+            looking_for_embed: lookingForEmbed,
+          },
           event_id: data.event.id,
         }),
       });

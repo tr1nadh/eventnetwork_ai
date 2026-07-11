@@ -23,6 +23,7 @@
   import { Label } from "$lib/components/ui/label/index.js";
   import { toast } from "$lib/components/ui/sonner/index.js";
   import * as Tabs from "$lib/components/ui/tabs/index.js";
+  import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { createSupabaseBrowserClient } from "$lib/supabase/client";
   import { onMount } from "svelte";
@@ -40,7 +41,24 @@
   let profileLoaded = false;
   let refreshingMatches = false;
   let activeTab = "details";
+  let editProfileOpen = false;
   let stage = data.isParticipant ? "workspace" : "preview";
+
+  async function fetchMatches() {
+    refreshingMatches = true;
+    try {
+      const res = await fetch(`/api/recommendations?event_id=${data.event.id}`, {
+        credentials: "include"
+      });
+      if (!res.ok) throw new Error("Failed to fetch matches");
+      const { recommendations } = await res.json();
+      matches = recommendations || [];
+    } catch (error) {
+      toast.error("Could not find matches");
+    } finally {
+      refreshingMatches = false;
+    }
+  }
 
   let matches = data.suggestedMatches ?? [];
   let networkingProfile = {
@@ -158,7 +176,7 @@
       }
       profileLoaded = true;
       stage = "workspace";
-      activeTab = "details";
+      editProfileOpen = false;
       toast.success("Networking profile saved", {
         description: "Your event workspace is ready.",
       });
@@ -196,9 +214,9 @@
         // whoTheyWant is correctly handled by the API now
         networkingProfile = { ...networkingProfile, ...responseData.profile };
         profileLoaded = true;
-        // User has a saved profile → show the workspace with profile tab active
+        // User has a saved profile → show the workspace with details tab active
         stage = "workspace";
-        activeTab = "networking";
+        activeTab = "details";
       } else if (data.isParticipant) {
         // Joined but no profile yet → go to profile fill-in form
         stage = "profile";
@@ -571,16 +589,7 @@
               <Info size={16} class="inline-block mr-1 align-text-bottom" />
               Details
             </Tabs.Trigger>
-            <Tabs.Trigger
-              value="networking"
-              class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
-            >
-              <UserCircle2
-                size={16}
-                class="inline-block mr-1 align-text-bottom"
-              />
-              My network profile
-            </Tabs.Trigger>
+
             <Tabs.Trigger
               value="matches"
               class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
@@ -656,9 +665,12 @@
             </div>
           </Tabs.Content>
 
-          <!-- Networking profile tab -->
-          <Tabs.Content value="networking" class="mt-4">
-            <div class="glass rounded-2xl border border-white/8 p-6">
+          <!-- Networking profile dialog (portaled outside) -->
+          <Dialog.Root bind:open={editProfileOpen}>
+            <Dialog.Content class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto">
+              <Dialog.Header class="hidden">
+                <Dialog.Title>Edit networking profile</Dialog.Title>
+              </Dialog.Header>
               <div class="flex items-center gap-2 mb-5">
                 <Sparkles size={15} class="text-amber-300" />
                 <p
@@ -708,11 +720,32 @@
                   {/if}
                 </Button>
               </div>
-            </div>
-          </Tabs.Content>
+            </Dialog.Content>
+          </Dialog.Root>
 
           <!-- Matches tab -->
           <Tabs.Content value="matches" class="mt-4">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div class="flex items-center gap-2">
+                <Users size={18} class="text-white" />
+                <h2 class="text-lg font-bold text-white">Your Matches</h2>
+              </div>
+              <div class="flex items-center gap-3">
+                <Button variant="outline" class="border-white/10 text-white hover:bg-white/10" onclick={() => (editProfileOpen = true)}>
+                  <UserCircle2 size={15} class="mr-2" />
+                  Edit profile
+                </Button>
+                <Button class="gap-2" onclick={fetchMatches} disabled={refreshingMatches}>
+                  {#if refreshingMatches}
+                    <LoaderCircle size={15} class="animate-spin" />
+                    Finding…
+                  {:else}
+                    <Sparkles size={15} />
+                    Find matches
+                  {/if}
+                </Button>
+              </div>
+            </div>
             {#if matches.length}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {#each matches as match, i}
@@ -793,7 +826,7 @@
                   recommendations.
                 </p>
                 <Button
-                  onclick={() => (activeTab = "networking")}
+                  onclick={() => (editProfileOpen = true)}
                   class="gap-2"
                 >
                   <Sparkles size={15} />

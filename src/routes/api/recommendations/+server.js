@@ -1,54 +1,79 @@
-import { FIREWORKS_API_KEY, FIREWORKS_MODEL } from '$env/static/private';
-import { demoAttendees } from '$lib/demo';
-import { explainMatch, scoreAttendee } from '$lib/match';
-import { json } from '@sveltejs/kit';
-import { generateText } from 'ai';
-import { fireworks } from '@ai-sdk/fireworks';
+import { json, error } from '@sveltejs/kit';
+import { createSupabaseServerClient } from '$lib/supabase/server';
 
-export async function POST({ request }) {
-  const body = await request.json().catch(() => null);
+/** Compute cosine similarity between two numeric arrays */
+function cosineSimilarity(a, b) {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  const len = Math.min(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    const av = a[i];
+    const bv = b[i];
+    dot += av * bv;
+    normA += av * av;
+    normB += bv * bv;
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
 
-  const profile = body?.profile;
-
-  if (!profile?.whoTheyAre || !profile.whatTheyDo || !profile.whoTheyWant || !profile.expectations) {
-    return json({ error: 'Incomplete profile.' }, { status: 400 });
+export async function GET({ url, cookies }) {
+  const eventId = url.searchParams.get('event_id');
+  if (!eventId) {
+    throw error(400, 'Missing event_id');
   }
 
-  const normalizedProfile = {
-    whoTheyAre: profile.whoTheyAre,
-    whatTheyDo: profile.whatTheyDo,
-    whoTheyWant: profile.whoTheyWant,
-    expectations: profile.expectations
-  };
+  const supabase = createSupabaseServerClient(cookies);
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw error(401, 'Unauthenticated');
+  }
 
-  const ranked = [...demoAttendees]
-    .map((attendee) => ({
-      attendee,
-      score: scoreAttendee(normalizedProfile, attendee)
-    }))
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 3);
+  // Fetch current user's networking profile for the event
+  const { data: currentProfile, error: curErr } = await supabase
+    .from('network_profiles')
+    .select('looking_for_embed')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .single();
 
-  const recommendations = await Promise.all(
-    ranked.map(async ({ attendee, score }) => {
-      const fallback = explainMatch(normalizedProfile, attendee);
+  if (curErr || !currentProfile) {
+    return json({ recommendations: [] });
+  }
 
-      if (!FIREWORKS_API_KEY) {
-        return { ...attendee, score, explanation: fallback };
-      }
+  const userEmbedding = currentProfile.looking_for_embed;
+  if (!userEmbedding) {
+    return json({ recommendations: [] });
+  }
 
-      try {
-        const { text } = await generateText({
-          model: fireworks(FIREWORKS_MODEL || 'accounts/fireworks/models/llama-v3p1-8b-instruct'),
-          prompt: `You are matching attendees for an offline networking event.\n\nAttendee profile:\n- Who they are: ${normalizedProfile.whoTheyAre}\n- What they do: ${normalizedProfile.whatTheyDo}\n- Who they want to network with: ${normalizedProfile.whoTheyWant}\n- Expectations: ${normalizedProfile.expectations}\n\nRecommended match:\n- Name: ${attendee.name}\n- Role: ${attendee.role}\n- Company: ${attendee.company}\n- Looking for: ${attendee.lookingFor}\n- About: ${attendee.about}\n\nWrite one short, warm explanation that says why they should connect.`
-        });
+  // Fetch other participants in the same event
+  const { data: participants, error: partErr } = await supabase
+    .from('network_profiles')
+    .select('user_id, display_name, what_i_do, about_me, about_user_embed')
+    .eq('event_id', eventId)
+    .neq('user_id', user.id)
+    .not('about_user_embed', 'is', null);
 
-        return { ...attendee, score, explanation: text.trim() || fallback };
-      } catch {
-        return { ...attendee, score, explanation: fallback };
-      }
+  if (partErr || !participants) {
+    return json({ recommendations: [] });
+  }
+
+  // Compute similarity scores
+  const scored = participants
+    .map(p => {
+      const similarity = cosineSimilarity(userEmbedding, p.about_user_embed);
+      return { ...p, similarity };
     })
-  );
+    .filter(p => p.similarity > 0)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, 10)
+    .map(p => ({
+      name: p.display_name,
+      role: p.what_i_do,
+      about: p.about_me,
+      matchPercentage: Math.round(p.similarity * 100)
+    }));
 
-  return json({ recommendations });
+  return json({ recommendations: scored });
 }

@@ -69,7 +69,10 @@ export async function POST({ request, cookies }) {
 
   const { whoTheyAre, whatTheyDo, whoTheyWant, expectations } = profile;
 
-  const lookingForStr = whoTheyWant || '';
+  // Ensure looking_for is stored as plain text – convert any array to a CSV string
+  const lookingForStr = Array.isArray(whoTheyWant)
+    ? whoTheyWant.join(', ')
+    : (whoTheyWant ?? '');
 
   const { data: upsertData, error } = await supabase.from('network_profiles')
     .upsert(

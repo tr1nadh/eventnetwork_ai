@@ -41,9 +41,7 @@
   let refreshingMatches = false;
   let activeTab = 'details';
   let stage = data.isParticipant ? 'workspace' : 'preview';
-  $: if (activeTab === 'networking' && data.isParticipant && !profileLoaded) {
-    loadNetworkProfile();
-  }
+
   let matches = data.suggestedMatches ?? [];
   let networkingProfile = {
     whoTheyAre: '',
@@ -97,17 +95,6 @@
     }
   }
 
-  async function fetchRecommendations() {
-    const response = await fetch('/api/recommendations', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ profile: networkingProfile })
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(payload?.error ?? 'Unable to build recommendations.');
-    return payload?.recommendations ?? [];
-  }
-
   async function saveProfile() {
     if (!data.user) {
       toast.error('Sign in first', { description: 'You need a Google account before saving your networking profile.' });
@@ -131,9 +118,9 @@
       // Transform DB row to UI shape
       const normalizeProfile = (p) => ({
         whoTheyAre: p.display_name,
-        whatTheyDo: p.profession,
+        whatTheyDo: p.what_i_do,
         whoTheyWant: Array.isArray(p.looking_for) ? p.looking_for.join(', ') : p.looking_for,
-        expectations: p.event_expectation
+        expectations: p.about_me
       });
       if (profilePayload.profile) {
         networkingProfile = { ...networkingProfile, ...normalizeProfile(profilePayload.profile) };
@@ -162,10 +149,16 @@
       toast.error('Failed to load profile', { description: err.error ?? 'Unknown error' });
       throw new Error('Failed to load profile');
     }
-    const data = await res.json();
-    console.log('Profile load response', data);
-    if (data.profile) networkingProfile = data.profile;
-    profileLoaded = true;
+    const responseData = await res.json();
+    console.log('Profile load response', responseData);
+      if (responseData.profile) {
+        networkingProfile = { ...networkingProfile, ...responseData.profile };
+        profileLoaded = true;
+      }
+      // If a saved profile exists, switch to the networking tab view
+      if (responseData.profile) {
+        activeTab = 'networking';
+      }
     } catch (e) {
       loadError = 'Could not load your saved profile.';
     } finally {
@@ -173,19 +166,15 @@
     }
   }
 
-  function loadStoredWorkspace(userId) {
-  // Placeholder: currently no persisted workspace data
-}
-
 onMount(async () => {
     if (!data.user) {
       pageLoading = false;
       return;
     }
-    // Load any saved workspace data
-    loadStoredWorkspace(data.user.id);
+
     // Load network profile first if participant
     if (data.isParticipant) {
+      console.log("Loading network profile")
       await loadNetworkProfile();
     }
     // If no saved profile, prefill from Google

@@ -50,7 +50,7 @@ let networkProfile = null;
 if (isParticipant) {
   const { data: profileData, error: profileError } = await admin
     .from('network_profiles')
-    .select('display_name, profession, looking_for, event_expectation')
+    .select('display_name, what_i_do, looking_for, about_me')
     .eq('event_id', data.id)
     .eq('user_id', locals.user.id)
     .maybeSingle();
@@ -60,9 +60,9 @@ if (isParticipant) {
   } else if (profileData) {
     networkProfile = {
       whoTheyAre: profileData.display_name,
-      whatTheyDo: profileData.profession,
+      whatTheyDo: profileData.what_i_do,
       whoTheyWant: Array.isArray(profileData.looking_for) ? profileData.looking_for.join(', ') : profileData.looking_for,
-      expectations: profileData.event_expectation
+      expectations: profileData.about_me
     };
   }
 }

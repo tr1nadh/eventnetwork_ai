@@ -71,6 +71,7 @@ export async function GET({ url, cookies }) {
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, 5) // Limit to top 5 to prevent slow LLM generation times
     .map(p => ({
+      user_id: p.user_id,
       name: p.display_name,
       role: p.what_i_do,
       about: p.about_me,
@@ -116,6 +117,37 @@ Do NOT use greetings or pleasantries, just get straight to the analysis.`;
       return match;
     }
   }));
+
+  // Automatically persist/update the generated matches
+  const upsertRows = recommendations.map(match => ({
+    event_id: eventId,
+    user_id: user.id,
+    matched_user_id: match.user_id,
+    match_details: {
+      score: match.matchPercentage,
+      summary: match.explanation,
+      requester_profile: {
+        display_name: currentProfile.display_name,
+        what_i_do: currentProfile.what_i_do,
+        about_me: currentProfile.about_me
+      },
+      matched_profile: {
+        display_name: match.name,
+        what_i_do: match.role,
+        about_me: match.about
+      }
+    },
+    updated_at: new Date().toISOString()
+  }));
+
+  if (upsertRows.length > 0) {
+    const { error: upsertErr } = await supabase.from('matches').upsert(upsertRows, {
+      onConflict: 'event_id, user_id, matched_user_id'
+    });
+    if (upsertErr) {
+      console.error('Failed to upsert matches into database:', upsertErr);
+    }
+  }
 
   return json({ recommendations });
 }

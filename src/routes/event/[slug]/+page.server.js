@@ -47,6 +47,7 @@ export const load = async ({ params, locals }) => {
 
   // After checking participant status, load the user's network profile if they have joined
 let networkProfile = null;
+let suggestedMatches = [];
 if (isParticipant) {
   const { data: profileData, error: profileError } = await admin
     .from('network_profiles')
@@ -73,11 +74,31 @@ if (isParticipant) {
       expectations: profileData.about_me
     };
   }
+
+  // Fetch cached matches from the matches table
+  const { data: dbMatches, error: matchError } = await admin
+    .from('matches')
+    .select('matched_user_id, match_details')
+    .eq('event_id', data.id)
+    .eq('user_id', locals.user.id)
+    .order('updated_at', { ascending: false });
+
+  if (!matchError && dbMatches) {
+    suggestedMatches = dbMatches.map(m => ({
+      user_id: m.matched_user_id,
+      name: m.match_details.matched_profile?.display_name,
+      role: m.match_details.matched_profile?.what_i_do,
+      about: m.match_details.matched_profile?.about_me,
+      explanation: m.match_details.summary,
+      matchPercentage: m.match_details.score,
+      tags: []
+    }));
+  }
 }
 
 return {
   event: data,
-  suggestedMatches: [],
+  suggestedMatches,
   user: locals.user,
   isParticipant,
   networkProfile

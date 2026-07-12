@@ -77,6 +77,24 @@
     }
   }
 
+  let refreshingFromDb = false;
+  async function refreshFromDb() {
+    refreshingFromDb = true;
+    try {
+      const res = await fetch(`/api/matches?event_id=${data.event.id}`, {
+        credentials: "include"
+      });
+      if (!res.ok) throw new Error("Failed to refresh matches from DB");
+      const { matches: dbMatches } = await res.json();
+      matches = dbMatches || [];
+      toast.success("Matches refreshed");
+    } catch (error) {
+      toast.error("Could not refresh matches");
+    } finally {
+      refreshingFromDb = false;
+    }
+  }
+
   let matches = data.suggestedMatches ?? [];
   let networkingProfile = {
     whoTheyAre: "",
@@ -637,7 +655,12 @@
           </div>
         {/if}
 
-        <Tabs.Root value={activeTab} onValueChange={(v) => (activeTab = v)}>
+        <Tabs.Root value={activeTab} onValueChange={(v) => {
+          activeTab = v;
+          if (v === 'matches') {
+            refreshFromDb();
+          }
+        }}>
           <Tabs.List
             class="glass rounded-xl flex overflow-hidden divide-x divide-white/10"
           >
@@ -794,6 +817,14 @@
                   <UserCircle2 size={15} class="mr-2" />
                   Edit network profile
                 </Button>
+                <Button variant="outline" class="border-white/10 text-white hover:bg-white/10 gap-2" onclick={refreshFromDb} disabled={refreshingFromDb}>
+                  {#if refreshingFromDb}
+                    <LoaderCircle size={15} class="animate-spin" />
+                  {:else}
+                    <RefreshCcw size={15} />
+                  {/if}
+                  Refresh
+                </Button>
                 <Button class="gap-2" onclick={fetchMatches} disabled={refreshingMatches}>
                   {#if refreshingMatches}
                     <LoaderCircle size={15} class="animate-spin" />
@@ -809,7 +840,13 @@
                 </Button>
               </div>
             </div>
-            {#if matches.length}
+            {#if refreshingFromDb || refreshingMatches}
+              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {#each Array(3) as _}
+                  <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                {/each}
+              </div>
+            {:else if matches.length}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {#each matches as match, i}
                   <div
@@ -850,7 +887,7 @@
                               </p>
                             </div>
                             <span class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300">
-                              Match
+                              {match.matchPercentage ?? '—'}% Match
                             </span>
                           </div>
 

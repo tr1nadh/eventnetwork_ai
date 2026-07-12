@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { createSupabaseServerClient } from '$lib/supabase/server';
+import { createSupabaseAdminClient } from '$lib/supabase/admin';
 
 export async function GET({ url, cookies }) {
   const eventId = url.searchParams.get('event_id');
@@ -8,6 +9,7 @@ export async function GET({ url, cookies }) {
   if (!filter) throw error(400, 'Missing filter');
 
   const supabase = createSupabaseServerClient(cookies);
+  const admin = createSupabaseAdminClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) throw error(401, 'Unauthenticated');
 
@@ -47,6 +49,7 @@ export async function GET({ url, cookies }) {
     (dbConns || []).map(async (c) => {
       const matchPercentage = c.matches?.match_details?.score ?? null;
       const explanation = c.matches?.match_details?.summary ?? null;
+      const matchDetails = c.matches?.match_details ?? null;
 
       const otherUserId = c.sender_user_id === user.id ? c.receiver_user_id : c.sender_user_id;
 
@@ -57,6 +60,12 @@ export async function GET({ url, cookies }) {
         .single();
       const profile = profileErr ? {} : profileData;
 
+      const { data: otherUser } = await admin
+        .from('users')
+        .select('name, avatar_url')
+        .eq('id', otherUserId)
+        .maybeSingle();
+
       return {
         id: c.id,
         status: c.status,
@@ -66,7 +75,12 @@ export async function GET({ url, cookies }) {
         receiver_user_id: c.receiver_user_id,
         matchPercentage,
         explanation,
-        profile
+        matchDetails,
+        profile: {
+          ...profile,
+          display_name: profile.display_name ?? otherUser?.name ?? 'Unknown',
+          avatar_url: otherUser?.avatar_url ?? null
+        }
       };
     })
   );

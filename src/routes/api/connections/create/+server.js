@@ -86,11 +86,21 @@ export async function POST({ request, cookies }) {
     .eq('event_id', event_id)
     .single();
 
-  connection.profile = profile ?? {
-    display_name: 'Unknown',
-    what_i_do: '',
-    about_me: '',
-    looking_for: ''
+  const { data: otherUser } = await adminClient
+    .from('users')
+    .select('name, avatar_url')
+    .eq('id', receiver_user_id)
+    .maybeSingle();
+
+  connection.profile = {
+    ...(profile ?? {
+      display_name: 'Unknown',
+      what_i_do: '',
+      about_me: '',
+      looking_for: ''
+    }),
+    display_name: profile?.display_name ?? otherUser?.name ?? 'Unknown',
+    avatar_url: otherUser?.avatar_url ?? null
   };
 
   if (match_id) {
@@ -100,9 +110,11 @@ export async function POST({ request, cookies }) {
       .eq('id', match_id)
       .single();
 
+    connection.matchDetails = matchRow?.match_details ?? null;
     connection.matchPercentage = matchRow?.match_details?.score ?? null;
     connection.explanation = matchRow?.match_details?.summary ?? null;
   } else {
+    connection.matchDetails = null;
     connection.matchPercentage = null;
     connection.explanation = null;
   }

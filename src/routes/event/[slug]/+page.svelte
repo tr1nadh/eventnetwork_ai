@@ -18,9 +18,11 @@
     Info,
     X,
     Ghost,
+    MessageCircle,
   } from "@lucide/svelte";
   import Navbar from "$lib/components/navbar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
+  import ConnectionChatModal from "$lib/components/connection-chat-modal.svelte";
   import AmdAiLoading from "$lib/components/amd-ai-loading.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
@@ -139,6 +141,8 @@ import { activeTab, matchesStore, connectionsStore } from "$lib/stores/eventStor
   }
 let loadingConnections = false;
 let connectionFilter = 'received'; // received | sent | connected | met
+let chatOpen = false;
+let activeChatConnectionId = null;
 
 // Reactive derived array for filtered connections
 $: filteredConnections = $connectionsStore.filter(conn => {
@@ -159,6 +163,9 @@ $: filteredConnections = $connectionsStore.filter(conn => {
   }
   return false;
 });
+$: activeChatConnection = activeChatConnectionId
+  ? $connectionsStore.find((conn) => conn.id === activeChatConnectionId) ?? null
+  : null;
 
 let connectionsPage = 1;
 let connectionsHasMore = false;
@@ -233,6 +240,16 @@ async function updateConnection(connectionId, newStatus) {
   } catch (e) {
     toast.error('Could not update connection');
   }
+}
+
+function openChatForConnection(connection) {
+  if (connection.status !== 'accepted') {
+    toast.error('Chat is only available for accepted connections.');
+    return;
+  }
+
+  activeChatConnectionId = connection.id;
+  chatOpen = true;
 }
 
 async function connectUser(match) {
@@ -1370,6 +1387,16 @@ async function doConnect(matchUserId) {
                       {#if conn.explanation}
                         <div class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300">{conn.explanation}</div>
                       {/if}
+                      {#if conn.status === 'accepted'}
+                        <Button
+                          variant="secondary"
+                          class="mt-2 w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                          onclick={() => openChatForConnection(conn)}
+                        >
+                          <MessageCircle size={16} />
+                          Chat
+                        </Button>
+                      {/if}
                       <!-- Action buttons based on status -->
                       {#if conn.status === 'pending' && conn.receiver_user_id === data.user?.id}
                         <div class="flex gap-2 mt-2">
@@ -1409,6 +1436,11 @@ async function doConnect(matchUserId) {
                 <p class="text-sm text-ink-400 max-w-sm">We couldn't find any connections matching this filter. Go to the Matches tab to find new people to connect with.</p>
               </div>
             {/if}
+            <ConnectionChatModal
+              bind:open={chatOpen}
+              connection={activeChatConnection}
+              currentUserId={data.user?.id}
+            />
           </Tabs.Content>
         </Tabs.Root>
       </div>

@@ -26,6 +26,7 @@
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
+import { activeTab, matchesStore } from "$lib/stores/eventStore";
   
   // Embedding helper – calls server-side /api/embeddings to keep the API key secure
   async function generateEmbedding(text) {
@@ -57,9 +58,13 @@
   let loadError = "";
   let profileLoaded = false;
   let refreshingMatches = false;
-  let activeTab = "details";
+
   let editProfileOpen = false;
   let stage = data.isParticipant ? "workspace" : "preview";
+
+  // Initialize matches store with server data
+  matchesStore.set(data.suggestedMatches ?? []);
+
 
   async function fetchMatches() {
     refreshingMatches = true;
@@ -69,7 +74,7 @@
       });
       if (!res.ok) throw new Error("Failed to fetch matches");
       const { recommendations } = await res.json();
-      matches = recommendations || [];
+       matchesStore.set(recommendations || []);
     } catch (error) {
       toast.error("Could not find matches");
     } finally {
@@ -86,7 +91,7 @@
       });
       if (!res.ok) throw new Error("Failed to refresh matches from DB");
       const { matches: dbMatches } = await res.json();
-      matches = dbMatches || [];
+       matchesStore.set(dbMatches || []);
       toast.success("Matches refreshed");
     } catch (error) {
       toast.error("Could not refresh matches");
@@ -95,7 +100,6 @@
     }
   }
 
-  let matches = data.suggestedMatches ?? [];
   let networkingProfile = {
     whoTheyAre: "",
     whatTheyDo: "",
@@ -282,7 +286,7 @@ async function fetchConnections() {
         profileLoaded = true;
         // User has a saved profile → show the workspace with details tab active
         stage = "workspace";
-        activeTab = "details";
+        activeTab.set("details");
       } else if (data.isParticipant) {
         // Joined but no profile yet → go to profile fill-in form
         stage = "profile";
@@ -303,7 +307,7 @@ async function fetchConnections() {
     // Load network profile first if participant
     if (data.isParticipant) {
       console.log("Loading network profile");
-      await loadNetworkProfile();
+      // await loadNetworkProfile();
     }
     // If no saved profile, prefill from Google
     // Page data ready – stop showing skeleton
@@ -633,7 +637,7 @@ async function fetchConnections() {
 
       <!-- ─── WORKSPACE STAGE ─── -->
     {:else}
-      <div class="space-y-8 animate-fade-in">
+      <div class="space-y-8 animate-fade-in min-h-[800px]">
         <!-- Workspace header -->
         {#if pageLoading}
           <div
@@ -672,11 +676,8 @@ async function fetchConnections() {
           </div>
         {/if}
 
-        <Tabs.Root value={activeTab} onValueChange={(v) => {
-          activeTab = v;
-          if (v === 'matches') {
-            refreshFromDb();
-          }
+        <Tabs.Root value={$activeTab} onValueChange={(v) => {
+          activeTab.set(v);
         }}>
           <Tabs.List
             class="glass rounded-xl flex overflow-hidden divide-x divide-white/10"
@@ -694,10 +695,10 @@ async function fetchConnections() {
               class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
             >
               <Users size={16} class="inline-block mr-1 align-text-bottom" />
-              Matches {#if matches.length}<span
-                  class="ml-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-bold text-amber-300"
-                  >{matches.length}</span
-                >{/if}
+               Matches {#if $matchesStore.length}<span
+                   class="ml-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-bold text-amber-300"
+                   >{$matchesStore.length}</span>
+                 {/if}
             </Tabs.Trigger>
           <Tabs.Trigger
                 value="connections"
@@ -709,7 +710,7 @@ async function fetchConnections() {
               </Tabs.List>
 
           <!-- Details tab -->
-          <Tabs.Content value="details" class="mt-4 min-h-[600px]">
+          <Tabs.Content value="details" class="mt-4">
             <div class="grid gap-5 lg:grid-cols-2">
               <div class="glass rounded-2xl border border-white/8 p-6">
                 <div class="flex items-center gap-2 mb-5">
@@ -830,7 +831,7 @@ async function fetchConnections() {
           </Dialog.Root>
 
           <!-- Matches tab -->
-          <Tabs.Content value="matches" class="mt-4 min-h-[600px]">
+          <Tabs.Content value="matches" class="mt-4">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div class="flex items-center gap-2">
                 <Users size={18} class="text-white" />
@@ -870,9 +871,9 @@ async function fetchConnections() {
                   <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
                 {/each}
               </div>
-            {:else if matches.length}
+            {:else if $matchesStore.length}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {#each matches as match, i}
+                {#each $matchesStore as match, i}
                   <div
                     class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
                   >

@@ -785,91 +785,88 @@ async function doConnect(matchUserId) {
               </div>
             </div>
 
-            <div class="grid gap-4 lg:grid-cols-[1fr_280px] lg:items-start">
-              <div class="space-y-3">
-                <div class="rounded-2xl border border-white/8 bg-white/4 px-3 py-2">
-                  <p class="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
-                    Examples you can paste
-                  </p>
-                  <div class="mt-2 flex flex-wrap gap-2 text-[11px] leading-5 text-ink-300">
-                    <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">LinkedIn About</span>
-                    <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">Resume summary</span>
-                    <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">Startup bio</span>
-                    <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">Goals + skills</span>
-                  </div>
-                </div>
-
-                <Label
-                  for="ai-profile-input"
-                  class="text-[10px] font-semibold uppercase tracking-widest text-ink-400"
-                >
-                  Your background
-                </Label>
-                <textarea
-                  id="ai-profile-input"
-                  bind:value={aiProfileText}
-                  placeholder={`Hi, I'm Ravi.\n\nI'm a Spring Boot developer with experience building SaaS products and AI applications.\n\nI'm currently building an AI healthcare startup and I'm attending this event to meet technical co-founders, investors and AI engineers.`}
-                  class="min-h-[180px] w-full rounded-2xl border border-white/10 bg-white/4 p-3 text-sm leading-6 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
-                ></textarea>
-
-                {#if aiGenerating}
-                  <AmdAiLoading
-                    message="AI is working..."
-                    detail="Building your networking profile draft from your input."
-                  />
-                {/if}
-
-                {#if aiGenerationError}
-                  <div class="rounded-2xl border border-amber-400/20 bg-amber-400/8 p-3 text-sm text-amber-100">
-                    <p class="font-semibold">Could not generate your profile.</p>
-                    <p class="mt-1 leading-6 text-amber-100/85">{aiGenerationError}</p>
-                    <div class="mt-3">
-                      <Button
-                        variant="outline"
-                        class="h-9 border-amber-300/20 px-3 text-xs text-amber-100 hover:bg-amber-400/10"
-                        onclick={generateAiProfile}
-                        disabled={aiGenerating}
-                      >
-                        Retry
-                      </Button>
-                    </div>
-                  </div>
-                {/if}
-
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <p class="text-[11px] text-ink-400">
-                    The AI will generate a draft you can edit.
-                  </p>
-                  <span class="text-[10px] uppercase tracking-widest text-ink-500">
-                    Review first
-                  </span>
-                </div>
-
-                <div class="flex flex-wrap gap-2">
-                  <Button
-                    id="generate-profile-btn"
-                    onclick={generateAiProfile}
-                    disabled={aiGenerating || !aiProfileText.trim()}
-                    class="h-10 gap-2 px-4 text-sm"
-                  >
-                    {#if aiGenerating}
-                      <LoaderCircle size={15} class="animate-spin" />
-                      Generating profile…
-                    {:else}
-                      <Sparkles size={15} />
-                      Generate My Profile
-                    {/if}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onclick={skipAiGeneration}
-                    class="h-10 gap-2 px-4 text-sm"
-                  >
-                    Fill manually
-                  </Button>
+            <div class="mx-auto w-full max-w-2xl space-y-3">
+              <div class="rounded-2xl border border-white/8 bg-white/4 px-3 py-2">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
+                  Examples you can paste
+                </p>
+                <div class="mt-2 flex flex-wrap gap-2 text-[11px] leading-5 text-ink-300">
+                  <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">LinkedIn About</span>
+                  <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">Resume summary</span>
+                  <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">Startup bio</span>
+                  <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">Goals + skills</span>
                 </div>
               </div>
 
+              <Label
+                for="ai-profile-input"
+                class="text-[10px] font-semibold uppercase tracking-widest text-ink-400"
+              >
+                Your background
+              </Label>
+              <textarea
+                id="ai-profile-input"
+                bind:value={aiProfileText}
+                placeholder={`Hi, I'm Ravi.\n\nI'm a Spring Boot developer with experience building SaaS products and AI applications.\n\nI'm currently building an AI healthcare startup and I'm attending this event to meet technical co-founders, investors and AI engineers.`}
+                class="min-h-[180px] w-full rounded-2xl border border-white/10 bg-white/4 p-3 text-sm leading-6 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
+              ></textarea>
+
+              {#if aiGenerating}
+                <AmdAiLoading
+                  message="AI is working..."
+                  detail="Building your networking profile draft from your input."
+                />
+              {/if}
+
+              {#if aiGenerationError}
+                <div class="rounded-2xl border border-amber-400/20 bg-amber-400/8 p-3 text-sm text-amber-100">
+                  <p class="font-semibold">Could not generate your profile.</p>
+                  <p class="mt-1 leading-6 text-amber-100/85">{aiGenerationError}</p>
+                  <div class="mt-3">
+                    <Button
+                      variant="outline"
+                      class="h-9 border-amber-300/20 px-3 text-xs text-amber-100 hover:bg-amber-400/10"
+                      onclick={generateAiProfile}
+                      disabled={aiGenerating}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              {/if}
+
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-[11px] text-ink-400">
+                  The AI will generate a draft you can edit.
+                </p>
+                <span class="text-[10px] uppercase tracking-widest text-ink-500">
+                  Review first
+                </span>
+              </div>
+
+              <div class="flex flex-wrap justify-center gap-2 pt-1">
+                <Button
+                  id="generate-profile-btn"
+                  onclick={generateAiProfile}
+                  disabled={aiGenerating || !aiProfileText.trim()}
+                  class="h-10 gap-2 px-4 text-sm"
+                >
+                  {#if aiGenerating}
+                    <LoaderCircle size={15} class="animate-spin" />
+                    Generating profile…
+                  {:else}
+                    <Sparkles size={15} />
+                    Generate My Profile
+                  {/if}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onclick={skipAiGeneration}
+                  class="h-10 gap-2 px-4 text-sm"
+                >
+                  Fill manually
+                </Button>
+              </div>
             </div>
           </div>
         </div>

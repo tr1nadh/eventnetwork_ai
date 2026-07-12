@@ -371,13 +371,13 @@ async function fetchConnections() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? 'Failed to create dummy users');
+        throw new Error(err.error ?? 'Failed to create simulation');
       }
       await fetchMatches();
       toast.success('Dummy users created');
       dummyModalOpen = false;
     } catch (e) {
-      toast.error('Could not create dummy users', { description: e.message });
+      toast.error('Could not create simulation', { description: e.message });
     } finally {
       creatingDummy = false;
     }
@@ -861,7 +861,7 @@ async function fetchConnections() {
                 </Button>
                 <Button variant="outline" class="gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = true)}>
                   <Users size={15} />
-                  Create Dummy Users
+                  Create simulation
                 </Button>
               </div>
             </div>
@@ -999,7 +999,7 @@ async function fetchConnections() {
             <Dialog.Root bind:open={dummyModalOpen}>
               <Dialog.Content class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white">
                 <Dialog.Header>
-                  <Dialog.Title class="text-xl font-bold text-white">Create Dummy Users</Dialog.Title>
+                  <Dialog.Title class="text-xl font-bold text-white">Create Simulation</Dialog.Title>
                 </Dialog.Header>
                 <p class="text-sm leading-6 text-ink-300 mt-2">
                   This action will create 5 dummy participants with unique dummy email addresses.

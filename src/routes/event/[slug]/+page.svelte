@@ -556,6 +556,11 @@ async function doConnect(matchUserId) {
         return;
       }
 
+      if (!data.event.id) {
+        toast.error('This is a demo event and cannot be joined.');
+        return;
+      }
+
       // Register the join in the database
       const res = await fetch("/api/events/join", {
         method: "POST",
@@ -564,7 +569,8 @@ async function doConnect(matchUserId) {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to register event participation in database");
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.message || errBody.error || 'Failed to register event participation in database');
       }
 
       stage = "profile";

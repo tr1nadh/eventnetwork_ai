@@ -31,6 +31,7 @@ export async function POST({ request, locals }) {
     );
 
   if (insertError) {
+    console.error('[join] Supabase insert error:', insertError);
     throw error(500, insertError.message);
   }
 

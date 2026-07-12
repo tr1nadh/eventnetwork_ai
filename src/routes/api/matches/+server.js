@@ -17,8 +17,7 @@ export async function GET({ url, cookies }) {
     .from('matches')
     .select('matched_user_id, match_details')
     .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .order('updated_at', { ascending: false });
+    .eq('user_id', user.id);
 
   if (matchError) {
     throw error(500, matchError.message);
@@ -32,7 +31,7 @@ export async function GET({ url, cookies }) {
     explanation: m.match_details.summary,
     matchPercentage: m.match_details.score,
     tags: []
-  }));
+  })).sort((a, b) => (b.matchPercentage ?? 0) - (a.matchPercentage ?? 0));
 
   return json({ matches });
 }

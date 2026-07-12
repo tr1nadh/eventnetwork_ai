@@ -92,7 +92,7 @@ if (isParticipant) {
       explanation: m.match_details.summary,
       matchPercentage: m.match_details.score,
       tags: []
-    }));
+    })).sort((a, b) => (b.matchPercentage ?? 0) - (a.matchPercentage ?? 0));
   }
 }
 

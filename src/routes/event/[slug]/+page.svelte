@@ -855,7 +855,7 @@
                     <!-- Match strength bar -->
                     <div
                       class="h-0.5 bg-gradient-to-r from-amber-400 to-cyan-400"
-                      style="width: {Math.max(60, 100 - i * 12)}%"
+                      style="width: {match.matchPercentage ?? 50}%"
                     ></div>
 
                     <div class="flex-1 flex flex-col p-5">

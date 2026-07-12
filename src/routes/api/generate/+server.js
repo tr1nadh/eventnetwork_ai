@@ -20,7 +20,7 @@ export async function POST({ request, locals }) {
   }
 
   const { text } = await generateText({
-    model: fireworks(FIREWORKS_MODEL || 'accounts/fireworks/models/llama-v3p1-8b-instruct'),
+    model: fireworks(FIREWORKS_MODEL),
     prompt
   });
 

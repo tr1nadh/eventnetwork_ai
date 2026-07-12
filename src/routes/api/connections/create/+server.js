@@ -1,9 +1,11 @@
 import { json, error } from '@sveltejs/kit';
 import { createSupabaseServerClient } from '$lib/supabase/server';
+import { createSupabaseAdminClient } from '$lib/supabase/admin';
 
 /**
  * POST /api/connections/create
- * Creates a new connection request (status: pending) between the authenticated user (sender) and another user (receiver) for a specific event.
+ * Creates a new connection request between the authenticated user (sender) and another user (receiver).
+ * If the receiver is a dummy user, the connection is automatically accepted.
  * Body JSON: { event_id: string, receiver_user_id: string }
  */
 export async function POST({ request, cookies }) {
@@ -20,17 +22,16 @@ export async function POST({ request, cookies }) {
     throw error(400, 'Cannot create a connection with yourself');
   }
 
-  // Check for existing connection to enforce unique constraint (event_id, sender_user_id, receiver_user_id)
+  // Check for existing connection (event_id, sender_user_id, receiver_user_id)
   const { data: existing, error: existErr } = await supabase
     .from('connections')
-    .select('id')
+    .select('id, status')
     .eq('event_id', event_id)
     .eq('sender_user_id', user.id)
     .eq('receiver_user_id', receiver_user_id)
     .single();
 
   if (existErr && existErr.code !== 'PGRST116') {
-    // Any error other than "row not found" should be reported
     throw error(500, existErr.message);
   }
 
@@ -53,14 +54,23 @@ export async function POST({ request, cookies }) {
 
   const match_id = matchData?.id || null;
 
-  const { data, error: insertErr } = await supabase
+  // Check if the receiver is a dummy user (identified by email pattern)
+  const adminClient = createSupabaseAdminClient();
+  const { data: receiverAuthData } = await adminClient.auth.admin.getUserById(receiver_user_id);
+  const receiverEmail = receiverAuthData?.user?.email ?? '';
+  const isDummy = /^dummy\d+\+.+@eventnetwork\.ai$/.test(receiverEmail);
+
+  // Auto-accept if dummy, else start as pending
+  const initialStatus = isDummy ? 'accepted' : 'pending';
+
+  const { data: connection, error: insertErr } = await supabase
     .from('connections')
     .insert({
       event_id,
       sender_user_id: user.id,
       receiver_user_id,
-      match_id, // Insert the match_id if it exists
-      status: 'pending',
+      match_id,
+      status: initialStatus,
       updated_at: new Date().toISOString()
     })
     .select('*')
@@ -68,5 +78,5 @@ export async function POST({ request, cookies }) {
 
   if (insertErr) throw error(500, insertErr.message);
 
-  return json({ connection: data });
+  return json({ connection, auto_accepted: isDummy });
 }

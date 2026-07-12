@@ -198,20 +198,26 @@ async function connectUser(matchUserId) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || err.error || 'Failed to create connection request');
     }
-    const { connection } = await res.json();
+    const { connection, auto_accepted } = await res.json();
     
     connectionsStore.update(conns => {
       const newConn = {
         id: connection.id,
-        status: connection.status,
+        status: connection.status, // 'accepted' if dummy, 'pending' otherwise
         match_id: connection.match_id,
         sender_user_id: connection.sender_user_id,
         receiver_user_id: connection.receiver_user_id,
-        profile: { display_name: 'Pending...' }
+        met_at: connection.met_at ?? null,
+        profile: { display_name: auto_accepted ? 'Simulation User' : 'Pending...' }
       };
       return [...conns, newConn];
     });
-    toast.success('Connection request sent');
+
+    if (auto_accepted) {
+      toast.success('Connected! (auto-accepted — simulation user)');
+    } else {
+      toast.success('Connection request sent');
+    }
   } catch (e) {
     toast.error(e.message || 'Could not send request');
   }

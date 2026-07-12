@@ -106,7 +106,24 @@
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
   }
-
+let connections = [];
+let loadingConnections = false;
+let connectionFilter = 'received'; // received | sent | connected | met
+async function fetchConnections() {
+  loadingConnections = true;
+  try {
+    const res = await fetch(`/api/connections?event_id=${data.event.id}&filter=${connectionFilter}`, {
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error('Failed to fetch connections');
+    const { connections: conn } = await res.json();
+    connections = conn || [];
+  } catch (e) {
+    toast.error('Could not load connections');
+  } finally {
+    loadingConnections = false;
+  }
+}
   async function signOut() {
     signingOut = true;
     await supabase.auth.signOut();
@@ -682,10 +699,17 @@
                   >{matches.length}</span
                 >{/if}
             </Tabs.Trigger>
-          </Tabs.List>
+          <Tabs.Trigger
+                value="connections"
+                class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-purple-400/15 data-[state=active]:text-purple-200 data-[state=inactive]:text-ink-500 hover:text-purple-200"
+              >
+                <Target size={16} class="inline-block mr-1 align-text-bottom" />
+                Connections
+              </Tabs.Trigger>
+              </Tabs.List>
 
           <!-- Details tab -->
-          <Tabs.Content value="details" class="mt-4">
+          <Tabs.Content value="details" class="mt-4 min-h-[600px]">
             <div class="grid gap-5 lg:grid-cols-2">
               <div class="glass rounded-2xl border border-white/8 p-6">
                 <div class="flex items-center gap-2 mb-5">
@@ -806,7 +830,7 @@
           </Dialog.Root>
 
           <!-- Matches tab -->
-          <Tabs.Content value="matches" class="mt-4">
+          <Tabs.Content value="matches" class="mt-4 min-h-[600px]">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div class="flex items-center gap-2">
                 <Users size={18} class="text-white" />
@@ -997,6 +1021,56 @@
                 </div>
               </Dialog.Content>
             </Dialog.Root>
+          </Tabs.Content>
+
+          <!-- Connections tab -->
+          <Tabs.Content value="connections" class="mt-4">
+            <!-- Filter tabs -->
+            <div class="flex gap-2 mb-4">
+              {#each ['received', 'sent', 'connected', 'met'] as f}
+                <Button
+                  variant={connectionFilter === f ? 'default' : 'outline'}
+                  class="capitalize"
+                  on:click={() => { connectionFilter = f; fetchConnections(); }}
+                >{f}</Button>
+              {/each}
+            </div>
+
+            {#if loadingConnections}
+              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {#each Array(3) as _}
+                  <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                {/each}
+              </div>
+            {:else if connections.length}
+              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {#each connections as conn}
+                  <div class="glass card-hover rounded-2xl border border-white/8 overflow-hidden">
+                    <div class="h-0.5 bg-gradient-to-r from-purple-400 to-pink-400" style="width: {conn.matchPercentage ?? 50}%"></div>
+                    <div class="p-5 flex flex-col gap-2">
+                      <h3 class="text-base font-bold text-white">{conn.displayName}</h3>
+                      <span class="rounded-full bg-purple-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-300">{conn.matchPercentage ?? '—'}% Match</span>
+                      {#if conn.explanation}
+                        <div class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300">{conn.explanation}</div>
+                      {/if}
+                      <!-- Action buttons based on status -->
+                      {#if conn.status === 'pending' && conn.receiver_user_id === data.user.id}
+                        <div class="flex gap-2 mt-2">
+                          <Button class="flex-1" on:click={() => updateConnection(conn.id, 'accepted')}>Accept</Button>
+                          <Button variant="destructive" class="flex-1" on:click={() => updateConnection(conn.id, 'rejected')}>Reject</Button>
+                        </div>
+                      {:else if conn.status === 'sent'}
+                        <Button variant="outline" class="mt-2" on:click={() => updateConnection(conn.id, 'cancelled')}>Cancel</Button>
+                      {:else if conn.status === 'accepted'}
+                        <Button variant="outline" class="mt-2" on:click={() => updateConnection(conn.id, 'met')}>Mark as Met</Button>
+                      {/if}
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            {:else}
+              <div class="text-center text-ink-400">No connections to show.</div>
+            {/if}
           </Tabs.Content>
         </Tabs.Root>
       </div>

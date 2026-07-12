@@ -29,6 +29,7 @@
   import Navbar from "$lib/components/navbar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
   import ConnectionChatModal from "$lib/components/connection-chat-modal.svelte";
+  import AiMeetingPrepModal from "$lib/components/ai-meeting-prep-modal.svelte";
   import AmdAiLoading from "$lib/components/amd-ai-loading.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
@@ -37,7 +38,7 @@
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
-import { activeTab, matchesStore, connectionsStore } from "$lib/stores/eventStore";
+import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$lib/stores/eventStore";
   
   // Embedding helper – calls server-side /api/embeddings to keep the API key secure
   async function generateEmbedding(text) {
@@ -168,6 +169,13 @@ let loadingConnections = false;
 let connectionFilter = 'received'; // received | sent | connected | met
 let chatOpen = false;
 let activeChatConnectionId = null;
+let prepModalOpen = false;
+let activePrepConnection = null;
+
+function openMeetingPrep(connection) {
+  activePrepConnection = connection;
+  prepModalOpen = true;
+}
 
 // Reactive derived array for filtered connections
 $: filteredConnections = $connectionsStore.filter(conn => {
@@ -1554,14 +1562,23 @@ async function doConnect(matchUserId) {
                         <div class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300">{conn.explanation}</div>
                       {/if}
                       {#if conn.status === 'accepted'}
-                        <Button
-                          variant="secondary"
-                          class="mt-2 w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
-                          onclick={() => openChatForConnection(conn)}
-                        >
-                          <MessageCircle size={16} />
-                          Chat
-                        </Button>
+                        <div class="flex gap-2 mt-2">
+                          <Button
+                            variant="secondary"
+                            class="flex-1 gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                            onclick={() => openChatForConnection(conn)}
+                          >
+                            <MessageCircle size={16} />
+                            Chat
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            class="flex-1 gap-2 border border-amber-400/20 bg-amber-400/12 text-amber-200 hover:bg-amber-400/18"
+                            onclick={() => openMeetingPrep(conn)}
+                          >
+                            ✨ AI Meeting Prep
+                          </Button>
+                        </div>
                       {/if}
                       <!-- Action buttons based on status -->
                       {#if conn.status === 'pending' && conn.receiver_user_id === data.user?.id}
@@ -1606,6 +1623,10 @@ async function doConnect(matchUserId) {
               bind:open={chatOpen}
               connection={activeChatConnection}
               currentUserId={data.user?.id}
+            />
+            <AiMeetingPrepModal
+              bind:open={prepModalOpen}
+              connection={activePrepConnection}
             />
           </Tabs.Content>
         </Tabs.Root>

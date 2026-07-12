@@ -9,3 +9,6 @@ export const matchesStore = persisted('event-matches', []);
 
 // Connections data - kept in persisted store
 export const connectionsStore = persisted('event-connections', []);
+
+// AI Meeting Prep cache - maps connection_id to generated meeting prep data
+export const aiMeetingPrepStore = persisted('event-ai-meeting-prep', {});

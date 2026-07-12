@@ -166,8 +166,13 @@ Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
         controller.enqueue(encoder.encode(JSON.stringify(match) + '\n'));
       });
 
-      await Promise.all(promises);
-      controller.close();
+      try {
+        await Promise.all(promises);
+        controller.close();
+      } catch (streamErr) {
+        console.error('Stream generation error:', streamErr);
+        controller.error(streamErr);
+      }
     }
   });
 

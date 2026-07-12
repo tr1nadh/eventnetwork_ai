@@ -45,45 +45,51 @@ export async function GET({ url, cookies }) {
   if (connError) throw error(500, connError.message);
 
   // Enrich each connection with match details and other participant's profile
-  const enriched = await Promise.all(
-    (dbConns || []).map(async (c) => {
-      const matchPercentage = c.matches?.match_details?.score ?? null;
-      const explanation = c.matches?.match_details?.summary ?? null;
-      const matchDetails = c.matches?.match_details ?? null;
+  const otherUserIds = [...new Set((dbConns || []).map(c => c.sender_user_id === user.id ? c.receiver_user_id : c.sender_user_id))];
 
-      const otherUserId = c.sender_user_id === user.id ? c.receiver_user_id : c.sender_user_id;
+  let profilesMap = {};
+  let usersMap = {};
 
-      const { data: profileData, error: profileErr } = await supabase
-        .from('network_profiles')
-        .select('display_name, what_i_do, about_me, looking_for')
-        .eq('user_id', otherUserId)
-        .single();
-      const profile = profileErr ? {} : profileData;
+  if (otherUserIds.length > 0) {
+    const [profilesRes, usersRes] = await Promise.all([
+      supabase.from('network_profiles').select('user_id, display_name, what_i_do, about_me, looking_for').eq('event_id', eventId).in('user_id', otherUserIds),
+      admin.from('users').select('id, name, avatar_url').in('id', otherUserIds)
+    ]);
 
-      const { data: otherUser } = await admin
-        .from('users')
-        .select('name, avatar_url')
-        .eq('id', otherUserId)
-        .maybeSingle();
+    if (profilesRes.data) {
+      for (const p of profilesRes.data) profilesMap[p.user_id] = p;
+    }
+    if (usersRes.data) {
+      for (const u of usersRes.data) usersMap[u.id] = u;
+    }
+  }
 
-      return {
-        id: c.id,
-        status: c.status,
-        met_at: c.met_at,
-        match_id: c.match_id,
-        sender_user_id: c.sender_user_id,
-        receiver_user_id: c.receiver_user_id,
-        matchPercentage,
-        explanation,
-        matchDetails,
-        profile: {
-          ...profile,
-          display_name: profile.display_name ?? otherUser?.name ?? 'Unknown',
-          avatar_url: otherUser?.avatar_url ?? null
-        }
-      };
-    })
-  );
+  const enriched = (dbConns || []).map((c) => {
+    const matchPercentage = c.matches?.match_details?.score ?? null;
+    const explanation = c.matches?.match_details?.summary ?? null;
+    const matchDetails = c.matches?.match_details ?? null;
+
+    const otherUserId = c.sender_user_id === user.id ? c.receiver_user_id : c.sender_user_id;
+    const profile = profilesMap[otherUserId] || {};
+    const otherUser = usersMap[otherUserId];
+
+    return {
+      id: c.id,
+      status: c.status,
+      met_at: c.met_at,
+      match_id: c.match_id,
+      sender_user_id: c.sender_user_id,
+      receiver_user_id: c.receiver_user_id,
+      matchPercentage,
+      explanation,
+      matchDetails,
+      profile: {
+        ...profile,
+        display_name: profile.display_name ?? otherUser?.name ?? 'Unknown',
+        avatar_url: otherUser?.avatar_url ?? null
+      }
+    };
+  });
 
   const hasMore = count !== null ? (offset + limit < count) : false;
 

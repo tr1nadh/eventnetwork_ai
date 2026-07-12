@@ -21,6 +21,7 @@
   } from "@lucide/svelte";
   import Navbar from "$lib/components/navbar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
+  import AmdAiLoading from "$lib/components/amd-ai-loading.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
@@ -782,6 +783,13 @@ async function doConnect(matchUserId) {
                   class="min-h-[240px] w-full rounded-2xl border border-white/10 bg-white/4 p-4 text-sm leading-6 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
                 ></textarea>
 
+                {#if aiGenerating}
+                  <AmdAiLoading
+                    message="AI is working..."
+                    detail="Building your networking profile draft from your input."
+                  />
+                {/if}
+
                 {#if aiGenerationError}
                   <div class="rounded-2xl border border-amber-400/20 bg-amber-400/8 p-4 text-sm text-amber-100">
                     <p class="font-semibold">Could not generate your profile.</p>
@@ -1060,6 +1068,14 @@ async function doConnect(matchUserId) {
                   {/if}
                 </Button>
               </div>
+
+              {#if savingProfile}
+                <AmdAiLoading
+                  message="AI is working..."
+                  detail="Generating embeddings and saving your networking profile."
+                  class="mt-4"
+                />
+              {/if}
             </Dialog.Content>
           </Dialog.Root>
 
@@ -1098,7 +1114,18 @@ async function doConnect(matchUserId) {
                 </Button>
               </div>
             </div>
-            {#if refreshingFromDb || refreshingMatches}
+            {#if refreshingMatches}
+              <AmdAiLoading
+                message="AI is working..."
+                detail="Finding your best networking matches."
+                class="mb-6"
+              />
+              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {#each Array(3) as _}
+                  <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                {/each}
+              </div>
+            {:else if refreshingFromDb}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {#each Array(3) as _}
                   <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
@@ -1258,6 +1285,13 @@ async function doConnect(matchUserId) {
                   networking profile designed to be relevant to your profile, allowing you to test
                   the AI matchmaking experience.
                 </p>
+                {#if creatingDummy}
+                  <AmdAiLoading
+                    message="AI is working..."
+                    detail="Generating realistic simulation profiles."
+                    class="mt-4"
+                  />
+                {/if}
                 <div class="flex justify-end gap-3 mt-6">
                   <Button variant="outline" class="border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = false)} disabled={creatingDummy}>
                     Cancel

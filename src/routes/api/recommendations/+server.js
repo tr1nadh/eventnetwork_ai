@@ -94,10 +94,9 @@ About them: ${match.about}
 `;
 
     const systemPrompt = `You are an AI matchmaker for a professional networking event.
-Given my profile and a matched attendee's profile, write a short, compelling explanation (2-3 sentences) of WHY we are a good match.
-Focus on shared interests, complementary skills, or potential collaboration.
-Speak directly to me (e.g. "You both have experience in...", "They could help you with...").
-Do NOT use greetings or pleasantries, just get straight to the analysis.`;
+Given my profile and a matched attendee's profile, write a concise 1-2 sentence explanation of WHY we are a good match.
+Focus on the single strongest connection point: a shared interest, complementary skill, or collaboration opportunity.
+Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
 
     try {
       const llmRes = await createChatCompletion({
@@ -107,7 +106,7 @@ Do NOT use greetings or pleasantries, just get straight to the analysis.`;
           { role: 'user', content: `My Profile:\n${myProfileContext}\n\nMatched Profile:\n${matchContext}` }
         ],
         temperature: 0.7,
-        max_tokens: 150,
+        max_tokens: 80,
         reasoning_effort: 'none'
       });
       const explanation = llmRes.choices?.[0]?.message?.content?.trim();

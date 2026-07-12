@@ -11,7 +11,7 @@ export async function PATCH({ params, request, cookies }) {
   if (!id) throw error(400, 'Missing connection id');
 
   const { status } = await request.json();
-  const allowed = ['accepted', 'rejected', 'cancelled', 'met'];
+  const allowed = ['pending', 'accepted', 'rejected', 'cancelled', 'met'];
   if (!allowed.includes(status)) throw error(400, 'Invalid status');
 
   const supabase = createSupabaseServerClient(cookies);

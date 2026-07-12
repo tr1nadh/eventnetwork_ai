@@ -26,7 +26,7 @@
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
-import { activeTab, matchesStore } from "$lib/stores/eventStore";
+import { activeTab, matchesStore, connectionsStore } from "$lib/stores/eventStore";
   
   // Embedding helper – calls server-side /api/embeddings to keep the API key secure
   async function generateEmbedding(text) {
@@ -110,22 +110,101 @@ import { activeTab, matchesStore } from "$lib/stores/eventStore";
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
   }
-let connections = [];
 let loadingConnections = false;
 let connectionFilter = 'received'; // received | sent | connected | met
-async function fetchConnections() {
+
+// Reactive derived array for filtered connections
+$: filteredConnections = $connectionsStore.filter(conn => {
+  const isSender = conn.sender_user_id === data.user?.id;
+  const isReceiver = conn.receiver_user_id === data.user?.id;
+  if (connectionFilter === 'received') return isReceiver && conn.status === 'pending';
+  if (connectionFilter === 'sent') return isSender && conn.status === 'pending';
+  if (connectionFilter === 'connected') return conn.status === 'accepted';
+  if (connectionFilter === 'met') return conn.status === 'accepted' && conn.met_at != null;
+  return false;
+});
+
+async function fetchAllConnections() {
   loadingConnections = true;
   try {
-    const res = await fetch(`/api/connections?event_id=${data.event.id}&filter=${connectionFilter}`, {
+    const res = await fetch(`/api/connections?event_id=${data.event.id}&filter=all`, {
       credentials: 'include'
     });
     if (!res.ok) throw new Error('Failed to fetch connections');
     const { connections: conn } = await res.json();
-    connections = conn || [];
+    connectionsStore.set(conn || []);
   } catch (e) {
     toast.error('Could not load connections');
   } finally {
     loadingConnections = false;
+  }
+}
+
+async function updateConnection(connectionId, newStatus) {
+  try {
+    const res = await fetch(`/api/connections/${connectionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error('Failed to update connection');
+    
+    connectionsStore.update(conns => {
+      return conns.map(c => {
+        if (c.id === connectionId) {
+          return { ...c, status: newStatus, met_at: newStatus === 'met' ? new Date().toISOString() : c.met_at };
+        }
+        return c;
+      });
+    });
+    toast.success(`Connection ${newStatus}`);
+  } catch (e) {
+    toast.error('Could not update connection');
+  }
+}
+
+async function connectUser(matchUserId) {
+  try {
+    // Check if there's an existing cancelled connection we should reactivate
+    const existing = $connectionsStore.find(c =>
+      c.sender_user_id === data.user?.id &&
+      c.receiver_user_id === matchUserId &&
+      c.status === 'cancelled'
+    );
+
+    if (existing) {
+      // Reactivate by updating status back to pending
+      await updateConnection(existing.id, 'pending');
+      return;
+    }
+
+    const res = await fetch(`/api/connections/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: data.event.id, receiver_user_id: matchUserId }),
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || 'Failed to create connection request');
+    }
+    const { connection } = await res.json();
+    
+    connectionsStore.update(conns => {
+      const newConn = {
+        id: connection.id,
+        status: connection.status,
+        match_id: connection.match_id,
+        sender_user_id: connection.sender_user_id,
+        receiver_user_id: connection.receiver_user_id,
+        profile: { display_name: 'Pending...' }
+      };
+      return [...conns, newConn];
+    });
+    toast.success('Connection request sent');
+  } catch (e) {
+    toast.error(e.message || 'Could not send request');
   }
 }
   async function signOut() {
@@ -308,6 +387,7 @@ async function fetchConnections() {
     if (data.isParticipant) {
       console.log("Loading network profile");
       // await loadNetworkProfile();
+      fetchAllConnections();
     }
     // If no saved profile, prefill from Google
     // Page data ready – stop showing skeleton
@@ -874,6 +954,7 @@ async function fetchConnections() {
             {:else if $matchesStore.length}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {#each $matchesStore as match, i}
+                  {@const conn = $connectionsStore.find(c => c.sender_user_id === match.user_id || c.receiver_user_id === match.user_id)}
                   <div
                     class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
                   >
@@ -965,12 +1046,29 @@ async function fetchConnections() {
                           {/if}
                         </Tabs.Content>
                       </Tabs.Root>
-
                       <!-- Connect Button -->
                       <div class="pt-4 mt-auto">
-                        <Button class="w-full bg-white text-black hover:bg-white/90 gap-2">
-                          <Users size={16} /> Connect
-                        </Button>
+                        {#if !conn || conn.status === 'cancelled'}
+                          <Button class="w-full bg-white text-black hover:bg-white/90 gap-2" onclick={() => connectUser(match.user_id)}>
+                            <Users size={16} /> Connect
+                          </Button>
+                        {:else if conn.status === 'pending' && conn.sender_user_id === data.user?.id}
+                          <Button variant="outline" class="w-full gap-2 text-ink-300 border-ink-600 hover:text-white" onclick={() => updateConnection(conn.id, 'cancelled')}>
+                            Cancel Request
+                          </Button>
+                        {:else if conn.status === 'pending' && conn.receiver_user_id === data.user?.id}
+                          <Button variant="outline" class="w-full gap-2 text-amber-300 border-amber-600/50" disabled>
+                            Pending Response
+                          </Button>
+                        {:else if conn.status === 'accepted'}
+                          <Button variant="secondary" class="w-full gap-2 bg-purple-500/20 text-purple-300 border border-purple-500/30" disabled>
+                            <CheckCircle2 size={16} /> Connected
+                          </Button>
+                        {:else if conn.status === 'rejected'}
+                          <Button variant="outline" class="w-full gap-2 text-red-400 border-red-500/30" disabled>
+                            Rejected
+                          </Button>
+                        {/if}
                       </div>
                     </div>
                   </div>
@@ -1032,7 +1130,7 @@ async function fetchConnections() {
                 <Button
                   variant={connectionFilter === f ? 'default' : 'outline'}
                   class="capitalize"
-                  on:click={() => { connectionFilter = f; fetchConnections(); }}
+                  on:click={() => { connectionFilter = f; }}
                 >{f}</Button>
               {/each}
             </div>
@@ -1043,13 +1141,13 @@ async function fetchConnections() {
                   <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
                 {/each}
               </div>
-            {:else if connections.length}
+            {:else if filteredConnections.length}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {#each connections as conn}
+                {#each filteredConnections as conn}
                   <div class="glass card-hover rounded-2xl border border-white/8 overflow-hidden">
                     <div class="h-0.5 bg-gradient-to-r from-purple-400 to-pink-400" style="width: {conn.matchPercentage ?? 50}%"></div>
                     <div class="p-5 flex flex-col gap-2">
-                      <h3 class="text-base font-bold text-white">{conn.displayName}</h3>
+                      <h3 class="text-base font-bold text-white">{conn.profile?.display_name || 'Unknown'}</h3>
                       <span class="rounded-full bg-purple-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-300">{conn.matchPercentage ?? '—'}% Match</span>
                       {#if conn.explanation}
                         <div class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300">{conn.explanation}</div>
@@ -1057,13 +1155,13 @@ async function fetchConnections() {
                       <!-- Action buttons based on status -->
                       {#if conn.status === 'pending' && conn.receiver_user_id === data.user.id}
                         <div class="flex gap-2 mt-2">
-                          <Button class="flex-1" on:click={() => updateConnection(conn.id, 'accepted')}>Accept</Button>
-                          <Button variant="destructive" class="flex-1" on:click={() => updateConnection(conn.id, 'rejected')}>Reject</Button>
+                          <Button class="flex-1" onclick={() => updateConnection(conn.id, 'accepted')}>Accept</Button>
+                          <Button variant="destructive" class="flex-1" onclick={() => updateConnection(conn.id, 'rejected')}>Reject</Button>
                         </div>
                       {:else if conn.status === 'sent'}
-                        <Button variant="outline" class="mt-2" on:click={() => updateConnection(conn.id, 'cancelled')}>Cancel</Button>
+                        <Button variant="outline" class="mt-2" onclick={() => updateConnection(conn.id, 'cancelled')}>Cancel</Button>
                       {:else if conn.status === 'accepted'}
-                        <Button variant="outline" class="mt-2" on:click={() => updateConnection(conn.id, 'met')}>Mark as Met</Button>
+                        <Button variant="outline" class="mt-2" onclick={() => updateConnection(conn.id, 'met')}>Mark as Met</Button>
                       {/if}
                     </div>
                   </div>

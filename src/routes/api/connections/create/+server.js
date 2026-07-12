@@ -38,12 +38,28 @@ export async function POST({ request, cookies }) {
     throw error(409, 'Connection already exists');
   }
 
+  // Fetch the match_id from the matches table
+  const { data: matchData, error: matchErr } = await supabase
+    .from('matches')
+    .select('id')
+    .eq('event_id', event_id)
+    .eq('user_id', user.id)
+    .eq('matched_user_id', receiver_user_id)
+    .single();
+
+  if (matchErr && matchErr.code !== 'PGRST116') {
+    throw error(500, 'Error fetching match information: ' + matchErr.message);
+  }
+
+  const match_id = matchData?.id || null;
+
   const { data, error: insertErr } = await supabase
     .from('connections')
     .insert({
       event_id,
       sender_user_id: user.id,
       receiver_user_id,
+      match_id, // Insert the match_id if it exists
       status: 'pending',
       updated_at: new Date().toISOString()
     })

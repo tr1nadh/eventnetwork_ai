@@ -18,7 +18,9 @@ export async function GET({ url, cookies }) {
     .eq('event_id', eventId);
 
   // Apply filter
-  if (filter === 'received') {
+  if (filter === 'all') {
+    query = query.or(`sender_user_id.eq.${user.id},receiver_user_id.eq.${user.id}`);
+  } else if (filter === 'received') {
     query = query.eq('receiver_user_id', user.id).eq('status', 'pending');
   } else if (filter === 'sent') {
     query = query.eq('sender_user_id', user.id).eq('status', 'pending');
@@ -53,6 +55,8 @@ export async function GET({ url, cookies }) {
         status: c.status,
         met_at: c.met_at,
         match_id: c.match_id,
+        sender_user_id: c.sender_user_id,
+        receiver_user_id: c.receiver_user_id,
         matchPercentage,
         explanation,
         profile

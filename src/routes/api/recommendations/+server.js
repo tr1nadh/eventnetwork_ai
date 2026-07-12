@@ -95,75 +95,87 @@ export async function GET({ url, cookies }) {
     console.error('Failed to check dummy status for matches:', e);
   }
 
-  // Generate AI explanations in parallel
-  const myProfileContext = `
+  const stream = new ReadableStream({
+    async start(controller) {
+      const myProfileContext = `
 My name is ${currentProfile.display_name}.
 What I do: ${currentProfile.what_i_do}
 About me: ${currentProfile.about_me}
 I am looking for: ${currentProfile.looking_for}
 `;
 
-  const recommendations = await Promise.all(scored.map(async (match) => {
-    const matchContext = `
+      const promises = scored.map(async (match) => {
+        const matchContext = `
 Their name is ${match.name}.
 What they do: ${match.role}
 About them: ${match.about}
 `;
 
-    const systemPrompt = `You are an AI matchmaker for a professional networking event.
+        const systemPrompt = `You are an AI matchmaker for a professional networking event.
 Given my profile and a matched attendee's profile, write a concise 1-2 sentence explanation of WHY we are a good match.
 Focus on the single strongest connection point: a shared interest, complementary skill, or collaboration opportunity.
 Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
 
-    try {
-      const llmRes = await createChatCompletion({
-        model: 'accounts/fireworks/models/qwen3p7-plus',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `My Profile:\n${myProfileContext}\n\nMatched Profile:\n${matchContext}` }
-        ],
-        temperature: 0.7,
-        max_tokens: 80,
-        reasoning_effort: 'none'
+        try {
+          const llmRes = await createChatCompletion({
+            model: 'accounts/fireworks/models/qwen3p7-plus',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `My Profile:\n${myProfileContext}\n\nMatched Profile:\n${matchContext}` }
+            ],
+            temperature: 0.7,
+            max_tokens: 80,
+            reasoning_effort: 'none'
+          });
+          match.explanation = llmRes.choices?.[0]?.message?.content?.trim();
+        } catch (err) {
+          console.error('Failed to generate explanation for', match.name, err);
+        }
+
+        // Upsert this match into the database
+        const matchRow = {
+          event_id: eventId,
+          user_id: user.id,
+          matched_user_id: match.user_id,
+          match_details: {
+            score: match.matchPercentage,
+            summary: match.explanation,
+            requester_profile: {
+              display_name: currentProfile.display_name,
+              what_i_do: currentProfile.what_i_do,
+              about_me: currentProfile.about_me
+            },
+            matched_profile: {
+              display_name: match.name,
+              what_i_do: match.role,
+              about_me: match.about
+            }
+          },
+          updated_at: new Date().toISOString()
+        };
+
+        const { error: upsertErr } = await supabase.from('matches').upsert(matchRow, {
+          onConflict: 'event_id, user_id, matched_user_id'
+        });
+        if (upsertErr) {
+          console.error('Failed to upsert match into database:', upsertErr);
+        }
+
+        // Enqueue the match to the stream
+        const encoder = new TextEncoder();
+        controller.enqueue(encoder.encode(JSON.stringify(match) + '\n'));
       });
-      const explanation = llmRes.choices?.[0]?.message?.content?.trim();
-      return { ...match, explanation };
-    } catch (err) {
-      console.error('Failed to generate explanation for', match.name, err);
-      return match;
+
+      await Promise.all(promises);
+      controller.close();
     }
-  }));
+  });
 
-  // Automatically persist/update the generated matches
-  const upsertRows = recommendations.map(match => ({
-    event_id: eventId,
-    user_id: user.id,
-    matched_user_id: match.user_id,
-    match_details: {
-      score: match.matchPercentage,
-      summary: match.explanation,
-      requester_profile: {
-        display_name: currentProfile.display_name,
-        what_i_do: currentProfile.what_i_do,
-        about_me: currentProfile.about_me
-      },
-      matched_profile: {
-        display_name: match.name,
-        what_i_do: match.role,
-        about_me: match.about
-      }
-    },
-    updated_at: new Date().toISOString()
-  }));
-
-  if (upsertRows.length > 0) {
-    const { error: upsertErr } = await supabase.from('matches').upsert(upsertRows, {
-      onConflict: 'event_id, user_id, matched_user_id'
-    });
-    if (upsertErr) {
-      console.error('Failed to upsert matches into database:', upsertErr);
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
     }
-  }
-
-  return json({ recommendations });
+  });
 }

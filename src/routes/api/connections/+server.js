@@ -11,10 +11,14 @@ export async function GET({ url, cookies }) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) throw error(401, 'Unauthenticated');
 
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const limit = parseInt(url.searchParams.get('limit') || '50');
+  const offset = (page - 1) * limit;
+
   // Base query for connections of the event
   let query = supabase
     .from('connections')
-    .select('id, status, met_at, match_id, sender_user_id, receiver_user_id, matches(match_details)')
+    .select('id, status, met_at, match_id, sender_user_id, receiver_user_id, matches(match_details)', { count: 'exact' })
     .eq('event_id', eventId);
 
   // Apply filter
@@ -32,7 +36,10 @@ export async function GET({ url, cookies }) {
     throw error(400, 'Invalid filter');
   }
 
-  const { data: dbConns, error: connError } = await query;
+  // Apply pagination and sort by most recently updated
+  query = query.order('updated_at', { ascending: false }).range(offset, offset + limit - 1);
+
+  const { data: dbConns, error: connError, count } = await query;
   if (connError) throw error(500, connError.message);
 
   // Enrich each connection with match details and other participant's profile
@@ -64,8 +71,7 @@ export async function GET({ url, cookies }) {
     })
   );
 
-  // Sort by match percentage descending
-  enriched.sort((a, b) => (b.matchPercentage ?? 0) - (a.matchPercentage ?? 0));
+  const hasMore = count !== null ? (offset + limit < count) : false;
 
-  return json({ connections: enriched });
+  return json({ connections: enriched, hasMore, count });
 }

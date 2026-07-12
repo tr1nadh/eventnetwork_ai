@@ -1,4 +1,5 @@
 <script>
+  import { slide, fade } from 'svelte/transition';
   import { goto } from "$app/navigation";
   import {
     ArrowLeft,
@@ -14,9 +15,9 @@
     UserCircle2,
     Target,
     RefreshCw,
-    MessageSquare,
     Info,
     X,
+    Ghost,
   } from "@lucide/svelte";
   import Navbar from "$lib/components/navbar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -74,8 +75,28 @@ import { activeTab, matchesStore, connectionsStore } from "$lib/stores/eventStor
         credentials: "include"
       });
       if (!res.ok) throw new Error("Failed to fetch matches");
-      const { recommendations } = await res.json();
-       matchesStore.set(recommendations || []);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      matchesStore.set([]); // Clear existing matches while streaming new ones
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.trim()) {
+            const match = JSON.parse(line);
+            matchesStore.update(matches => [...matches, match]);
+          }
+        }
+      }
     } catch (error) {
       toast.error("Could not find matches");
     } finally {
@@ -134,19 +155,50 @@ $: filteredConnections = $connectionsStore.filter(conn => {
   return false;
 });
 
+let connectionsPage = 1;
+let connectionsHasMore = false;
+let loadingMoreConnections = false;
+
 async function fetchAllConnections() {
   loadingConnections = true;
+  connectionsPage = 1;
   try {
-    const res = await fetch(`/api/connections?event_id=${data.event.id}&filter=all`, {
+    const res = await fetch(`/api/connections?event_id=${data.event.id}&filter=all&page=1&limit=50`, {
       credentials: 'include'
     });
     if (!res.ok) throw new Error('Failed to fetch connections');
-    const { connections: conn } = await res.json();
+    const { connections: conn, hasMore } = await res.json();
     connectionsStore.set(conn || []);
+    connectionsHasMore = hasMore;
   } catch (e) {
     toast.error('Could not load connections');
   } finally {
     loadingConnections = false;
+  }
+}
+
+async function loadMoreConnections() {
+  if (loadingMoreConnections || !connectionsHasMore) return;
+  loadingMoreConnections = true;
+  try {
+    const nextPage = connectionsPage + 1;
+    const res = await fetch(`/api/connections?event_id=${data.event.id}&filter=all&page=${nextPage}&limit=50`, {
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error('Failed to fetch more connections');
+    const { connections: newConns, hasMore } = await res.json();
+    connectionsStore.update(existing => {
+      // Deduplicate by ID
+      const existingIds = new Set(existing.map(c => c.id));
+      const uniqueNewConns = newConns.filter(c => !existingIds.has(c.id));
+      return [...existing, ...uniqueNewConns];
+    });
+    connectionsHasMore = hasMore;
+    connectionsPage = nextPage;
+  } catch (e) {
+    toast.error('Could not load more connections');
+  } finally {
+    loadingMoreConnections = false;
   }
 }
 
@@ -219,13 +271,10 @@ async function doConnect(matchUserId) {
         sender_user_id: connection.sender_user_id,
         receiver_user_id: connection.receiver_user_id,
         met_at: connection.met_at ?? null,
-        profile: { display_name: '' }
+        profile: connection.profile
       };
       return [...conns, newConn];
     });
-
-    // Re-fetch connections to get proper display names from DB
-    await fetchAllConnections();
 
     if (connection.status === 'accepted') {
       toast.success('Connected!');
@@ -416,10 +465,31 @@ async function doConnect(matchUserId) {
     // Load network profile first if participant
     if (data.isParticipant) {
       console.log("Loading network profile");
-      // await loadNetworkProfile();
       fetchAllConnections();
+      
+      // Initialize Supabase Realtime channel for connections
+      const channel = supabase.channel('connections-channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'connections' }, payload => {
+          if (payload.new && payload.new.event_id === data.event.id && 
+             (payload.new.sender_user_id === data.user.id || payload.new.receiver_user_id === data.user.id)) {
+            
+            if (payload.eventType === 'UPDATE') {
+               // Update connection in store locally
+               connectionsStore.update(conns => conns.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c));
+            } else if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+               // Fetch all connections for inserts so we can get the profile join cleanly
+               fetchAllConnections();
+            }
+          }
+        })
+        .subscribe();
+
+      // Return cleanup function to unsubscribe on component destroy
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
-    // If no saved profile, prefill from Google
+    
     // Page data ready – stop showing skeleton
     pageLoading = false;
   });
@@ -463,8 +533,13 @@ async function doConnect(matchUserId) {
         "Share a little about yourself, including your experience, interests, skills, achievements, or the kind of work you're passionate about. This helps others understand who you are and makes AI matching more accurate.",
       id: "expectations",
       wsId: "ws-expectations",
-    },
+    }
   ];
+
+  $: profileValid = (networkingProfile.whoTheyAre?.trim()?.length || 0) > 0 &&
+                    (networkingProfile.whatTheyDo?.trim()?.length || 0) >= 20 &&
+                    (networkingProfile.whoTheyWant?.trim()?.length || 0) >= 20 &&
+                    (networkingProfile.expectations?.trim()?.length || 0) >= 20;
 
 
   let dummyModalOpen = false;
@@ -706,7 +781,12 @@ async function doConnect(matchUserId) {
                       placeholder={field.placeholder}
                       class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-violet-400/50 focus:ring-violet-400/20 w-full rounded-md p-2"
                       rows="4"
+                      maxlength="500"
                     ></textarea>
+                    <div class="flex justify-between mt-1">
+                      <span class="text-[10px] text-amber-500/80">{(networkingProfile[field.key]?.length || 0) < 20 ? 'Minimum 20 characters required' : ''}</span>
+                      <span class="text-[10px] text-ink-500 text-right">{networkingProfile[field.key]?.length || 0} / 500</span>
+                    </div>
                   {/if}
                   {#if loadError && field.key === "whoTheyAre"}
                     <p class="text-sm text-amber-300">{loadError}</p>
@@ -726,7 +806,7 @@ async function doConnect(matchUserId) {
               <Button
                 id="save-profile-btn"
                 onclick={saveProfile}
-                disabled={savingProfile}
+                disabled={savingProfile || !profileValid}
                 class="gap-2"
               >
                 {#if savingProfile}
@@ -921,7 +1001,12 @@ async function doConnect(matchUserId) {
                         bind:value={networkingProfile[field.key]}
                         class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50 focus:ring-amber-400/20 w-full rounded-md p-2"
                         rows="4"
+                        maxlength="500"
                       ></textarea>
+                      <div class="flex justify-between mt-1">
+                        <span class="text-[10px] text-amber-500/80">{(networkingProfile[field.key]?.length || 0) < 20 ? 'Minimum 20 characters required' : ''}</span>
+                        <span class="text-[10px] text-ink-500 text-right">{networkingProfile[field.key]?.length || 0} / 500</span>
+                      </div>
                     {/if}
                   </div>
                 {/each}
@@ -929,7 +1014,7 @@ async function doConnect(matchUserId) {
               <div class="flex flex-wrap gap-3">
                 <Button
                   onclick={saveProfile}
-                  disabled={savingProfile}
+                  disabled={savingProfile || !profileValid}
                   class="gap-2"
                 >
                   {#if savingProfile}
@@ -1208,8 +1293,8 @@ async function doConnect(matchUserId) {
               </div>
             {:else if filteredConnections.length}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {#each filteredConnections as conn}
-                  <div class="glass card-hover rounded-2xl border border-white/8 overflow-hidden">
+                {#each filteredConnections as conn (conn.id)}
+                  <div transition:slide class="glass card-hover rounded-2xl border border-white/8 overflow-hidden">
                     <div class="h-0.5 bg-gradient-to-r from-purple-400 to-pink-400" style="width: {conn.matchPercentage ?? 50}%"></div>
                     <div class="p-5 flex flex-col gap-2">
                       <h3 class="text-base font-bold text-white">{conn.profile?.display_name || 'Unknown'}</h3>
@@ -1234,8 +1319,27 @@ async function doConnect(matchUserId) {
                   </div>
                 {/each}
               </div>
+              
+              {#if connectionsHasMore}
+                <div class="mt-6 flex justify-center">
+                  <Button variant="outline" onclick={loadMoreConnections} disabled={loadingMoreConnections}>
+                    {#if loadingMoreConnections}
+                      <LoaderCircle size={16} class="animate-spin mr-2" />
+                      Loading...
+                    {:else}
+                      Load More
+                    {/if}
+                  </Button>
+                </div>
+              {/if}
             {:else}
-              <div class="text-center text-ink-400">No connections to show.</div>
+              <div in:fade class="flex flex-col items-center justify-center p-12 text-center glass rounded-2xl border border-white/5">
+                <div class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                  <Ghost size={28} class="text-ink-500" />
+                </div>
+                <h3 class="text-white font-bold mb-1">No connections yet</h3>
+                <p class="text-sm text-ink-400 max-w-sm">We couldn't find any connections matching this filter. Go to the Matches tab to find new people to connect with.</p>
+              </div>
             {/if}
           </Tabs.Content>
         </Tabs.Root>

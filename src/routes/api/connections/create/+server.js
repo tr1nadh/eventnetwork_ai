@@ -78,5 +78,15 @@ export async function POST({ request, cookies }) {
 
   if (insertErr) throw error(500, insertErr.message);
 
+  // Fetch the receiver's profile to return to the client
+  const { data: profile } = await supabase
+    .from('network_profiles')
+    .select('display_name')
+    .eq('user_id', receiver_user_id)
+    .eq('event_id', event_id)
+    .single();
+
+  connection.profile = { display_name: profile?.display_name || 'Unknown' };
+
   return json({ connection, auto_accepted: isDummy });
 }

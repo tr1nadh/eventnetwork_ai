@@ -922,7 +922,7 @@ async function doConnect(matchUserId) {
               class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
             >
               <Info size={16} class="inline-block mr-1 align-text-bottom" />
-              Details
+              Overview
             </Tabs.Trigger>
 
             <Tabs.Trigger

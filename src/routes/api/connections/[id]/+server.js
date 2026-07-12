@@ -18,8 +18,13 @@ export async function PATCH({ params, request, cookies }) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) throw error(401, 'Unauthenticated');
 
-  const updates = { status, updated_at: new Date().toISOString() };
-  if (status === 'met') updates.met_at = new Date().toISOString();
+  const updates = { updated_at: new Date().toISOString() };
+  if (status === 'met') {
+    updates.met_at = new Date().toISOString();
+    updates.status = 'accepted';
+  } else {
+    updates.status = status;
+  }
 
   const { data, error: updError } = await supabase
     .from('connections')

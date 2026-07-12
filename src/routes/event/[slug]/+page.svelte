@@ -215,7 +215,11 @@ async function updateConnection(connectionId, newStatus) {
     connectionsStore.update(conns => {
       return conns.map(c => {
         if (c.id === connectionId) {
-          return { ...c, status: newStatus, met_at: newStatus === 'met' ? new Date().toISOString() : c.met_at };
+          return { 
+            ...c, 
+            status: newStatus === 'met' ? 'accepted' : newStatus, 
+            met_at: newStatus === 'met' ? new Date().toISOString() : c.met_at 
+          };
         }
         return c;
       });

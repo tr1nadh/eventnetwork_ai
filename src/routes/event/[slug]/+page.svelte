@@ -15,6 +15,7 @@
     Target,
     MessageSquare,
     Info,
+    X,
   } from "@lucide/svelte";
   import Navbar from "$lib/components/navbar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -315,7 +316,35 @@
       wsId: "ws-expectations",
     },
   ];
+
+
+  let dummyModalOpen = false;
+  let creatingDummy = false;
+
+  async function createDummyUsers() {
+    creatingDummy = true;
+    try {
+      const res = await fetch('/api/dummy_users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ event_id: data.event.id })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? 'Failed to create dummy users');
+      }
+      await fetchMatches();
+      toast.success('Dummy users created');
+      dummyModalOpen = false;
+    } catch (e) {
+      toast.error('Could not create dummy users', { description: e.message });
+    } finally {
+      creatingDummy = false;
+    }
+  }
 </script>
+
 
 <svelte:head>
   <title>{data.event.name} | EventNetwork AI</title>
@@ -774,6 +803,10 @@
                     Find matches
                   {/if}
                 </Button>
+                <Button variant="outline" class="gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = true)}>
+                  <Users size={15} />
+                  Create Dummy Users
+                </Button>
               </div>
             </div>
             {#if matches.length}
@@ -857,6 +890,34 @@
                 </p>
               </div>
             {/if}
+
+            <!-- Create Dummy Users confirmation modal -->
+            <Dialog.Root bind:open={dummyModalOpen}>
+              <Dialog.Content class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white">
+                <Dialog.Header>
+                  <Dialog.Title class="text-xl font-bold text-white">Create Dummy Users</Dialog.Title>
+                </Dialog.Header>
+                <p class="text-sm leading-6 text-ink-300 mt-2">
+                  This action will create 5 dummy participants with unique dummy email addresses.
+                  Each participant will automatically join this event and generate a realistic
+                  networking profile designed to be relevant to your profile, allowing you to test
+                  the AI matchmaking experience.
+                </p>
+                <div class="flex justify-end gap-3 mt-6">
+                  <Button variant="outline" class="border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = false)} disabled={creatingDummy}>
+                    Cancel
+                  </Button>
+                  <Button class="gap-2" onclick={createDummyUsers} disabled={creatingDummy}>
+                    {#if creatingDummy}
+                      <LoaderCircle size={15} class="animate-spin" />
+                      Creating…
+                    {:else}
+                      Continue
+                    {/if}
+                  </Button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Root>
           </Tabs.Content>
         </Tabs.Root>
       </div>

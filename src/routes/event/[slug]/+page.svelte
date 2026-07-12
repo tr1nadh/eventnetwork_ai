@@ -472,7 +472,8 @@ async function doConnect(matchUserId) {
       fetchAllConnections();
       
       // Initialize Supabase Realtime channel for connections
-      const channel = supabase.channel('connections-channel')
+      const channelName = `connections-channel-${Date.now()}`;
+      const channel = supabase.channel(channelName)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'connections' }, payload => {
           if (payload.new && payload.new.event_id === data.event.id && 
              (payload.new.sender_user_id === data.user.id || payload.new.receiver_user_id === data.user.id)) {

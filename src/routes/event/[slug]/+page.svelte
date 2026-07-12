@@ -31,6 +31,7 @@
   import ConnectionChatModal from "$lib/components/connection-chat-modal.svelte";
   import AiMeetingPrepModal from "$lib/components/ai-meeting-prep-modal.svelte";
   import AmdAiLoading from "$lib/components/amd-ai-loading.svelte";
+  import ConnectionToast from "$lib/components/connection-toast.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
@@ -56,11 +57,107 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
     return embedding;
   }
   import { createSupabaseBrowserClient } from "$lib/supabase/client";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
 
   const supabase = createSupabaseBrowserClient();
 
   export let data;
+  let realtimeChannel;
+
+  onMount(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    if (!data.user?.id) return;
+
+    realtimeChannel = supabase.channel('connections-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'connections',
+        filter: `event_id=eq.${data.event.id}`
+      }, async (payload) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        
+        if (eventType === 'INSERT') {
+          if (newRecord.receiver_user_id === data.user.id && newRecord.status === 'pending') {
+            const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.sender_user_id).eq('event_id', data.event.id).single();
+            const senderName = profile?.display_name || 'Someone';
+            
+            connectionsStore.update(conns => {
+              if (conns.find(c => c.id === newRecord.id)) return conns;
+              return [{...newRecord, profile: { display_name: senderName }}, ...conns];
+            });
+
+            toast.custom(ConnectionToast, {
+              componentProps: { title: 'New Connection Request', message: `${senderName} wants to connect with you.`, type: 'request' }
+            });
+
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              const notification = new Notification('New Connection Request', { body: `${senderName} wants to connect with you.` });
+              notification.onclick = () => {
+                window.focus();
+                connectionFilter = 'received';
+                activeTab.set('connections');
+              };
+            }
+          }
+        } else if (eventType === 'UPDATE') {
+           if (newRecord.sender_user_id !== data.user.id && newRecord.receiver_user_id !== data.user.id) return;
+
+           connectionsStore.update(conns => {
+             const idx = conns.findIndex(c => c.id === newRecord.id);
+             if (idx >= 0) {
+               conns[idx] = { ...conns[idx], ...newRecord };
+             }
+             return conns;
+           });
+
+           if (newRecord.sender_user_id === data.user.id && oldRecord.status === 'pending' && newRecord.status === 'accepted' && !newRecord.met_at) {
+             const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.receiver_user_id).eq('event_id', data.event.id).single();
+             const receiverName = profile?.display_name || 'Your connection';
+
+             toast.custom(ConnectionToast, {
+               componentProps: { title: 'Connection Accepted', message: `${receiverName} accepted your connection request.`, type: 'accepted' }
+             });
+
+             if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+               const notification = new Notification('Connection Accepted', { body: `${receiverName} accepted your connection request.` });
+               notification.onclick = () => {
+                 window.focus();
+                 connectionFilter = 'connected';
+                 activeTab.set('connections');
+               };
+             }
+           } else if (newRecord.sender_user_id === data.user.id && oldRecord.status === 'pending' && newRecord.status === 'rejected') {
+             const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.receiver_user_id).eq('event_id', data.event.id).single();
+             const receiverName = profile?.display_name || 'Your connection';
+
+             toast.custom(ConnectionToast, {
+               componentProps: { title: 'Connection Request Declined', message: `${receiverName} declined your connection request.`, type: 'rejected' }
+             });
+           } else if (oldRecord.met_at == null && newRecord.met_at != null && newRecord.status === 'accepted') {
+              const otherUserId = newRecord.sender_user_id === data.user.id ? newRecord.receiver_user_id : newRecord.sender_user_id;
+              const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', otherUserId).eq('event_id', data.event.id).single();
+              const name = profile?.display_name || 'Your connection';
+
+              toast.custom(ConnectionToast, {
+                componentProps: { title: 'Meeting Confirmed', message: `You and ${name} have officially met.`, type: 'met' }
+              });
+           }
+        }
+      })
+      .subscribe();
+  });
+
+  onDestroy(() => {
+    if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+    }
+  });
 
   let signingOut = false;
   let joining = false;

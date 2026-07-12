@@ -25,6 +25,9 @@
     X,
     Ghost,
     MessageCircle,
+    MoreVertical,
+    Pencil,
+    Trash2,
   } from "@lucide/svelte";
   import Navbar from "$lib/components/navbar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -38,6 +41,7 @@
   import { toast } from "$lib/components/ui/sonner/index.js";
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
+  import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
 import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$lib/stores/eventStore";
   
@@ -65,10 +69,16 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
   let realtimeChannel;
 
   onMount(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
+    pageLoading = false;
+    
+    try {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().catch(console.error);
+        }
       }
+    } catch (e) {
+      console.error('Notification error:', e);
     }
 
     if (!data.user?.id) return;
@@ -162,13 +172,98 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
   let signingOut = false;
   let joining = false;
   let savingProfile = false;
-  let pageLoading = true;
+  let pageLoading = false;
   let refreshingMatches = false;
   let aiProfileText = "";
   let aiGenerating = false;
   let aiGenerationError = "";
 
   let editProfileOpen = false;
+
+  $: currentEvent = data.event;
+  
+  // Edit & Delete state
+  let editEventModalOpen = false;
+  let deleteEventModalOpen = false;
+  let editingEvent = false;
+  let editEventError = '';
+  let editEventName = '';
+  let editEventSlug = '';
+  let editEventDescription = '';
+  
+  let deletingEvent = false;
+  let deleteEventError = '';
+  
+  function openEditModal() {
+    editEventName = currentEvent.name || '';
+    editEventSlug = currentEvent.slug || '';
+    editEventDescription = currentEvent.description || '';
+    editEventError = '';
+    editEventModalOpen = true;
+  }
+  
+  async function saveEventUpdates() {
+    editEventError = '';
+    if (!editEventName.trim()) {
+      editEventError = 'Event name is required.';
+      return;
+    }
+    if (!editEventSlug.trim()) {
+      editEventError = 'Slug is required.';
+      return;
+    }
+    
+    editingEvent = true;
+    try {
+      const res = await fetch(`/api/events/${currentEvent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editEventName,
+          slug: editEventSlug,
+          description: editEventDescription
+        })
+      });
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(resData.message || resData.error || 'Failed to update event');
+      }
+      
+      currentEvent = resData.event;
+      toast.success('✅ Event updated successfully.');
+      editEventModalOpen = false;
+      
+      if (currentEvent.slug !== data.event.slug) {
+        goto(`/event/${currentEvent.slug}`, { replaceState: true });
+      }
+    } catch(e) {
+      editEventError = e.message;
+    } finally {
+      editingEvent = false;
+    }
+  }
+  
+  async function confirmDeleteEvent() {
+    deleteEventError = '';
+    deletingEvent = true;
+    try {
+      const res = await fetch(`/api/events/${currentEvent.id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) {
+        const resData = await res.json().catch(() => ({}));
+        throw new Error(resData.message || resData.error || 'Failed to delete event');
+      }
+      
+      toast.success('🗑 Event deleted successfully.');
+      deleteEventModalOpen = false;
+      goto('/events');
+    } catch(e) {
+      deleteEventError = e.message;
+      deletingEvent = false;
+    }
+  }
+
   let stage = data.isOrganizer
     ? "workspace"
     : data.networkProfile
@@ -790,7 +885,7 @@ async function doConnect(matchUserId) {
               <h1
                 class="text-4xl font-black tracking-tight text-white sm:text-6xl mb-4"
               >
-                {data.event.name}
+                {currentEvent.name}
                 {#if data.isParticipant}
                   <CheckCircle2
                     size={20}
@@ -799,7 +894,7 @@ async function doConnect(matchUserId) {
                 {/if}
               </h1>
               <p class="text-lg leading-relaxed text-ink-300 max-w-2xl">
-                {data.event.description}
+                {currentEvent.description}
               </p>
             </div>
 
@@ -811,7 +906,7 @@ async function doConnect(matchUserId) {
                   Event ID
                 </p>
                 <p class="text-base font-mono font-semibold text-white">
-                  {data.event.slug}
+                  {currentEvent.slug}
                 </p>
               </div>
               <div
@@ -1015,8 +1110,31 @@ async function doConnect(matchUserId) {
           </div>
         {:else}
           <div
-            class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10"
+            class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10 relative"
           >
+            {#if data.isOrganizer}
+              <div class="absolute top-4 right-4">
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-400 hover:text-white hover:bg-white/10 transition-colors"
+                    aria-label="Event options"
+                  >
+                    <MoreVertical size={16} />
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content align="end" class="w-48">
+                    <DropdownMenu.Item onclick={openEditModal} class="cursor-pointer gap-2">
+                      <Pencil size={14} />
+                      Edit Event
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator />
+                    <DropdownMenu.Item onclick={() => deleteEventModalOpen = true} class="cursor-pointer gap-2 text-red-400 focus:text-red-400">
+                      <Trash2 size={14} />
+                      Delete Event
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              </div>
+            {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
                 <Badge
@@ -1029,12 +1147,12 @@ async function doConnect(matchUserId) {
                 <h1
                   class="text-4xl sm:text-5xl font-black tracking-tight text-white"
                 >
-                  {data.event.name}
+                  {currentEvent.name}
                 </h1>
                 <p
                   class="text-base leading-relaxed text-ink-300 max-w-2xl mx-auto"
                 >
-                  {data.event.description}
+                  {currentEvent.description}
                 </p>
               </div>
             </div>
@@ -1095,7 +1213,7 @@ async function doConnect(matchUserId) {
                   </p>
                 </div>
                 <p class="text-sm leading-6 text-ink-300 mb-4">
-                  {data.event.description}
+                  {currentEvent.description}
                 </p>
                 <div class="grid gap-3 sm:grid-cols-2">
                   <div class="glass rounded-xl p-3 border border-white/6">
@@ -1791,5 +1909,69 @@ async function doConnect(matchUserId) {
         </Dialog.Content>
       </Dialog.Root>
     {/if}
+    <!-- Edit Event Modal -->
+    <Dialog.Root bind:open={editEventModalOpen}>
+      <Dialog.Content class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white">
+        <Dialog.Header>
+          <Dialog.Title class="text-xl font-bold">Edit Event</Dialog.Title>
+        </Dialog.Header>
+        <div class="grid gap-4 py-4">
+          <div class="space-y-2">
+            <Label for="edit-name" class="text-xs uppercase tracking-widest text-ink-400">Event Name *</Label>
+            <Input id="edit-name" bind:value={editEventName} class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20" />
+          </div>
+          <div class="space-y-2">
+            <Label for="edit-slug" class="text-xs uppercase tracking-widest text-ink-400">Event ID (Slug) *</Label>
+            <Input id="edit-slug" bind:value={editEventSlug} class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20" />
+          </div>
+          <div class="space-y-2">
+            <Label for="edit-desc" class="text-xs uppercase tracking-widest text-ink-400">Description</Label>
+            <textarea id="edit-desc" bind:value={editEventDescription} rows="3" class="w-full bg-white/5 border border-white/10 text-white rounded-md p-2 focus:border-amber-400/50 focus:ring-amber-400/20 outline-none"></textarea>
+          </div>
+          {#if editEventError}
+            <p class="text-red-400 text-sm">{editEventError}</p>
+          {/if}
+        </div>
+        <div class="flex justify-end gap-3 mt-2">
+          <Button variant="ghost" onclick={() => editEventModalOpen = false} disabled={editingEvent}>Cancel</Button>
+          <Button onclick={saveEventUpdates} disabled={editingEvent} class="gap-2">
+            {#if editingEvent}<LoaderCircle size={15} class="animate-spin" />{/if}
+            Save Changes
+          </Button>
+        </div>
+      </Dialog.Content>
+    </Dialog.Root>
+
+    <!-- Delete Event Modal -->
+    <Dialog.Root bind:open={deleteEventModalOpen}>
+      <Dialog.Content class="sm:max-w-md bg-[#0f0f11] border border-red-500/20 text-white">
+        <Dialog.Header>
+          <Dialog.Title class="text-xl font-bold text-red-400">Delete Event</Dialog.Title>
+        </Dialog.Header>
+        <div class="py-4 space-y-4 text-sm text-ink-300">
+          <p class="font-semibold text-white">Are you sure you want to delete this event?</p>
+          <p>This action cannot be undone. Deleting this event will permanently remove:</p>
+          <ul class="list-disc pl-5 space-y-1 text-ink-400">
+            <li>Event details</li>
+            <li>Participants</li>
+            <li>Network profiles</li>
+            <li>AI matches</li>
+            <li>Connections</li>
+            <li>Messages</li>
+          </ul>
+          <p class="text-red-400 font-semibold mt-2">This action is irreversible.</p>
+          {#if deleteEventError}
+            <p class="text-red-400 text-sm mt-2">{deleteEventError}</p>
+          {/if}
+        </div>
+        <div class="flex justify-end gap-3 mt-2">
+          <Button variant="ghost" onclick={() => deleteEventModalOpen = false} disabled={deletingEvent}>Cancel</Button>
+          <Button variant="destructive" onclick={confirmDeleteEvent} disabled={deletingEvent} class="gap-2 bg-red-500 hover:bg-red-600 text-white">
+            {#if deletingEvent}<LoaderCircle size={15} class="animate-spin" />{/if}
+            Delete Event
+          </Button>
+        </div>
+      </Dialog.Content>
+    </Dialog.Root>
   </main>
 </PageShell>

@@ -18,8 +18,15 @@
   import { goto } from "$app/navigation";
   import { navigating } from "$app/stores";
   import { toast } from "$lib/components/ui/sonner/index.js";
+  import { myEventsStore } from "$lib/stores/eventStore";
 
   export let data;
+  
+  $: {
+    if (data.events) {
+      myEventsStore.set(data.events);
+    }
+  }
 
   const supabase = createSupabaseBrowserClient();
   let signingOut = false;
@@ -198,8 +205,8 @@
             </div>
           </div>
         {/each}
-      {:else if data.events.length}
-        {#each data.events as event}
+      {:else if $myEventsStore.length}
+        {#each $myEventsStore as event}
           <div class="glass card-hover rounded-2xl p-6 border border-amber-400/70">
               <div
                 class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"

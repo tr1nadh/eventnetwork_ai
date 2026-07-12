@@ -81,12 +81,31 @@ export async function POST({ request, cookies }) {
   // Fetch the receiver's profile to return to the client
   const { data: profile } = await supabase
     .from('network_profiles')
-    .select('display_name')
+    .select('display_name, what_i_do, about_me, looking_for')
     .eq('user_id', receiver_user_id)
     .eq('event_id', event_id)
     .single();
 
-  connection.profile = { display_name: profile?.display_name || 'Unknown' };
+  connection.profile = profile ?? {
+    display_name: 'Unknown',
+    what_i_do: '',
+    about_me: '',
+    looking_for: ''
+  };
+
+  if (match_id) {
+    const { data: matchRow } = await supabase
+      .from('matches')
+      .select('match_details')
+      .eq('id', match_id)
+      .single();
+
+    connection.matchPercentage = matchRow?.match_details?.score ?? null;
+    connection.explanation = matchRow?.match_details?.summary ?? null;
+  } else {
+    connection.matchPercentage = null;
+    connection.explanation = null;
+  }
 
   return json({ connection, auto_accepted: isDummy });
 }

@@ -272,16 +272,7 @@ async function doConnect(matchUserId) {
     const { connection } = await res.json();
     
     connectionsStore.update(conns => {
-      const newConn = {
-        id: connection.id,
-        status: connection.status,
-        match_id: connection.match_id,
-        sender_user_id: connection.sender_user_id,
-        receiver_user_id: connection.receiver_user_id,
-        met_at: connection.met_at ?? null,
-        profile: connection.profile
-      };
-      return [...conns, newConn];
+      return [...conns, connection];
     });
 
     if (connection.status === 'accepted') {

@@ -117,10 +117,19 @@ let connectionFilter = 'received'; // received | sent | connected | met
 $: filteredConnections = $connectionsStore.filter(conn => {
   const isSender = conn.sender_user_id === data.user?.id;
   const isReceiver = conn.receiver_user_id === data.user?.id;
-  if (connectionFilter === 'received') return isReceiver && conn.status === 'pending';
-  if (connectionFilter === 'sent') return isSender && conn.status === 'pending';
-  if (connectionFilter === 'connected') return conn.status === 'accepted';
-  if (connectionFilter === 'met') return conn.status === 'accepted' && conn.met_at != null;
+  
+  if (connectionFilter === 'received') {
+    return isReceiver && conn.status === 'pending';
+  }
+  if (connectionFilter === 'sent') {
+    return isSender && conn.status === 'pending';
+  }
+  if (connectionFilter === 'connected') {
+    return (isSender || isReceiver) && conn.status === 'accepted';
+  }
+  if (connectionFilter === 'met') {
+    return (isSender || isReceiver) && conn.status === 'accepted' && !!conn.met_at;
+  }
   return false;
 });
 
@@ -1130,7 +1139,7 @@ async function connectUser(matchUserId) {
                 <Button
                   variant={connectionFilter === f ? 'default' : 'outline'}
                   class="capitalize"
-                  on:click={() => { connectionFilter = f; }}
+                  onclick={() => { connectionFilter = f; }}
                 >{f}</Button>
               {/each}
             </div>
@@ -1153,15 +1162,17 @@ async function connectUser(matchUserId) {
                         <div class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300">{conn.explanation}</div>
                       {/if}
                       <!-- Action buttons based on status -->
-                      {#if conn.status === 'pending' && conn.receiver_user_id === data.user.id}
+                      {#if conn.status === 'pending' && conn.receiver_user_id === data.user?.id}
                         <div class="flex gap-2 mt-2">
                           <Button class="flex-1" onclick={() => updateConnection(conn.id, 'accepted')}>Accept</Button>
                           <Button variant="destructive" class="flex-1" onclick={() => updateConnection(conn.id, 'rejected')}>Reject</Button>
                         </div>
-                      {:else if conn.status === 'sent'}
-                        <Button variant="outline" class="mt-2" onclick={() => updateConnection(conn.id, 'cancelled')}>Cancel</Button>
-                      {:else if conn.status === 'accepted'}
-                        <Button variant="outline" class="mt-2" onclick={() => updateConnection(conn.id, 'met')}>Mark as Met</Button>
+                      {:else if conn.status === 'pending' && conn.sender_user_id === data.user?.id}
+                        <Button variant="outline" class="mt-2 w-full" onclick={() => updateConnection(conn.id, 'cancelled')}>Cancel Request</Button>
+                      {:else if conn.status === 'accepted' && !conn.met_at}
+                        <Button variant="outline" class="mt-2 w-full" onclick={() => updateConnection(conn.id, 'met')}>Mark as Met</Button>
+                      {:else if conn.status === 'accepted' && conn.met_at}
+                        <span class="mt-2 text-xs text-emerald-400 font-semibold">✓ Met</span>
                       {/if}
                     </div>
                   </div>

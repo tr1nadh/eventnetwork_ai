@@ -180,7 +180,7 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
 
   let editProfileOpen = false;
 
-  $: currentEvent = data.event;
+  let currentEvent = data.event;
   
   // Edit & Delete state
   let editEventModalOpen = false;
@@ -229,12 +229,13 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
         throw new Error(resData.message || resData.error || 'Failed to update event');
       }
       
+      const oldSlug = currentEvent.slug;
       currentEvent = resData.event;
       toast.success('✅ Event updated successfully.');
       editEventModalOpen = false;
       
-      if (currentEvent.slug !== data.event.slug) {
-        goto(`/event/${currentEvent.slug}`, { replaceState: true });
+      if (resData.event.slug !== oldSlug) {
+        goto(`/event/${resData.event.slug}`, { replaceState: true });
       }
     } catch(e) {
       editEventError = e.message;

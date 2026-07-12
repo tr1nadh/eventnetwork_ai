@@ -13,6 +13,7 @@
     Brain,
     UserCircle2,
     Target,
+    RefreshCw,
     MessageSquare,
     Info,
     X,
@@ -173,21 +174,31 @@ async function updateConnection(connectionId, newStatus) {
   }
 }
 
-async function connectUser(matchUserId) {
+async function connectUser(match) {
+  // Check if there's an existing cancelled connection we should reactivate
+  const existing = $connectionsStore.find(c =>
+    c.sender_user_id === data.user?.id &&
+    c.receiver_user_id === match.user_id &&
+    c.status === 'cancelled'
+  );
+
+  if (existing) {
+    await updateConnection(existing.id, 'pending');
+    return;
+  }
+
+  // If dummy user, show confirmation modal first
+  if (match.is_dummy) {
+    pendingDummyUserId = match.user_id;
+    dummyConnectModalOpen = true;
+    return;
+  }
+
+  await doConnect(match.user_id);
+}
+
+async function doConnect(matchUserId) {
   try {
-    // Check if there's an existing cancelled connection we should reactivate
-    const existing = $connectionsStore.find(c =>
-      c.sender_user_id === data.user?.id &&
-      c.receiver_user_id === matchUserId &&
-      c.status === 'cancelled'
-    );
-
-    if (existing) {
-      // Reactivate by updating status back to pending
-      await updateConnection(existing.id, 'pending');
-      return;
-    }
-
     const res = await fetch(`/api/connections/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -198,23 +209,26 @@ async function connectUser(matchUserId) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || err.error || 'Failed to create connection request');
     }
-    const { connection, auto_accepted } = await res.json();
+    const { connection } = await res.json();
     
     connectionsStore.update(conns => {
       const newConn = {
         id: connection.id,
-        status: connection.status, // 'accepted' if dummy, 'pending' otherwise
+        status: connection.status,
         match_id: connection.match_id,
         sender_user_id: connection.sender_user_id,
         receiver_user_id: connection.receiver_user_id,
         met_at: connection.met_at ?? null,
-        profile: { display_name: auto_accepted ? 'Simulation User' : 'Pending...' }
+        profile: { display_name: '' }
       };
       return [...conns, newConn];
     });
 
-    if (auto_accepted) {
-      toast.success('Connected! (auto-accepted — simulation user)');
+    // Re-fetch connections to get proper display names from DB
+    await fetchAllConnections();
+
+    if (connection.status === 'accepted') {
+      toast.success('Connected!');
     } else {
       toast.success('Connection request sent');
     }
@@ -222,6 +236,7 @@ async function connectUser(matchUserId) {
     toast.error(e.message || 'Could not send request');
   }
 }
+
   async function signOut() {
     signingOut = true;
     await supabase.auth.signOut();
@@ -454,6 +469,10 @@ async function connectUser(matchUserId) {
 
   let dummyModalOpen = false;
   let creatingDummy = false;
+
+  // Dummy connect confirmation modal
+  let dummyConnectModalOpen = false;
+  let pendingDummyUserId = null;
 
   async function createDummyUsers() {
     creatingDummy = true;
@@ -1064,7 +1083,7 @@ async function connectUser(matchUserId) {
                       <!-- Connect Button -->
                       <div class="pt-4 mt-auto">
                         {#if !conn || conn.status === 'cancelled'}
-                          <Button class="w-full bg-white text-black hover:bg-white/90 gap-2" onclick={() => connectUser(match.user_id)}>
+                          <Button class="w-full bg-white text-black hover:bg-white/90 gap-2" onclick={() => connectUser(match)}>
                             <Users size={16} /> Connect
                           </Button>
                         {:else if conn.status === 'pending' && conn.sender_user_id === data.user?.id}
@@ -1137,10 +1156,32 @@ async function connectUser(matchUserId) {
             </Dialog.Root>
           </Tabs.Content>
 
+          <!-- Dummy user connect confirmation modal -->
+          <Dialog.Root bind:open={dummyConnectModalOpen}>
+            <Dialog.Content class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white">
+              <Dialog.Header>
+                <Dialog.Title class="text-xl font-bold text-white flex items-center gap-2">
+                  <span class="text-amber-400">⚠</span> Dummy User
+                </Dialog.Title>
+              </Dialog.Header>
+              <p class="text-sm leading-6 text-ink-300 mt-2">
+                This is a dummy user created for testing. The connection request will be automatically accepted.
+              </p>
+              <div class="flex gap-3 mt-4">
+                <Button variant="outline" class="flex-1 border-white/10 text-white hover:bg-white/10" onclick={() => { dummyConnectModalOpen = false; pendingDummyUserId = null; }}>
+                  Cancel
+                </Button>
+                <Button class="flex-1" onclick={async () => { dummyConnectModalOpen = false; if (pendingDummyUserId) { await doConnect(pendingDummyUserId); pendingDummyUserId = null; } }}>
+                  Continue
+                </Button>
+              </div>
+            </Dialog.Content>
+          </Dialog.Root>
+
           <!-- Connections tab -->
           <Tabs.Content value="connections" class="mt-4">
-            <!-- Filter tabs -->
-            <div class="flex gap-2 mb-4">
+            <!-- Filter tabs + Refresh -->
+            <div class="flex flex-wrap items-center gap-2 mb-4">
               {#each ['received', 'sent', 'connected', 'met'] as f}
                 <Button
                   variant={connectionFilter === f ? 'default' : 'outline'}
@@ -1148,6 +1189,15 @@ async function connectUser(matchUserId) {
                   onclick={() => { connectionFilter = f; }}
                 >{f}</Button>
               {/each}
+              <Button 
+                variant="outline" 
+                class="ml-auto gap-2 text-ink-300 border-white/10 hover:bg-white/10" 
+                onclick={fetchAllConnections}
+                disabled={loadingConnections}
+              >
+                <RefreshCw size={16} class={loadingConnections ? "animate-spin" : ""} />
+                Refresh
+              </Button>
             </div>
 
             {#if loadingConnections}

@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createChatCompletion } from '$lib/llm/fireworks';
+import { createSupabaseAdminClient } from '$lib/supabase/admin';
 
 function cosineSimilarity(a, b) {
   if (typeof a === 'string') a = JSON.parse(a);
@@ -75,8 +76,24 @@ export async function GET({ url, cookies }) {
       name: p.display_name,
       role: p.what_i_do,
       about: p.about_me,
-      matchPercentage: Math.round(p.similarity * 100)
+      matchPercentage: Math.round(p.similarity * 100),
+      is_dummy: false // will be updated below
     }));
+
+  // Detect dummy users by checking email pattern via admin client
+  try {
+    const admin = createSupabaseAdminClient();
+    await Promise.all(
+      scored.map(async (match) => {
+        const { data: authUser } = await admin.auth.admin.getUserById(match.user_id);
+        if (/^dummy\d+\+.+@eventnetwork\.ai$/.test(authUser?.user?.email ?? '')) {
+          match.is_dummy = true;
+        }
+      })
+    );
+  } catch (e) {
+    console.error('Failed to check dummy status for matches:', e);
+  }
 
   // Generate AI explanations in parallel
   const myProfileContext = `

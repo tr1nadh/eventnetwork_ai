@@ -795,19 +795,19 @@ async function fetchConnections() {
                     >
                       {field.label}
                     </Label>
-                    {#if field.key === "whoTheyWant"}
+                    {#if field.key === "whoTheyAre"}
+                      <Input
+                        id={field.wsId}
+                        bind:value={networkingProfile[field.key]}
+                        class="bg-white/4 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+                      />
+                    {:else}
                       <textarea
                         id={field.wsId}
                         bind:value={networkingProfile[field.key]}
                         class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50 focus:ring-amber-400/20 w-full rounded-md p-2"
                         rows="4"
                       ></textarea>
-                    {:else}
-                      <Input
-                        id={field.wsId}
-                        bind:value={networkingProfile[field.key]}
-                        class="bg-white/4 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
-                      />
                     {/if}
                   </div>
                 {/each}

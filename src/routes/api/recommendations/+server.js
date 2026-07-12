@@ -1,8 +1,9 @@
 import { json, error } from '@sveltejs/kit';
 import { createSupabaseServerClient } from '$lib/supabase/server';
 
-/** Compute cosine similarity between two numeric arrays */
 function cosineSimilarity(a, b) {
+  if (typeof a === 'string') a = JSON.parse(a);
+  if (typeof b === 'string') b = JSON.parse(b);
   let dot = 0;
   let normA = 0;
   let normB = 0;

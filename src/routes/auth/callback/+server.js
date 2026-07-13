@@ -33,27 +33,32 @@ export async function GET(event) {
     }
   }
 
-  // We return an HTML page with a meta refresh and JS redirect instead of a 303 Redirect.
-  // This bypasses Safari ITP and Chrome strict cookie blocking on cross-site redirect chains in production.
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Redirecting...</title>
-        <meta http-equiv="refresh" content="0;url=${next}">
-      </head>
-      <body>
-        <script>window.location.href = "${next}";</script>
-        <p>Redirecting you to the app...</p>
-      </body>
-    </html>
-  `;
+  // Return an HTML page that redirects client-side AFTER the browser has
+  // fully committed the Set-Cookie headers from this response.
+  // Using window.onload ensures the browser has processed the response
+  // (including cookies) before the navigation fires, preventing a race
+  // condition where the Supabase browser client reads before cookies are stored.
+  const safeNext = next.replace(/"/g, '');
+  const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+  </head>
+  <body>
+    <script>
+      window.onload = function() {
+        window.location.replace("${safeNext}");
+      };
+    </script>
+    <noscript>
+      <meta http-equiv="refresh" content="0;url=${safeNext}">
+    </noscript>
+  </body>
+</html>`;
 
   return new Response(html, {
     status: 200,
-    headers: {
-      'content-type': 'text/html'
-    }
+    headers: { 'content-type': 'text/html; charset=utf-8' }
   });
 }

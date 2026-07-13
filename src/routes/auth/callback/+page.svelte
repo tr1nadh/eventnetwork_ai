@@ -9,7 +9,7 @@
     // in the response for this page. The browser has committed them.
     // goto() uses SvelteKit's client-side router, which properly reads the
     // fresh cookies and loads the target page with a valid session.
-    goto(data.next, { replaceState: true, invalidateAll: true });
+    goto('/events');
   });
 </script>
 

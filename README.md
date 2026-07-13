@@ -307,6 +307,14 @@ Meet
 
 ---
 
+## 🛠️ AMD Compute Verification
+Our application’s AI pipelines were engineered, tested, and validated using the official AMD Jupyter Notebook compute environment. 
+- **Verification Script:** `/amd-compute-workspace/amd_verification.py`
+- **Execution Log:** `/amd-compute-workspace/verification_log.txt`
+- **Jupyter Notebook:** `/amd-compute-workspace/amd_verification.ipynb`
+
+---
+
 # ❤️ Built For
 
 AMD Developer Hackathon - ACT II

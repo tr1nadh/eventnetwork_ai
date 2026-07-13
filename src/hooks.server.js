@@ -4,8 +4,8 @@ import { syncUserRecord } from '$lib/supabase/sync-user';
 export const handle = async ({ event, resolve }) => {
   event.locals.supabase = createSupabaseServerClient(event.cookies);
 
-  const { data } = await event.locals.supabase.auth.getUser();
-  event.locals.user = data.user ?? null;
+  const { data } = await event.locals.supabase.auth.getSession();
+  event.locals.user = data.session?.user ?? null;
 
   // Only sync user record on page navigations, not API requests.
   // API calls are frequent and don't need a DB write every time.

@@ -1,8 +1,31 @@
-// This route is primarily handled by +server.js (GET handler).
-// This page load only runs if the user lands on /auth/callback without a code
-// (e.g. direct navigation), in which case we redirect them to /events.
-import { redirect } from '@sveltejs/kit';
+import { syncUserRecord } from '$lib/supabase/sync-user';
 
-export async function load() {
-  throw redirect(303, '/events');
+function sanitizeNext(value) {
+  if (!value || !value.startsWith('/')) {
+    return '/events';
+  }
+  return value;
+}
+
+export async function load(event) {
+  const { url, locals: { supabase } } = event;
+  const code = url.searchParams.get('code');
+  const next = sanitizeNext(url.searchParams.get('next'));
+
+  if (code) {
+    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!exchangeError && data.user) {
+      try {
+        await syncUserRecord(data.user);
+      } catch (syncError) {
+        console.error('Failed to sync auth user into public.users', syncError);
+      }
+    }
+  }
+
+  // We intentionally return a 200 OK response with the next URL.
+  // This guarantees that Vercel/CDN won't strip Set-Cookie headers
+  // which can sometimes happen with 30x redirects.
+  return { next };
 }

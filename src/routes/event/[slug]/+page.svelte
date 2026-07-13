@@ -411,6 +411,7 @@ let venueLocation = null;
 let activeChatConnectionId = null;
 let prepModalOpen = false;
 let activePrepConnection = null;
+let connectingIds = [];
 
 function openMeetingPrep(connection) {
   activePrepConnection = connection;
@@ -549,6 +550,7 @@ async function connectUser(match) {
 }
 
 async function doConnect(matchUserId) {
+  connectingIds = [...connectingIds, matchUserId];
   try {
     const res = await fetch(`/api/connections/create`, {
       method: 'POST',
@@ -573,6 +575,8 @@ async function doConnect(matchUserId) {
     }
   } catch (e) {
     toast.error(e.message || 'Could not send request');
+  } finally {
+    connectingIds = connectingIds.filter(id => id !== matchUserId);
   }
 }
 
@@ -1698,8 +1702,12 @@ async function doConnect(matchUserId) {
                       <!-- Connect Button -->
                       <div class="pt-4 mt-auto">
                         {#if !conn || conn.status === 'cancelled'}
-                          <Button class="w-full bg-white text-black hover:bg-white/90 gap-2" onclick={() => connectUser(match)}>
-                            <Users size={16} /> Connect
+                          <Button class="w-full bg-white text-black hover:bg-white/90 gap-2" disabled={connectingIds.includes(match.user_id)} onclick={() => connectUser(match)}>
+                            {#if connectingIds.includes(match.user_id)}
+                              <LoaderCircle size={16} class="animate-spin" /> Connecting...
+                            {:else}
+                              <Users size={16} /> Connect
+                            {/if}
                           </Button>
                         {:else if conn.status === 'pending' && conn.sender_user_id === data.user?.id}
                           <Button variant="outline" class="w-full gap-2 text-ink-300 border-ink-600 hover:text-white" onclick={() => updateConnection(conn.id, 'cancelled')}>

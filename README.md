@@ -70,19 +70,23 @@ Event organizers can visually customize venue blocks to represent booths, meetin
 
 ### Home
 
-![Home](docs/screenshots/home.png)
+<img width="1344" height="600" alt="image" src="https://github.com/user-attachments/assets/d006f733-0e7d-4760-9f4f-e458fe54909d" />
+
 
 ### AI Matching
 
-![Matches](docs/screenshots/matches.png)
+<img width="1346" height="591" alt="image" src="https://github.com/user-attachments/assets/e1e6e254-1b0e-4f27-b809-9daaeb3b6ded" />
+
 
 ### AI Meeting Prep
 
-![Meeting Prep](docs/screenshots/meeting-prep.png)
+<img width="1355" height="591" alt="image" src="https://github.com/user-attachments/assets/35d1daca-4bc8-45c8-9f4b-4e4d474be846" />
+
 
 ### Organizer Analytics
 
-![Analytics](docs/screenshots/analytics.png)
+<img width="1346" height="593" alt="image" src="https://github.com/user-attachments/assets/8f8f2809-8ca4-4e65-a799-3a0d312886e5" />
+
 
 ---
 

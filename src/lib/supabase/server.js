@@ -9,7 +9,12 @@ export function createSupabaseServerClient(cookies) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value, options }) => {
-          cookies.set(name, value, { ...options, path: '/' });
+          const cookieOptions = { ...options, path: '/' };
+          if (cookieOptions.domain === '' || !cookieOptions.domain) {
+            delete cookieOptions.domain;
+          }
+          delete cookieOptions.secure; // Let SvelteKit handle it
+          cookies.set(name, value, cookieOptions);
         });
       }
     }

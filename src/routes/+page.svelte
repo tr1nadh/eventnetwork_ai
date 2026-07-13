@@ -353,7 +353,7 @@
         </div>
 
         <!-- ─── Hero AI Visualization ─── -->
-        <div class="mt-20 relative" data-section="hero-vis">
+        <div class="mt-20 relative hidden sm:block" data-section="hero-vis">
           <div class="relative mx-auto max-w-3xl">
             <!-- Central glow -->
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">

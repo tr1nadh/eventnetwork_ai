@@ -1195,50 +1195,54 @@ async function doConnect(matchUserId) {
         <Tabs.Root value={$activeTab} onValueChange={(v) => {
           activeTab.set(v);
         }}>
+          <!-- Scrollable tabs wrapper -->
+          <div class="overflow-x-auto overflow-y-hidden scrollbar-hide rounded-xl">
           <Tabs.List
-            class="glass rounded-xl flex overflow-hidden divide-x divide-white/10"
+            class="glass rounded-xl flex min-w-max divide-x divide-white/10"
           >
             <Tabs.Trigger
               value="details"
-              class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
+              class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
             >
-              <Info size={16} class="inline-block mr-1 align-text-bottom" />
-              Overview
+              <Info size={16} />
+              <span>Overview</span>
             </Tabs.Trigger>
 
             <Tabs.Trigger
               value="analytics"
-              class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-200 data-[state=inactive]:text-ink-500 hover:text-cyan-200"
+              class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-200 data-[state=inactive]:text-ink-500 hover:text-cyan-200"
             >
-              <BarChart3 size={16} class="inline-block mr-1 align-text-bottom" />
-              Analytics
+              <BarChart3 size={16} />
+              <span>Analytics</span>
             </Tabs.Trigger>
 
             <Tabs.Trigger
               value="matches"
-              class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
+              class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
             >
-              <Users size={16} class="inline-block mr-1 align-text-bottom" />
-               Matches {#if $matchesStore.length}<span
-                   class="ml-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-bold text-amber-300"
+              <Users size={16} />
+              <span class="flex items-center gap-1.5">Matches {#if $matchesStore.length}<span
+                   class="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300"
                    >{$matchesStore.length}</span>
-                 {/if}
+                 {/if}</span>
             </Tabs.Trigger>
-          <Tabs.Trigger
+
+            <Tabs.Trigger
                 value="connections"
-                class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-purple-400/15 data-[state=active]:text-purple-200 data-[state=inactive]:text-ink-500 hover:text-purple-200"
+                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-purple-400/15 data-[state=active]:text-purple-200 data-[state=inactive]:text-ink-500 hover:text-purple-200"
               >
-                <Target size={16} class="inline-block mr-1 align-text-bottom" />
-                Connections
+                <Target size={16} />
+                <span>Connect</span>
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="venue"
-                class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
+                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
               >
-                <MapPin size={16} class="inline-block mr-1 align-text-bottom" />
-                Venue
+                <MapPin size={16} />
+                <span>Venue</span>
               </Tabs.Trigger>
               </Tabs.List>
+          </div>
 
           <!-- Details tab -->
           <Tabs.Content value="details" class="mt-4">
@@ -1527,25 +1531,26 @@ async function doConnect(matchUserId) {
 
           <!-- Matches tab -->
           <Tabs.Content value="matches" class="mt-4">
-            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div class="flex items-center gap-2">
                 <Users size={18} class="text-white" />
                 <h2 class="text-lg font-bold text-white">Your Matches</h2>
               </div>
-              <div class="flex items-center gap-3">
-                <Button variant="outline" class="border-white/10 text-white hover:bg-white/10" onclick={() => (editProfileOpen = true)}>
+              <div class="flex flex-wrap items-center gap-2">
+                <Button variant="outline" class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10" onclick={() => (editProfileOpen = true)}>
                   <UserCircle2 size={15} class="mr-2" />
-                  Edit network profile
+                  <span class="hidden sm:inline">Edit profile</span>
+                  <span class="sm:hidden">Edit</span>
                 </Button>
-                <Button variant="outline" class="border-white/10 text-white hover:bg-white/10 gap-2" onclick={refreshFromDb} disabled={refreshingFromDb}>
+                <Button variant="outline" class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10 gap-2" onclick={refreshFromDb} disabled={refreshingFromDb}>
                   {#if refreshingFromDb}
                     <LoaderCircle size={15} class="animate-spin" />
                   {:else}
                     <RefreshCcw size={15} />
                   {/if}
-                  Refresh
+                  <span class="hidden sm:inline">Refresh</span>
                 </Button>
-                <Button class="gap-2" onclick={fetchMatches} disabled={refreshingMatches}>
+                <Button class="flex-1 sm:flex-none w-full sm:w-auto gap-2" onclick={fetchMatches} disabled={refreshingMatches}>
                   {#if refreshingMatches}
                     <LoaderCircle size={15} class="animate-spin" />
                     Finding…
@@ -1554,9 +1559,9 @@ async function doConnect(matchUserId) {
                     Find matches
                   {/if}
                 </Button>
-                <Button variant="outline" class="gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = true)}>
+                <Button variant="outline" class="flex-1 sm:flex-none w-full sm:w-auto gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = true)}>
                   <Users size={15} />
-                  Create simulation
+                  Simulation
                 </Button>
               </div>
             </div>

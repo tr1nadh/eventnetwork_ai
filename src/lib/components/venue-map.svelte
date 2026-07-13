@@ -190,66 +190,72 @@
 
 <div class="glass rounded-2xl overflow-hidden border border-white/10 animate-fade-in flex flex-col relative">
   <!-- Header -->
-  <div class="p-6 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-    <div>
-      <h2 class="text-lg font-bold text-white flex items-center gap-2">
-        <MapPin size={18} class="text-amber-400" />
-        Interactive Venue Map
-      </h2>
-      <p class="text-sm text-ink-500 mt-1">
-        {#if isEditing}
-          Drag blocks to move them, or grab any edge to resize.
-        {:else}
-          Tap a zone to check-in and let your connections know where to find you.
+  <div class="p-4 sm:p-6 border-b border-white/10 flex flex-col gap-3">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <MapPin size={18} class="text-amber-400" />
+          Interactive Venue Map
+        </h2>
+        <p class="text-sm text-ink-500 mt-1">
+          {#if isEditing}
+            Drag blocks to move them, or grab any edge to resize.
+          {:else}
+            Tap a zone to check-in and let your connections know where to find you.
+          {/if}
+        </p>
+      </div>
+      
+      <div class="flex flex-wrap items-center gap-2">
+        {#if isOrganizer}
+          {#if isEditing}
+            <div class="flex items-center gap-1.5 bg-black/40 rounded-lg px-2 py-1">
+              <span class="text-xs text-white/50 uppercase font-bold tracking-wider hidden xs:inline">Cols</span>
+              <button onclick={() => gridCols = Math.max(3, gridCols - 1)} class="w-6 h-6 flex items-center justify-center bg-white/10 text-white rounded hover:bg-white/20 text-sm font-bold">-</button>
+              <span class="text-sm text-white font-mono w-5 text-center">{gridCols}</span>
+              <button onclick={() => gridCols++} class="w-6 h-6 flex items-center justify-center bg-white/10 text-white rounded hover:bg-white/20 text-sm font-bold">+</button>
+            </div>
+            <div class="flex items-center gap-1.5 bg-black/40 rounded-lg px-2 py-1">
+              <span class="text-xs text-white/50 uppercase font-bold tracking-wider hidden xs:inline">Rows</span>
+              <button onclick={() => gridRows = Math.max(3, gridRows - 1)} class="w-6 h-6 flex items-center justify-center bg-white/10 text-white rounded hover:bg-white/20 text-sm font-bold">-</button>
+              <span class="text-sm text-white font-mono w-5 text-center">{gridRows}</span>
+              <button onclick={() => gridRows++} class="w-6 h-6 flex items-center justify-center bg-white/10 text-white rounded hover:bg-white/20 text-sm font-bold">+</button>
+            </div>
+            <button onclick={saveMap} class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-semibold hover:bg-emerald-500/30 transition-colors">
+              <Save size={14} />
+              Save
+            </button>
+            <button onclick={addZone} class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white/10 text-white border border-white/20 rounded-lg text-sm font-semibold hover:bg-white/20 transition-colors">
+              <Plus size={14} />
+              Add
+            </button>
+          {:else}
+            <button onclick={toggleEditMode} class="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 sm:px-3 sm:py-1.5 bg-white/5 text-ink-300 border border-white/10 rounded-lg text-sm font-semibold hover:bg-white/10 hover:text-white transition-colors">
+              <Pencil size={14} />
+              Edit Map
+            </button>
+          {/if}
         {/if}
-      </p>
-    </div>
-    
-    <div class="flex items-center gap-3">
-      {#if isOrganizer}
-        {#if isEditing}
-          <div class="flex items-center gap-2 mr-2 bg-black/40 rounded-lg px-2 py-1">
-            <span class="text-xs text-white/50 uppercase font-bold tracking-wider">Grid</span>
-            <button onclick={() => gridCols = Math.max(3, gridCols - 1)} class="w-6 h-6 flex items-center justify-center bg-white/10 text-white rounded hover:bg-white/20">-</button>
-            <span class="text-sm text-white font-mono w-10 text-center">{gridCols}x{gridRows}</span>
-            <button onclick={() => gridCols++} class="w-6 h-6 flex items-center justify-center bg-white/10 text-white rounded hover:bg-white/20 mr-1">+</button>
-            <button onclick={() => gridRows = Math.max(3, gridRows - 1)} class="w-6 h-6 flex items-center justify-center bg-white/10 text-white rounded hover:bg-white/20">-</button>
-            <button onclick={() => gridRows++} class="w-6 h-6 flex items-center justify-center bg-white/10 text-white rounded hover:bg-white/20">+</button>
-          </div>
-          <button onclick={saveMap} class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-semibold hover:bg-emerald-500/30 transition-colors">
-            <Save size={14} />
-            Save
-          </button>
-          <button onclick={addZone} class="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white border border-white/20 rounded-lg text-sm font-semibold hover:bg-white/20 transition-colors">
-            <Plus size={14} />
-            Add Zone
-          </button>
-        {:else}
-          <button onclick={toggleEditMode} class="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-ink-300 border border-white/10 rounded-lg text-sm font-semibold hover:bg-white/10 hover:text-white transition-colors">
-            <Pencil size={14} />
-            Edit Map
-          </button>
-        {/if}
-      {/if}
 
-      {#if currentLocation && !isEditing}
-        <div class="bg-amber-400/10 border border-amber-400/20 text-amber-300 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2" transition:slide>
-          <div class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
-          You are at: {zones.find(z => z.id === currentLocation)?.name || 'Unknown Zone'}
-        </div>
-      {:else if !isEditing}
-        <div class="bg-white/5 border border-white/10 text-ink-400 px-3 py-1.5 rounded-full text-xs font-semibold" transition:slide>
-          Not checked in
-        </div>
-      {/if}
+        {#if currentLocation && !isEditing}
+          <div class="bg-amber-400/10 border border-amber-400/20 text-amber-300 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2" transition:slide>
+            <div class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
+            <span class="hidden sm:inline">You are at:</span> {zones.find(z => z.id === currentLocation)?.name || 'Unknown Zone'}
+          </div>
+        {:else if !isEditing}
+          <div class="bg-white/5 border border-white/10 text-ink-400 px-3 py-1.5 rounded-full text-xs font-semibold" transition:slide>
+            Not checked in
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
 
   <!-- Map Grid -->
-  <div class="p-6 bg-black/40 relative">
+  <div class="p-4 sm:p-6 bg-black/40 relative overflow-x-auto overflow-y-hidden">
     
-    <div class="grid gap-3 md:gap-4 max-w-4xl mx-auto relative z-10" 
-         style="grid-template-columns: repeat({gridCols}, 1fr); grid-auto-rows: minmax(80px, 1fr);">
+    <div class="grid gap-3 md:gap-4 mx-auto relative z-10 min-w-max sm:min-w-0" 
+         style="grid-template-columns: repeat({gridCols}, minmax(80px, 1fr)); grid-auto-rows: minmax(80px, 1fr);">
       
       {#if isEditing}
         <!-- Visual Grid Lines -->

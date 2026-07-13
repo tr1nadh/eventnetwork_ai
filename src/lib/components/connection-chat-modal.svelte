@@ -294,7 +294,7 @@
             {:else}
               <Send size={16} />
             {/if}
-            Send
+            <span class="hidden sm:inline">Send</span>
           </Button>
         </div>
       </div>

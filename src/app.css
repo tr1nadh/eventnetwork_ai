@@ -200,6 +200,14 @@
     box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.1), 0 8px 32px rgba(5, 8, 22, 0.5);
     transform: translateY(-1px);
   }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
 }
 
 @keyframes fade-in {

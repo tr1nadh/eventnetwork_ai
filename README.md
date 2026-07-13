@@ -13,8 +13,8 @@ Built for **AMD Developer Hackathon – ACT II**.
 # 🔗 Project Links
 
 - 🌐 **Live Demo:** https://eventnetwork-ai.vercel.app
-- 🎥 **Demo Video:** https://your-demo-video-url.com
-- 📊 **Presentation Slides:** https://your-slide-deck-url.com
+- 🎥 **Demo Video:** [Demo video](https://drive.google.com/file/d/1WYLzYtEHecC1oadmghmuyvCGWrg-26Yz/view?usp=sharing)
+- 📊 **Presentation Slides:** [Pitch deck pdf](https://drive.google.com/file/d/1E1yVJJ5STX29A1F644AMbllMWhzJvD0A/view?usp=sharing)
 - 💻 **GitHub Repository:** https://github.com/tr1nadh/eventnetwork-ai
 
 ---

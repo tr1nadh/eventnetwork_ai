@@ -246,15 +246,15 @@
   </div>
 
   <!-- Map Grid -->
-  <div class="p-6 bg-black/40 relative min-h-[400px] overflow-auto">
+  <div class="p-6 bg-black/40 relative">
     
     <div class="grid gap-3 md:gap-4 max-w-4xl mx-auto relative z-10" 
-         style="grid-template-columns: repeat({gridCols}, minmax(80px, 1fr)); grid-template-rows: repeat({gridRows}, minmax(80px, auto));">
+         style="grid-template-columns: repeat({gridCols}, 1fr); grid-auto-rows: minmax(80px, 1fr);">
       
       {#if isEditing}
         <!-- Visual Grid Lines -->
         {#each Array(gridCols * gridRows) as _, i}
-          <div class="border-2 border-white/5 rounded-xl pointer-events-none" style="grid-column: {(i % gridCols) + 1}; grid-row: {Math.floor(i / gridCols) + 1};"></div>
+          <div class="border border-white/8 rounded-xl pointer-events-none bg-white/[0.02]" style="grid-column: {(i % gridCols) + 1}; grid-row: {Math.floor(i / gridCols) + 1}; min-height: 80px;"></div>
         {/each}
       {/if}
 

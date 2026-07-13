@@ -19,10 +19,17 @@ export async function POST({ request, locals }) {
     return json({ error: 'Prompt is required.' }, { status: 400 });
   }
 
-  const { text } = await generateText({
-    model: fireworks(FIREWORKS_MODEL),
-    prompt
-  });
-
-  return json({ text });
+  try {
+    const { text } = await generateText({
+      model: fireworks(FIREWORKS_MODEL),
+      prompt
+    });
+    return json({ text });
+  } catch (err) {
+    console.error('LLM generation failed:', err);
+    return json(
+      { error: err instanceof Error ? err.message : 'Text generation failed' },
+      { status: 502 }
+    );
+  }
 }

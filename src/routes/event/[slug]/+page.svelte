@@ -70,8 +70,12 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
   let realtimeChannel;
 
   onMount(() => {
+    // Hide page loading indicator once mounted
     pageLoading = false;
     
+    // Always clear the connections store on mount so we don't show stale data from another event
+    connectionsStore.set([]);
+
     try {
       if (typeof window !== 'undefined' && 'Notification' in window) {
         if (Notification.permission === 'default') {
@@ -84,84 +88,96 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
 
     if (!data.user?.id) return;
 
-    realtimeChannel = supabase.channel('connections-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'connections',
-        filter: `event_id=eq.${data.event.id}`
-      }, async (payload) => {
-        const { eventType, new: newRecord, old: oldRecord } = payload;
-        
-        if (eventType === 'INSERT') {
-          if (newRecord.receiver_user_id === data.user.id && newRecord.status === 'pending') {
-            const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.sender_user_id).eq('event_id', data.event.id).single();
-            const senderName = profile?.display_name || 'Someone';
-            
-            connectionsStore.update(conns => {
-              if (conns.find(c => c.id === newRecord.id)) return conns;
-              return [{...newRecord, profile: { display_name: senderName }}, ...conns];
-            });
+    if (data.isParticipant) {
+      fetchAllConnections();
 
-            toast.custom(ConnectionToast, {
-              componentProps: { title: 'New Connection Request', message: `${senderName} wants to connect with you.`, type: 'request' }
-            });
-
-            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-              const notification = new Notification('New Connection Request', { body: `${senderName} wants to connect with you.` });
-              notification.onclick = () => {
-                window.focus();
-                connectionFilter = 'received';
-                activeTab.set('connections');
-              };
-            }
-          }
-        } else if (eventType === 'UPDATE') {
-           if (newRecord.sender_user_id !== data.user.id && newRecord.receiver_user_id !== data.user.id) return;
-
-           connectionsStore.update(conns => {
-             const idx = conns.findIndex(c => c.id === newRecord.id);
-             if (idx >= 0) {
-               conns[idx] = { ...conns[idx], ...newRecord };
-             }
-             return conns;
-           });
-
-           if (newRecord.sender_user_id === data.user.id && oldRecord.status === 'pending' && newRecord.status === 'accepted' && !newRecord.met_at) {
-             const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.receiver_user_id).eq('event_id', data.event.id).single();
-             const receiverName = profile?.display_name || 'Your connection';
-
-             toast.custom(ConnectionToast, {
-               componentProps: { title: 'Connection Accepted', message: `${receiverName} accepted your connection request.`, type: 'accepted' }
-             });
-
-             if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-               const notification = new Notification('Connection Accepted', { body: `${receiverName} accepted your connection request.` });
-               notification.onclick = () => {
-                 window.focus();
-                 connectionFilter = 'connected';
-                 activeTab.set('connections');
-               };
-             }
-           } else if (newRecord.sender_user_id === data.user.id && oldRecord.status === 'pending' && newRecord.status === 'rejected') {
-             const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.receiver_user_id).eq('event_id', data.event.id).single();
-             const receiverName = profile?.display_name || 'Your connection';
-
-             toast.custom(ConnectionToast, {
-               componentProps: { title: 'Connection Request Declined', message: `${receiverName} declined your connection request.`, type: 'rejected' }
-             });
-           } else if (oldRecord.met_at == null && newRecord.met_at != null && newRecord.status === 'accepted') {
-              const otherUserId = newRecord.sender_user_id === data.user.id ? newRecord.receiver_user_id : newRecord.sender_user_id;
-              const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', otherUserId).eq('event_id', data.event.id).single();
-              const name = profile?.display_name || 'Your connection';
+      // Setup a single channel for connections realtime updates
+      realtimeChannel = supabase.channel(`connections-changes-${Date.now()}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'connections',
+          filter: `event_id=eq.${data.event.id}`
+        }, async (payload) => {
+          const { eventType, new: newRecord, old: oldRecord } = payload;
+          
+          if (eventType === 'INSERT') {
+            if (newRecord.receiver_user_id === data.user.id && newRecord.status === 'pending') {
+              const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.sender_user_id).eq('event_id', data.event.id).single();
+              const senderName = profile?.display_name || 'Someone';
+              
+              connectionsStore.update(conns => {
+                if (conns.find(c => c.id === newRecord.id)) return conns;
+                return [{...newRecord, profile: { display_name: senderName }}, ...conns];
+              });
 
               toast.custom(ConnectionToast, {
-                componentProps: { title: 'Meeting Confirmed', message: `You and ${name} have officially met.`, type: 'met' }
+                componentProps: { title: 'New Connection Request', message: `${senderName} wants to connect with you.`, type: 'request' }
               });
-           }
-        }
-      })
-      .subscribe();
+
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                const notification = new Notification('New Connection Request', { body: `${senderName} wants to connect with you.` });
+                notification.onclick = () => {
+                  window.focus();
+                  connectionFilter = 'received';
+                  activeTab.set('connections');
+                };
+              }
+            } else if (newRecord.sender_user_id === data.user.id) {
+               // Fetch all connections for inserts we initiated so we get the profile join cleanly
+               fetchAllConnections();
+            }
+          } else if (eventType === 'UPDATE') {
+             if (newRecord.sender_user_id !== data.user.id && newRecord.receiver_user_id !== data.user.id) return;
+
+             connectionsStore.update(conns => {
+               const idx = conns.findIndex(c => c.id === newRecord.id);
+               if (idx >= 0) {
+                 conns[idx] = { ...conns[idx], ...newRecord };
+               }
+               return conns;
+             });
+
+             if (newRecord.sender_user_id === data.user.id && oldRecord.status === 'pending' && newRecord.status === 'accepted' && !newRecord.met_at) {
+               const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.receiver_user_id).eq('event_id', data.event.id).single();
+               const receiverName = profile?.display_name || 'Your connection';
+
+               toast.custom(ConnectionToast, {
+                 componentProps: { title: 'Connection Accepted', message: `${receiverName} accepted your connection request.`, type: 'accepted' }
+               });
+
+               if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                 const notification = new Notification('Connection Accepted', { body: `${receiverName} accepted your connection request.` });
+                 notification.onclick = () => {
+                   window.focus();
+                   connectionFilter = 'connected';
+                   activeTab.set('connections');
+                 };
+               }
+             } else if (newRecord.sender_user_id === data.user.id && oldRecord.status === 'pending' && newRecord.status === 'rejected') {
+               const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.receiver_user_id).eq('event_id', data.event.id).single();
+               const receiverName = profile?.display_name || 'Your connection';
+
+               toast.custom(ConnectionToast, {
+                 componentProps: { title: 'Connection Request Declined', message: `${receiverName} declined your connection request.`, type: 'rejected' }
+               });
+             } else if (oldRecord.met_at == null && newRecord.met_at != null && newRecord.status === 'accepted') {
+                const otherUserId = newRecord.sender_user_id === data.user.id ? newRecord.receiver_user_id : newRecord.sender_user_id;
+                const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', otherUserId).eq('event_id', data.event.id).single();
+                const name = profile?.display_name || 'Your connection';
+
+                toast.custom(ConnectionToast, {
+                  componentProps: { title: 'Meeting Confirmed', message: `You and ${name} have officially met.`, type: 'met' }
+                });
+             }
+          } else if (eventType === 'DELETE') {
+             if (oldRecord.sender_user_id === data.user.id || oldRecord.receiver_user_id === data.user.id) {
+               fetchAllConnections();
+             }
+          }
+        })
+        .subscribe();
+    }
   });
 
   onDestroy(() => {
@@ -173,7 +189,7 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
   let signingOut = false;
   let joining = false;
   let savingProfile = false;
-  let pageLoading = false;
+  let pageLoading = true; // Start true so skeleton UI shows until mounted
   let refreshingMatches = false;
   let aiProfileText = "";
   let aiGenerating = false;
@@ -343,8 +359,12 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
 
         for (const line of lines) {
           if (line.trim()) {
-            const match = JSON.parse(line);
-            matchesStore.update(matches => [...matches, match]);
+            try {
+              const match = JSON.parse(line);
+              matchesStore.update(matches => [...matches, match]);
+            } catch(e) {
+              console.warn('Error parsing JSON from stream:', line, e);
+            }
           }
         }
       }
@@ -507,8 +527,8 @@ function openChatForConnection(connection) {
 async function connectUser(match) {
   // Check if there's an existing cancelled connection we should reactivate
   const existing = $connectionsStore.find(c =>
-    c.sender_user_id === data.user?.id &&
-    c.receiver_user_id === match.user_id &&
+    ((c.sender_user_id === data.user?.id && c.receiver_user_id === match.user_id) ||
+     (c.receiver_user_id === data.user?.id && c.sender_user_id === match.user_id)) &&
     c.status === 'cancelled'
   );
 
@@ -751,41 +771,7 @@ async function doConnect(matchUserId) {
     editProfileOpen = true;
   }
 
-  onMount(async () => {
-    if (!data.user) {
-      pageLoading = false;
-      return;
-    }
-
-    pageLoading = false;
-
-    if (data.isParticipant) {
-      fetchAllConnections();
-      
-      // Initialize Supabase Realtime channel for connections
-      const channelName = `connections-channel-${Date.now()}`;
-      const channel = supabase.channel(channelName)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'connections' }, payload => {
-          if (payload.new && payload.new.event_id === data.event.id && 
-             (payload.new.sender_user_id === data.user.id || payload.new.receiver_user_id === data.user.id)) {
-            
-            if (payload.eventType === 'UPDATE') {
-               // Update connection in store locally
-               connectionsStore.update(conns => conns.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c));
-            } else if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
-               // Fetch all connections for inserts so we can get the profile join cleanly
-               fetchAllConnections();
-            }
-          }
-        })
-        .subscribe();
-
-      // Return cleanup function to unsubscribe on component destroy
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  });
+  // The second redundant onMount was removed during cleanup
 
   const profileFields = [
     {

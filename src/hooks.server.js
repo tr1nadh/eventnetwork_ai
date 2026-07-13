@@ -7,7 +7,10 @@ export const handle = async ({ event, resolve }) => {
   const { data } = await event.locals.supabase.auth.getUser();
   event.locals.user = data.user ?? null;
 
-  if (event.locals.user) {
+  // Only sync user record on page navigations, not API requests.
+  // API calls are frequent and don't need a DB write every time.
+  const isApiRoute = event.url.pathname.startsWith('/api/');
+  if (event.locals.user && !isApiRoute) {
     try {
       await syncUserRecord(event.locals.user);
     } catch (syncError) {

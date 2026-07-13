@@ -63,16 +63,16 @@ The current user's networking profile (create profiles relevant to this person):
 
   // Fallback: look up dummy users by email in auth
   const dummyIds = [];
+  
+  // We cannot trust listUsers to filter properly, so fetch all and filter manually
+  const { data: list } = await supabase.auth.admin.listUsers();
+  const allUsers = list?.users ?? [];
+  
   for (let i = 1; i <= 10; i++) {
     const email = `dummy${i}+${event_id}@eventnetwork.ai`;
-    // We cannot trust listUsers to filter properly, so fetch all and filter manually
-    const { data: list } = await supabase.auth.admin.listUsers();
-    if (list?.users?.length) {
-      for (const u of list.users) {
-        if (u.email === email) {
-          dummyIds.push(u.id);
-        }
-      }
+    const foundUser = allUsers.find(u => u.email === email);
+    if (foundUser) {
+      dummyIds.push(foundUser.id);
     }
   }
 

@@ -214,13 +214,26 @@ export const load = async ({ params, locals }) => {
 
   let networkProfile = null;
   let suggestedMatches = [];
+  
   if (isParticipant) {
-    const { data: profileData, error: profileError } = await admin
-      .from('network_profiles')
-      .select('display_name, what_i_do, looking_for, about_me')
-      .eq('event_id', data.id)
-      .eq('user_id', locals.user.id)
-      .maybeSingle();
+    // Fetch profile and matches in parallel to speed up load time
+    const [profileRes, matchRes] = await Promise.all([
+      admin
+        .from('network_profiles')
+        .select('display_name, what_i_do, looking_for, about_me')
+        .eq('event_id', data.id)
+        .eq('user_id', locals.user.id)
+        .maybeSingle(),
+      admin
+        .from('matches')
+        .select('matched_user_id, match_details')
+        .eq('event_id', data.id)
+        .eq('user_id', locals.user.id)
+        .order('updated_at', { ascending: false })
+    ]);
+
+    const { data: profileData, error: profileError } = profileRes;
+    const { data: dbMatches, error: matchError } = matchRes;
 
     if (profileError) {
       console.error('Failed to load network profile:', profileError);
@@ -240,14 +253,6 @@ export const load = async ({ params, locals }) => {
         expectations: profileData.about_me
       };
     }
-
-    // Fetch cached matches from the matches table
-    const { data: dbMatches, error: matchError } = await admin
-      .from('matches')
-      .select('matched_user_id, match_details')
-      .eq('event_id', data.id)
-      .eq('user_id', locals.user.id)
-      .order('updated_at', { ascending: false });
 
     if (!matchError && dbMatches) {
       suggestedMatches = dbMatches.map(m => ({

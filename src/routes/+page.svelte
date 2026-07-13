@@ -81,7 +81,7 @@
     error = '';
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=/events` }
+      options: { redirectTo: `${window.location.origin}/auth/callback` }
     });
     if (authError) { error = authError.message; signingIn = false; }
   }

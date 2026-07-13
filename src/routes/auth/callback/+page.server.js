@@ -1,4 +1,5 @@
 import { syncUserRecord } from '$lib/supabase/sync-user';
+import { redirect } from '@sveltejs/kit';
 
 function sanitizeNext(value) {
   if (!value || !value.startsWith('/')) {
@@ -24,8 +25,8 @@ export async function load(event) {
     }
   }
 
-  // Return `next` so the page component can use SvelteKit's goto().
-  // By the time onMount fires, the cookies from this response are committed
-  // to the browser, so the session is available for the next navigation.
-  return { next };
+  // Session cookies are set by exchangeCodeForSession above (via cookies.set).
+  // SvelteKit includes those Set-Cookie headers in this redirect response.
+  // The browser stores them before following the redirect to `next`.
+  throw redirect(303, next);
 }

@@ -12,6 +12,7 @@ export async function PUT({ request, params, locals }) {
   const name = body?.name?.trim();
   const description = body?.description?.trim() || null;
   const slug = body?.slug?.trim().toLowerCase();
+  const venue_map = body?.venue_map !== undefined ? body.venue_map : undefined;
 
   if (!name || !slug) {
     throw error(400, 'Name and Slug are required.');
@@ -47,9 +48,12 @@ export async function PUT({ request, params, locals }) {
   }
 
   // Update
+  const updatePayload = { name, description, slug };
+  if (venue_map !== undefined) updatePayload.venue_map = venue_map;
+
   const { data: updatedEvent, error: updateError } = await admin
     .from('events')
-    .update({ name, description, slug })
+    .update(updatePayload)
     .eq('id', eventId)
     .select()
     .single();

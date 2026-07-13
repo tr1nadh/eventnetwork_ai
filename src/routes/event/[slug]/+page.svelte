@@ -35,6 +35,7 @@
   import AiMeetingPrepModal from "$lib/components/ai-meeting-prep-modal.svelte";
   import AmdAiLoading from "$lib/components/amd-ai-loading.svelte";
   import ConnectionToast from "$lib/components/connection-toast.svelte";
+  import VenueMap from "$lib/components/venue-map.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
@@ -244,6 +245,30 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
     }
   }
   
+  async function handleSaveMap(e) {
+    const newZones = e.detail;
+    try {
+      const res = await fetch(`/api/events/${currentEvent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: currentEvent.name,
+          slug: currentEvent.slug,
+          description: currentEvent.description,
+          venue_map: newZones
+        })
+      });
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(resData.message || resData.error || 'Failed to update venue map');
+      }
+      currentEvent = resData.event;
+      toast.success('✅ Venue map updated successfully.');
+    } catch(err) {
+      toast.error(err.message);
+    }
+  }
+  
   async function confirmDeleteEvent() {
     deleteEventError = '';
     deletingEvent = true;
@@ -361,6 +386,7 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$
 let loadingConnections = false;
 let connectionFilter = 'received'; // received | sent | connected | met
 let chatOpen = false;
+let venueLocation = null;
 let activeChatConnectionId = null;
 let prepModalOpen = false;
 let activePrepConnection = null;
@@ -1205,6 +1231,13 @@ async function doConnect(matchUserId) {
                 <Target size={16} class="inline-block mr-1 align-text-bottom" />
                 Connections
               </Tabs.Trigger>
+              <Tabs.Trigger
+                value="venue"
+                class="flex-1 text-center py-2 text-sm font-medium transition-colors duration-200 data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
+              >
+                <MapPin size={16} class="inline-block mr-1 align-text-bottom" />
+                Venue
+              </Tabs.Trigger>
               </Tabs.List>
 
           <!-- Details tab -->
@@ -1849,6 +1882,17 @@ async function doConnect(matchUserId) {
             <AiMeetingPrepModal
               bind:open={prepModalOpen}
               connection={activePrepConnection}
+            />
+          </Tabs.Content>
+
+          <!-- Venue Map tab -->
+          <Tabs.Content value="venue" class="mt-4">
+            <VenueMap
+              isOrganizer={data.isOrganizer}
+              initialZones={currentEvent.venue_map}
+              currentLocation={venueLocation}
+              on:locationChange={(e) => { venueLocation = e.detail; }}
+              on:saveMap={handleSaveMap}
             />
           </Tabs.Content>
         </Tabs.Root>

@@ -22,14 +22,13 @@ export async function POST({ request, cookies }) {
     throw error(400, 'Cannot create a connection with yourself');
   }
 
-  // Check for existing connection (event_id, sender_user_id, receiver_user_id)
+  // Check for existing connection between these two users in either direction
   const { data: existing, error: existErr } = await supabase
     .from('connections')
     .select('id, status')
     .eq('event_id', event_id)
-    .eq('sender_user_id', user.id)
-    .eq('receiver_user_id', receiver_user_id)
-    .single();
+    .or(`and(sender_user_id.eq.${user.id},receiver_user_id.eq.${receiver_user_id}),and(sender_user_id.eq.${receiver_user_id},receiver_user_id.eq.${user.id})`)
+    .maybeSingle();
 
   if (existErr && existErr.code !== 'PGRST116') {
     throw error(500, existErr.message);

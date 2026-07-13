@@ -8,6 +8,8 @@
   import { Label } from '$lib/components/ui/label/index.js';
   import { toast } from '$lib/components/ui/sonner/index.js';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
+  import { clearAllEventStores } from '$lib/stores/eventStore';
+  import { clearAllChatStores } from '$lib/stores/chatStore';
 
   export let data;
 
@@ -31,6 +33,8 @@
     signingOut = true;
     await supabase.auth.signOut();
     signingOut = false;
+    clearAllEventStores();
+    clearAllChatStores();
     await goto('/');
   }
 

@@ -44,7 +44,8 @@
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
-import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore } from "$lib/stores/eventStore";
+import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAllEventStores } from "$lib/stores/eventStore";
+  import { clearAllChatStores } from "$lib/stores/chatStore";
   
   // Embedding helper – calls server-side /api/embeddings to keep the API key secure
   async function generateEmbedding(text) {
@@ -525,15 +526,15 @@ function openChatForConnection(connection) {
 }
 
 async function connectUser(match) {
-  // Check if there's an existing cancelled connection we should reactivate
-  const existing = $connectionsStore.find(c =>
+  // Check if there's an existing pending connection - no need to duplicate
+  const existingPending = $connectionsStore.find(c =>
     ((c.sender_user_id === data.user?.id && c.receiver_user_id === match.user_id) ||
      (c.receiver_user_id === data.user?.id && c.sender_user_id === match.user_id)) &&
-    c.status === 'cancelled'
+    c.status === 'pending'
   );
 
-  if (existing) {
-    await updateConnection(existing.id, 'pending');
+  if (existingPending) {
+    toast.info('Connection request already sent.');
     return;
   }
 
@@ -579,6 +580,8 @@ async function doConnect(matchUserId) {
     signingOut = true;
     await supabase.auth.signOut();
     signingOut = false;
+    clearAllEventStores();
+    clearAllChatStores();
     await goto("/");
   }
 

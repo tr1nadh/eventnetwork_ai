@@ -87,32 +87,46 @@ Rules:
 `.trim();
 
 	try {
-		const res = await fetch('https://api.fireworks.ai/inference/v1/chat/completions', {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${FIREWORKS_API_KEY}`,
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				model: FIREWORKS_MODEL,
-				messages: [
-					{
-						role: 'system',
-						content: systemPrompt
-					},
-					{
-						role: 'user',
-						content: sourceText
-					}
-				],
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 30_000);
 
-				temperature: 0,
-				max_tokens: 300,
+		let res;
+		try {
+			res = await fetch('https://api.fireworks.ai/inference/v1/chat/completions', {
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${FIREWORKS_API_KEY}`,
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					model: FIREWORKS_MODEL,
+					messages: [
+						{
+							role: 'system',
+							content: systemPrompt
+						},
+						{
+							role: 'user',
+							content: sourceText
+						}
+					],
 
-				// Prevent reasoning output (supported on Qwen 3.7+)
-				reasoning_effort: 'none'
-			})
-		});
+					temperature: 0,
+					max_tokens: 300,
+
+					// Prevent reasoning output (supported on Qwen 3.7+)
+					reasoning_effort: 'none'
+				}),
+				signal: controller.signal
+			});
+		} catch (fetchErr) {
+			if (fetchErr.name === 'AbortError') {
+				throw new Error('AI request timed out after 30 seconds. Please try again.');
+			}
+			throw fetchErr;
+		} finally {
+			clearTimeout(timeout);
+		}
 
 		if (!res.ok) {
 			const errorText = await res.text();

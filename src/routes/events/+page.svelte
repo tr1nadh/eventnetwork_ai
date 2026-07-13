@@ -18,7 +18,8 @@
   import { goto } from "$app/navigation";
   import { navigating } from "$app/stores";
   import { toast } from "$lib/components/ui/sonner/index.js";
-  import { myEventsStore } from "$lib/stores/eventStore";
+  import { myEventsStore, clearAllEventStores } from "$lib/stores/eventStore";
+  import { clearAllChatStores } from "$lib/stores/chatStore";
 
   export let data;
   
@@ -38,6 +39,8 @@
     signingOut = true;
     await supabase.auth.signOut();
     signingOut = false;
+    clearAllEventStores();
+    clearAllChatStores();
     await goto("/");
   }
 

@@ -22,10 +22,29 @@ import { generateEmbedding } from '$lib/embeddings';
  *  4. Return the created profiles.
  */
 export async function POST({ request, locals }) {
-  const { event_id } = await request.json();
+  if (!locals.user) {
+    return json({ error: 'Unauthenticated' }, { status: 401 });
+  }
+
+  const { event_id } = await request.json().catch(() => ({}));
   if (!event_id) return json({ error: 'event_id required' }, { status: 400 });
 
   const supabase = createSupabaseAdminClient();
+
+  // Validate ownership
+  const { data: existingEvent, error: lookupError } = await supabase
+    .from('events')
+    .select('created_by')
+    .eq('id', event_id)
+    .single();
+
+  if (lookupError || !existingEvent) {
+    return json({ error: 'Event not found.' }, { status: 404 });
+  }
+
+  if (existingEvent.created_by !== locals.user.id) {
+    return json({ error: 'Forbidden. Only the organizer can create dummy users.' }, { status: 403 });
+  }
 
   // ── 0. Fetch current user's profile for context ──────────────────────
   let userContext = '';

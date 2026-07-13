@@ -15,3 +15,11 @@ export const aiMeetingPrepStore = persisted('event-ai-meeting-prep', {});
 
 // Cached list of events for the /events page
 export const myEventsStore = persisted('my-events', []);
+
+export function clearAllEventStores() {
+  activeTab.set('details');
+  matchesStore.set([]);
+  connectionsStore.set([]);
+  aiMeetingPrepStore.set({});
+  myEventsStore.set([]);
+}

@@ -57,7 +57,8 @@ export async function GET({ url, cookies }) {
 // POST – create or update the networking profile for an event
 // ------------------------------------------------------------
 export async function POST({ request, cookies }) {
-  const { profile, event_id } = await request.json();
+  const payload = await request.json().catch(() => ({}));
+  const { profile, event_id } = payload;
   console.log('POST /api/network_profiles payload', { profile, event_id });
   const supabase = createSupabaseServerClient(cookies);
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -66,6 +67,13 @@ export async function POST({ request, cookies }) {
     return json({ error: 'Unauthenticated' }, { status: 401 });
   }
 
+  if (!event_id) {
+    return json({ error: 'event_id is required' }, { status: 400 });
+  }
+
+  if (!profile) {
+    return json({ error: 'profile is required' }, { status: 400 });
+  }
 
   const { whoTheyAre, whatTheyDo, whoTheyWant, expectations, about_user_embed, looking_for_embed } = profile;
 

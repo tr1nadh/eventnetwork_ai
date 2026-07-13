@@ -32,3 +32,7 @@ export function appendConnectionMessage(connectionId, message) {
     };
   });
 }
+
+export function clearAllChatStores() {
+  chatMessagesStore.set({});
+}

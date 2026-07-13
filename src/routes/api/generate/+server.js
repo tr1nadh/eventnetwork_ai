@@ -13,23 +13,37 @@ export async function POST({ request, locals }) {
   }
 
   const body = await request.json().catch(() => null);
-  const prompt = body?.prompt?.trim();
+  let prompt = body?.prompt;
+  if (typeof prompt === 'string') {
+    prompt = prompt.trim();
+  } else {
+    prompt = null;
+  }
 
   if (!prompt) {
     return json({ error: 'Prompt is required.' }, { status: 400 });
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
   try {
     const { text } = await generateText({
       model: fireworks(FIREWORKS_MODEL),
-      prompt
+      prompt,
+      abortSignal: controller.signal
     });
     return json({ text });
   } catch (err) {
     console.error('LLM generation failed:', err);
+    if (err.name === 'AbortError') {
+      return json({ error: 'LLM request timed out after 30 seconds' }, { status: 504 });
+    }
     return json(
       { error: err instanceof Error ? err.message : 'Text generation failed' },
       { status: 502 }
     );
+  } finally {
+    clearTimeout(timeout);
   }
 }

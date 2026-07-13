@@ -20,19 +20,32 @@ export async function createChatCompletion({ model, messages, temperature = 0.7,
   if (response_format) body.response_format = response_format;
   if (reasoning_effort) body.reasoning_effort = reasoning_effort;
 
-  const res = await fetch('https://api.fireworks.ai/inference/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${FIREWORKS_API_KEY}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000); // 30 second timeout
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Chat completion failed (${res.status}): ${err}`);
+  try {
+    const res = await fetch('https://api.fireworks.ai/inference/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${FIREWORKS_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Chat completion failed (${res.status}): ${err}`);
+    }
+
+    return res.json();
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('LLM request timed out after 30 seconds');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return res.json();
 }

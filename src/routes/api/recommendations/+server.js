@@ -155,7 +155,7 @@ Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
         };
 
         const { error: upsertErr } = await supabase.from('matches').upsert(matchRow, {
-          onConflict: 'event_id, user_id, matched_user_id'
+          onConflict: 'event_id,user_id,matched_user_id'
         });
         if (upsertErr) {
           console.error('Failed to upsert match into database:', upsertErr);

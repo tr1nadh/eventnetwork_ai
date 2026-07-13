@@ -1451,12 +1451,41 @@ async function doConnect(matchUserId) {
                 <Dialog.Title>Edit networking profile</Dialog.Title>
               </Dialog.Header>
               <div class="flex items-center gap-2 mb-5">
-                <Sparkles size={15} class="text-amber-300" />
+                <UserCircle2 size={15} class="text-white" />
                 <p
-                  class="text-xs font-bold uppercase tracking-widest text-amber-300"
+                  class="text-xs font-bold uppercase tracking-widest text-white"
                 >
                   Edit networking profile
                 </p>
+              </div>
+
+              <!-- AI Auto-fill section in Edit Modal -->
+              <div class="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 mb-5">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2 flex items-center gap-1.5">
+                  <Brain size={12} /> Magic AI Auto-Fill
+                </p>
+                <textarea
+                  bind:value={aiProfileText}
+                  placeholder="Paste your LinkedIn About section or a short bio here..."
+                  class="min-h-[80px] w-full rounded-xl border border-white/10 bg-white/4 p-3 text-xs leading-5 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/15 mb-3"
+                ></textarea>
+                <Button
+                  variant="outline"
+                  onclick={generateAiProfile}
+                  disabled={aiGenerating || !aiProfileText.trim()}
+                  class="w-full h-8 text-xs border-cyan-400/20 text-cyan-300 hover:bg-cyan-400/10"
+                >
+                  {#if aiGenerating}
+                    <LoaderCircle size={12} class="animate-spin mr-2" />
+                    Generating fields...
+                  {:else}
+                    <Sparkles size={12} class="mr-2" />
+                    Auto-fill below fields
+                  {/if}
+                </Button>
+                {#if aiGenerationError}
+                  <p class="mt-2 text-[10px] text-amber-400">{aiGenerationError}</p>
+                {/if}
               </div>
               <div class="grid gap-4 sm:grid-cols-2 mb-5">
                 {#each profileFields as field}

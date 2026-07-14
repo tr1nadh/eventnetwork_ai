@@ -39,7 +39,6 @@ EventNetwork AI combines **AI profile extraction**, **semantic participant match
 
 # ✨ Features
 
-- 🔐 Google Authentication
 - 📅 Event Creation & Management
 - 🗺️ Interactive 2D Venue Editor
 - 🤖 AI Profile Auto-Fill

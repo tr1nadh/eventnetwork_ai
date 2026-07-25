@@ -55,12 +55,19 @@ export async function checkAiQuota(userId) {
   // 2. Check and Increment Monthly Quota (Atomic)
   const monthlyKey = getMonthlyKey(userId);
   
-  // Start a transaction: we increment the usage, and set an expiry to avoid stale keys
+  // Increment usage
   const currentUsage = await redis.incr(monthlyKey);
   
-  if (currentUsage === 1) {
-    // If it's a new key, set it to expire in ~35 days (safely beyond one month)
-    await redis.expire(monthlyKey, 60 * 60 * 24 * 35);
+  // Ensure the key has an expiry set to the start of the next month (1st day 00:00 UTC).
+  const ttl = await redis.ttl(monthlyKey);
+  if (ttl === -1) {
+    // Calculate seconds until the first day of the next month (UTC)
+    const now = new Date();
+    const resetDate = getNextMonthDate(); // defined earlier in this file
+    const secondsToReset = Math.floor((resetDate.getTime() - now.getTime()) / 1000);
+    // Fallback to a safe 1‑day expiry if calculation somehow yields non‑positive value
+    const expireIn = secondsToReset > 0 ? secondsToReset : 60 * 60 * 24;
+    await redis.expire(monthlyKey, expireIn);
   }
 
   if (currentUsage > MONTHLY_LIMIT) {

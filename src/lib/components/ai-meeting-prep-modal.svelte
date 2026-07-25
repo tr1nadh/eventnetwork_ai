@@ -30,6 +30,10 @@
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         if (res.status === 429) {
+          if (errData.error === 'MONTHLY_AI_LIMIT_EXCEEDED') {
+            aiCreditsStore.showExhaustedModal();
+            return;
+          }
           throw new Error(errData.message || 'AI request limit reached');
         }
         throw new Error(errData.message || 'Failed to generate Meeting Prep');

@@ -7,7 +7,8 @@ function createAiCreditsStore() {
     remaining: 50,
     resetAt: null,
     loading: true,
-    error: null
+    error: null,
+    creditsExhausted: false
   });
 
   return {
@@ -29,7 +30,8 @@ function createAiCreditsStore() {
           remaining: data.remaining,
           resetAt: data.resetAt,
           loading: false,
-          error: null
+          error: null,
+          creditsExhausted: data.remaining <= 0
         });
       } catch (err) {
         console.error(err);
@@ -43,14 +45,30 @@ function createAiCreditsStore() {
     useCredit: () => {
       update(s => {
         if (s.remaining > 0) {
+          const newRemaining = s.remaining - 1;
           return {
             ...s,
             used: s.used + 1,
-            remaining: s.remaining - 1
+            remaining: newRemaining,
+            creditsExhausted: newRemaining <= 0
           };
         }
         return s;
       });
+    },
+
+    /**
+     * Show the credits exhausted modal
+     */
+    showExhaustedModal: () => {
+      update(s => ({ ...s, creditsExhausted: true }));
+    },
+
+    /**
+     * Dismiss the credits exhausted modal
+     */
+    dismissExhaustedModal: () => {
+      update(s => ({ ...s, creditsExhausted: false }));
     }
   };
 }

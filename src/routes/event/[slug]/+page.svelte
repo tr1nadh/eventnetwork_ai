@@ -36,6 +36,7 @@
   import AmdAiLoading from "$lib/components/amd-ai-loading.svelte";
   import ConnectionToast from "$lib/components/connection-toast.svelte";
   import VenueMap from "$lib/components/venue-map.svelte";
+  import AICreditsExhausted from "$lib/components/AICreditsExhausted.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
@@ -346,6 +347,10 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
       if (!res.ok) {
         if (res.status === 429) {
           const errData = await res.json().catch(() => ({}));
+          if (errData.error === 'MONTHLY_AI_LIMIT_EXCEEDED') {
+            aiCreditsStore.showExhaustedModal();
+            return;
+          }
           throw new Error(errData.message || 'AI request limit reached');
         }
         throw new Error("Failed to fetch matches");
@@ -759,6 +764,10 @@ async function doConnect(matchUserId) {
       const responseData = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (res.status === 429) {
+          if (responseData.error === 'MONTHLY_AI_LIMIT_EXCEEDED') {
+            aiCreditsStore.showExhaustedModal();
+            return;
+          }
           throw new Error(responseData.message || "AI limit reached");
         }
         throw new Error(
@@ -865,6 +874,10 @@ async function doConnect(matchUserId) {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (res.status === 429) {
+          if (err.error === 'MONTHLY_AI_LIMIT_EXCEEDED') {
+            aiCreditsStore.showExhaustedModal();
+            return;
+          }
           throw new Error(err.message || 'AI limit reached');
         }
         throw new Error(err.error ?? 'Failed to create simulation');
@@ -2145,5 +2158,8 @@ async function doConnect(matchUserId) {
         </div>
       </Dialog.Content>
     </Dialog.Root>
+
+    <!-- AI Credits Exhausted Modal -->
+    <AICreditsExhausted />
   </main>
 </PageShell>

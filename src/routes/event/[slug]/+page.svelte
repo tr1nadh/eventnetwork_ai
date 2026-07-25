@@ -847,6 +847,7 @@ async function doConnect(matchUserId) {
 
   let dummyModalOpen = false;
   let creatingDummy = false;
+  let findMatchesModalOpen = false;
 
   // Dummy connect confirmation modal
   let dummyConnectModalOpen = false;
@@ -1498,6 +1499,7 @@ async function doConnect(matchUserId) {
                   placeholder="Paste your LinkedIn About section or a short bio here..."
                   class="min-h-[80px] w-full rounded-xl border border-white/10 bg-white/4 p-3 text-xs leading-5 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/15 mb-3"
                 ></textarea>
+              <div class="relative group w-full">
                 <Button
                   variant="outline"
                   onclick={generateAiProfile}
@@ -1512,13 +1514,13 @@ async function doConnect(matchUserId) {
                     Auto-fill below fields
                   {/if}
                 </Button>
-                <div class="flex items-center justify-between">
-                  {#if aiGenerationError}
-                    <p class="mt-2 text-[10px] text-amber-400">{aiGenerationError}</p>
-                  {:else}
-                    <span class="mt-2 text-[10px] uppercase tracking-widest text-ink-500">Uses 1 AI credit</span>
-                  {/if}
+                <div class="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[10px] font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap z-50">
+                  Uses 1 AI credit
                 </div>
+              </div>
+                {#if aiGenerationError}
+                  <p class="mt-2 text-[10px] text-amber-400">{aiGenerationError}</p>
+                {/if}
               </div>
               <div class="grid gap-4 sm:grid-cols-2 mb-5">
                 {#each profileFields as field}
@@ -1598,26 +1600,24 @@ async function doConnect(matchUserId) {
                   {/if}
                   <span class="hidden sm:inline">Refresh</span>
                 </Button>
-                <div class="flex-1 sm:flex-none flex flex-col gap-1 w-full sm:w-auto">
-                  <Button class="w-full gap-2" onclick={fetchMatches} disabled={refreshingMatches}>
-                    {#if refreshingMatches}
-                      <LoaderCircle size={15} class="animate-spin" />
-                      Finding…
-                    {:else}
-                      <Sparkles size={15} />
-                      Find matches
-                    {/if}
-                  </Button>
-                  <span class="text-center text-[10px] uppercase tracking-widest text-ink-500">Uses 1 AI credit</span>
-                </div>
-                
-                <div class="flex-1 sm:flex-none flex flex-col gap-1 w-full sm:w-auto">
-                  <Button variant="outline" class="w-full gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = true)}>
-                    <Users size={15} />
-                    Simulation
-                  </Button>
-                  <span class="text-center text-[10px] uppercase tracking-widest text-ink-500">Uses 1 AI credit</span>
-                </div>
+              <div class="flex-1 sm:flex-none w-full sm:w-auto">
+                <Button class="w-full gap-2" onclick={() => (findMatchesModalOpen = true)} disabled={refreshingMatches}>
+                  {#if refreshingMatches}
+                    <LoaderCircle size={15} class="animate-spin" />
+                    Finding…
+                  {:else}
+                    <Sparkles size={15} />
+                    Find matches
+                  {/if}
+                </Button>
+              </div>
+              
+              <div class="flex-1 sm:flex-none w-full sm:w-auto">
+                <Button variant="outline" class="w-full gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = true)}>
+                  <Users size={15} />
+                  Simulation
+                </Button>
+              </div>
               </div>
             </div>
             {#if refreshingMatches}
@@ -1787,7 +1787,10 @@ async function doConnect(matchUserId) {
             <Dialog.Root bind:open={dummyModalOpen}>
               <Dialog.Content class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white">
                 <Dialog.Header>
-                  <Dialog.Title class="text-xl font-bold text-white">Create Simulation</Dialog.Title>
+                  <Dialog.Title class="text-xl font-bold text-white flex items-center gap-2">
+                    <Users size={20} class="text-cyan-400" />
+                    Create Simulation
+                  </Dialog.Title>
                 </Dialog.Header>
                 <p class="text-sm leading-6 text-ink-300 mt-2">
                   This action will create 5 dummy participants with unique dummy email addresses.
@@ -1795,6 +1798,15 @@ async function doConnect(matchUserId) {
                   networking profile designed to be relevant to your profile, allowing you to test
                   the AI matchmaking experience.
                 </p>
+                <div class="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 flex items-start gap-3">
+                  <div class="mt-0.5 rounded-full bg-cyan-400/10 p-1">
+                    <Sparkles size={14} class="text-cyan-300" />
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold text-cyan-100">Uses 1 AI credit</p>
+                    <p class="mt-1 text-xs text-ink-400">Generating the 5 realistic participant profiles consumes a single AI credit.</p>
+                  </div>
+                </div>
                 {#if creatingDummy}
                   <AmdAiLoading
                     message="AI is working..."
@@ -1813,6 +1825,51 @@ async function doConnect(matchUserId) {
                     {:else}
                       Continue
                     {/if}
+                  </Button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Root>
+
+            <!-- Find Matches Modal -->
+            <Dialog.Root bind:open={findMatchesModalOpen}>
+              <Dialog.Content class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white">
+                <Dialog.Header>
+                  <Dialog.Title class="text-xl font-bold text-white flex items-center gap-2">
+                    <Sparkles size={20} class="text-amber-400" />
+                    AI Matchmaking
+                  </Dialog.Title>
+                </Dialog.Header>
+                <div class="space-y-4 mt-2">
+                  <p class="text-sm leading-6 text-ink-300">
+                    Our AI analyzes your networking profile—what you do, who you want to meet, and your expectations—and compares it against every other participant in the event to find the most synergetic connections.
+                  </p>
+                  <ul class="space-y-3">
+                    <li class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5">
+                      <span class="text-amber-400 mt-0.5">•</span>
+                      <span class="text-sm text-ink-200 leading-relaxed">Generates a compatibility score for each attendee.</span>
+                    </li>
+                    <li class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5">
+                      <span class="text-amber-400 mt-0.5">•</span>
+                      <span class="text-sm text-ink-200 leading-relaxed">Provides a detailed explanation of exactly why you should connect with them.</span>
+                    </li>
+                  </ul>
+                  <div class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 flex items-start gap-3">
+                    <div class="mt-0.5 rounded-full bg-amber-400/10 p-1">
+                      <Sparkles size={14} class="text-amber-300" />
+                    </div>
+                    <div>
+                      <p class="text-sm font-semibold text-amber-100">Uses 1 AI credit</p>
+                      <p class="mt-1 text-xs text-ink-400">Running the matchmaking algorithm against the attendee list consumes a single AI credit.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                  <Button variant="outline" class="border-white/10 text-white hover:bg-white/10" onclick={() => (findMatchesModalOpen = false)}>
+                    Cancel
+                  </Button>
+                  <Button class="gap-2 bg-amber-500 text-black hover:bg-amber-600 font-bold" onclick={() => { findMatchesModalOpen = false; fetchMatches(); }}>
+                    <Sparkles size={15} />
+                    Find My Matches
                   </Button>
                 </div>
               </Dialog.Content>

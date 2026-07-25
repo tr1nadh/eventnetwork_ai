@@ -140,7 +140,7 @@
           <p class="text-sm text-ink-300 max-w-md mx-auto mb-8 leading-relaxed">
             Generate personalized conversation starters, questions, and collaboration opportunities based on both networking profiles and your AI match.
           </p>
-          <div class="flex flex-col items-center gap-2">
+          <div class="flex flex-col items-center gap-2 relative group w-max mx-auto">
             <Button 
               class="gap-2 bg-amber-500 hover:bg-amber-600 text-black px-8 py-6 rounded-xl font-bold transition-all hover:scale-105" 
               onclick={() => generatePrep(false)}
@@ -148,7 +148,9 @@
               <Sparkles size={18} />
               Generate AI Meeting Prep
             </Button>
-            <span class="text-[10px] uppercase tracking-widest text-ink-500">Uses 1 AI credit</span>
+            <div class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[11px] font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap z-50">
+              Uses 1 AI credit
+            </div>
           </div>
           {#if generationError}
             <p class="mt-4 text-sm text-red-400">{generationError}</p>

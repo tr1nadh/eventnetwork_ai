@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { createChatCompletion } from '$lib/llm/fireworks';
 import { generateEmbedding } from '$lib/embeddings';
-
+import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
 /**
  * POST /api/dummy_users
  * Creates 5 dummy participants for the given event with realistic, diverse
@@ -44,6 +44,11 @@ export async function POST({ request, locals }) {
 
   if (existingEvent.created_by !== locals.user.id) {
     return json({ error: 'Forbidden. Only the organizer can create dummy users.' }, { status: 403 });
+  }
+
+  const quota = await checkAiQuota(locals.user.id);
+  if (!quota.allowed) {
+    return json(quota.errorData, { status: 429 });
   }
 
   // ── 0. Fetch current user's profile for context ──────────────────────
@@ -199,6 +204,7 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
     }
   } catch (err) {
     console.error('LLM profile generation failed:', err);
+    await refundAiCredit(locals.user.id);
     return json({ error: 'Failed to generate profiles: ' + err.message }, { status: 502 });
   }
 
@@ -268,6 +274,7 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
   }
 
   if (createdProfiles.length === 0) {
+    await refundAiCredit(locals.user.id);
     return json(
       { error: 'Failed to create any dummy users', details: errors },
       { status: 500 }

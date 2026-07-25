@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createChatCompletion } from '$lib/llm/fireworks';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
+import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
 
 function cosineSimilarity(a, b) {
   if (typeof a === 'string') a = JSON.parse(a);
@@ -80,6 +81,15 @@ export async function GET({ url, cookies }) {
       is_dummy: false // will be updated below
     }));
 
+  if (scored.length === 0) {
+    return json({ recommendations: [] });
+  }
+
+  const quota = await checkAiQuota(user.id);
+  if (!quota.allowed) {
+    return json(quota.errorData, { status: 429 });
+  }
+
   // Detect dummy users by checking email pattern via admin client
   try {
     const admin = createSupabaseAdminClient();
@@ -128,6 +138,7 @@ Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
             reasoning_effort: 'none'
           });
           match.explanation = llmRes.choices?.[0]?.message?.content?.trim();
+          aiSuccessCount++;
         } catch (err) {
           console.error('Failed to generate explanation for', match.name, err);
         }
@@ -166,12 +177,20 @@ Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
         controller.enqueue(encoder.encode(JSON.stringify(match) + '\n'));
       });
 
+      let aiSuccessCount = 0;
+
       try {
         await Promise.all(promises);
         controller.close();
+        
+        // If no AI generations succeeded, refund the credit
+        if (aiSuccessCount === 0 && scored.length > 0) {
+          await refundAiCredit(user.id);
+        }
       } catch (streamErr) {
         console.error('Stream generation error:', streamErr);
         controller.error(streamErr);
+        await refundAiCredit(user.id);
       }
     }
   });

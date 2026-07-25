@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createChatCompletion } from '$lib/llm/fireworks';
+import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
 
 /**
  * GET /api/meeting-prep?connection_id=...&regenerate=true
@@ -31,6 +32,11 @@ export async function GET({ url, cookies }) {
 
   if (connection.status !== 'accepted') {
     throw error(400, 'AI Meeting Prep is only available for accepted connections');
+  }
+
+  const quota = await checkAiQuota(user.id);
+  if (!quota.allowed) {
+    return json(quota.errorData, { status: 429 });
   }
 
   const otherUserId = connection.sender_user_id === user.id ? connection.receiver_user_id : connection.sender_user_id;
@@ -139,6 +145,7 @@ Generate the Meeting Prep JSON now.`;
     return json(parsed);
   } catch (err) {
     console.error('AI Meeting Prep generation failed:', err);
+    await refundAiCredit(user.id);
     throw error(500, 'Failed to generate AI Meeting Prep');
   }
 }

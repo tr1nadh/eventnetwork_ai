@@ -1,5 +1,6 @@
 import { FIREWORKS_API_KEY, FIREWORKS_MODEL } from '$env/static/private';
 import { json } from '@sveltejs/kit';
+import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
 
 function cleanString(value) {
 	return typeof value === 'string' ? value.trim() : '';
@@ -53,6 +54,11 @@ export async function POST({ request, locals }) {
 
 	if (!sourceText) {
 		return json({ error: 'Profile text is required.' }, { status: 400 });
+	}
+
+	const quota = await checkAiQuota(locals.user.id);
+	if (!quota.allowed) {
+		return json(quota.errorData, { status: 429 });
 	}
 
 	const systemPrompt = `
@@ -146,6 +152,7 @@ Rules:
 		return json({ profile });
 	} catch (error) {
 		console.error(error);
+		await refundAiCredit(locals.user.id);
 
 		return json(
 			{

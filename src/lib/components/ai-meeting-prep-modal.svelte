@@ -1,6 +1,7 @@
 <script>
   import { Sparkles, MessageCircle, HelpCircle, Handshake, LoaderCircle, RefreshCw, X } from '@lucide/svelte';
   import { aiMeetingPrepStore } from '$lib/stores/eventStore';
+  import { aiCreditsStore } from '$lib/stores/ai-credits';
   import { Button } from '$lib/components/ui/button/index.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import AmdAiLoading from '$lib/components/amd-ai-loading.svelte';
@@ -28,6 +29,9 @@
       
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          throw new Error(errData.message || 'AI request limit reached');
+        }
         throw new Error(errData.message || 'Failed to generate Meeting Prep');
       }
 
@@ -41,6 +45,7 @@
         };
       });
       
+      aiCreditsStore.useCredit();
       toast.success(regenerate ? 'Meeting Prep regenerated' : 'Meeting Prep generated successfully');
     } catch (err) {
       generationError = err.message || 'An unexpected error occurred';
@@ -135,13 +140,16 @@
           <p class="text-sm text-ink-300 max-w-md mx-auto mb-8 leading-relaxed">
             Generate personalized conversation starters, questions, and collaboration opportunities based on both networking profiles and your AI match.
           </p>
-          <Button 
-            class="gap-2 bg-amber-500 hover:bg-amber-600 text-black px-8 py-6 rounded-xl font-bold transition-all hover:scale-105" 
-            onclick={() => generatePrep(false)}
-          >
-            <Sparkles size={18} />
-            Generate AI Meeting Prep
-          </Button>
+          <div class="flex flex-col items-center gap-2">
+            <Button 
+              class="gap-2 bg-amber-500 hover:bg-amber-600 text-black px-8 py-6 rounded-xl font-bold transition-all hover:scale-105" 
+              onclick={() => generatePrep(false)}
+            >
+              <Sparkles size={18} />
+              Generate AI Meeting Prep
+            </Button>
+            <span class="text-[10px] uppercase tracking-widest text-ink-500">Uses 1 AI credit</span>
+          </div>
           {#if generationError}
             <p class="mt-4 text-sm text-red-400">{generationError}</p>
           {/if}
@@ -151,7 +159,8 @@
 
     <!-- Footer for regeneration (only show if we have data) -->
     {#if prepData && !generating}
-      <div class="border-t border-white/8 px-6 py-4 bg-black/20 shrink-0 flex justify-end" in:fade>
+      <div class="border-t border-white/8 px-6 py-4 bg-black/20 shrink-0 flex items-center justify-between" in:fade>
+        <span class="text-[10px] uppercase tracking-widest text-ink-500 pl-2">Uses 1 AI credit</span>
         <Button variant="outline" class="gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => generatePrep(true)}>
           <RefreshCw size={15} />
           Regenerate

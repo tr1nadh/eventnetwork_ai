@@ -46,6 +46,7 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
 import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAllEventStores } from "$lib/stores/eventStore";
   import { clearAllChatStores } from "$lib/stores/chatStore";
+  import { aiCreditsStore } from "$lib/stores/ai-credits";
   
   // Embedding helper – calls server-side /api/embeddings to keep the API key secure
   async function generateEmbedding(text) {
@@ -342,12 +343,19 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
       const res = await fetch(`/api/recommendations?event_id=${data.event.id}`, {
         credentials: "include"
       });
-      if (!res.ok) throw new Error("Failed to fetch matches");
+      if (!res.ok) {
+        if (res.status === 429) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || 'AI request limit reached');
+        }
+        throw new Error("Failed to fetch matches");
+      }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
 
       matchesStore.set([]); // Clear existing matches while streaming new ones
+      let creditDeducted = false;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -363,6 +371,10 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
             try {
               const match = JSON.parse(line);
               matchesStore.update(matches => [...matches, match]);
+              if (!creditDeducted) {
+                aiCreditsStore.useCredit();
+                creditDeducted = true;
+              }
             } catch(e) {
               console.warn('Error parsing JSON from stream:', line, e);
             }
@@ -370,7 +382,7 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
         }
       }
     } catch (error) {
-      toast.error("Could not find matches");
+      toast.error(error.message || "Could not find matches");
     } finally {
       refreshingMatches = false;
     }
@@ -746,10 +758,15 @@ async function doConnect(matchUserId) {
 
       const responseData = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 429) {
+          throw new Error(responseData.message || "AI limit reached");
+        }
         throw new Error(
           responseData.error ?? "Could not generate your profile right now.",
         );
       }
+      
+      aiCreditsStore.useCredit();
       const generatedProfile = responseData.profile ?? {};
       networkingProfile = {
         ...networkingProfile,
@@ -846,8 +863,13 @@ async function doConnect(matchUserId) {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          throw new Error(err.message || 'AI limit reached');
+        }
         throw new Error(err.error ?? 'Failed to create simulation');
       }
+      
+      aiCreditsStore.useCredit();
       await fetchMatches();
       toast.success('Dummy users created');
       dummyModalOpen = false;
@@ -1490,9 +1512,13 @@ async function doConnect(matchUserId) {
                     Auto-fill below fields
                   {/if}
                 </Button>
-                {#if aiGenerationError}
-                  <p class="mt-2 text-[10px] text-amber-400">{aiGenerationError}</p>
-                {/if}
+                <div class="flex items-center justify-between">
+                  {#if aiGenerationError}
+                    <p class="mt-2 text-[10px] text-amber-400">{aiGenerationError}</p>
+                  {:else}
+                    <span class="mt-2 text-[10px] uppercase tracking-widest text-ink-500">Uses 1 AI credit</span>
+                  {/if}
+                </div>
               </div>
               <div class="grid gap-4 sm:grid-cols-2 mb-5">
                 {#each profileFields as field}
@@ -1572,19 +1598,26 @@ async function doConnect(matchUserId) {
                   {/if}
                   <span class="hidden sm:inline">Refresh</span>
                 </Button>
-                <Button class="flex-1 sm:flex-none w-full sm:w-auto gap-2" onclick={fetchMatches} disabled={refreshingMatches}>
-                  {#if refreshingMatches}
-                    <LoaderCircle size={15} class="animate-spin" />
-                    Finding…
-                  {:else}
-                    <Sparkles size={15} />
-                    Find matches
-                  {/if}
-                </Button>
-                <Button variant="outline" class="flex-1 sm:flex-none w-full sm:w-auto gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = true)}>
-                  <Users size={15} />
-                  Simulation
-                </Button>
+                <div class="flex-1 sm:flex-none flex flex-col gap-1 w-full sm:w-auto">
+                  <Button class="w-full gap-2" onclick={fetchMatches} disabled={refreshingMatches}>
+                    {#if refreshingMatches}
+                      <LoaderCircle size={15} class="animate-spin" />
+                      Finding…
+                    {:else}
+                      <Sparkles size={15} />
+                      Find matches
+                    {/if}
+                  </Button>
+                  <span class="text-center text-[10px] uppercase tracking-widest text-ink-500">Uses 1 AI credit</span>
+                </div>
+                
+                <div class="flex-1 sm:flex-none flex flex-col gap-1 w-full sm:w-auto">
+                  <Button variant="outline" class="w-full gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = true)}>
+                    <Users size={15} />
+                    Simulation
+                  </Button>
+                  <span class="text-center text-[10px] uppercase tracking-widest text-ink-500">Uses 1 AI credit</span>
+                </div>
               </div>
             </div>
             {#if refreshingMatches}

@@ -4,6 +4,10 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
   import * as Avatar from '$lib/components/ui/avatar/index.js';
   import * as Separator from '$lib/components/ui/separator/index.js';
+  import AICredits from '$lib/components/AICredits.svelte';
+  import { aiCreditsStore } from '$lib/stores/ai-credits';
+  import { Cpu } from '@lucide/svelte';
+  import { onMount } from 'svelte';
 
   export let user = null;
   export let signingIn = false;
@@ -13,6 +17,12 @@
 
   $: avatar = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? '';
   $: name = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email ?? 'Account';
+
+  onMount(() => {
+    if (user) {
+      aiCreditsStore.fetchStatus();
+    }
+  });
 </script>
 
 <header class="sticky top-0 z-50 mb-8">
@@ -51,6 +61,14 @@
         <span class="hidden lg:block text-sm font-medium text-ink-200 max-w-[150px] truncate">
           {name.split(' ')[0]}
         </span>
+
+        <!-- AI Credits Pill (Desktop) -->
+        {#if !$aiCreditsStore.loading}
+          <div class="hidden sm:flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3 py-1.5 text-xs font-medium {$aiCreditsStore.remaining <= 5 ? 'text-destructive border-destructive/30' : ($aiCreditsStore.remaining <= 10 ? 'text-amber-300 border-amber-300/30' : 'text-cyan-300 border-cyan-300/30')}">
+            <Cpu size={14} class={$aiCreditsStore.remaining <= 5 ? 'text-destructive' : ($aiCreditsStore.remaining <= 10 ? 'text-amber-300' : 'text-cyan-400')} />
+            <span>{$aiCreditsStore.remaining} / {$aiCreditsStore.limit}</span>
+          </div>
+        {/if}
       {/if}
 
       <!-- Avatar / dropdown -->
@@ -79,6 +97,12 @@
             <p class="text-sm font-semibold text-white truncate">{name}</p>
             <p class="mt-0.5 truncate text-xs text-ink-400">{user?.email ?? 'Guest'}</p>
           </DropdownMenu.Label>
+
+          {#if user}
+            <div class="px-3 py-2">
+              <AICredits />
+            </div>
+          {/if}
 
           <Separator.Root class="my-1.5" />
 

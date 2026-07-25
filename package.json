@@ -36,6 +36,8 @@
     "@ai-sdk/fireworks": "^3.0.7",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.56.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "ai": "^7.0.18",
     "bits-ui": "^2.18.1",
     "class-variance-authority": "^0.7.1",

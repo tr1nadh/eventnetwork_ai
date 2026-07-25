@@ -31,7 +31,7 @@ function createAiCreditsStore() {
           resetAt: data.resetAt,
           loading: false,
           error: null,
-          creditsExhausted: data.remaining <= 0
+          creditsExhausted: false
         });
       } catch (err) {
         console.error(err);

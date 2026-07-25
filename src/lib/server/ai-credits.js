@@ -2,21 +2,47 @@ import { Redis } from '@upstash/redis';
 import { Ratelimit } from '@upstash/ratelimit';
 import { KV_REST_API_URL, KV_REST_API_TOKEN } from '$env/static/private';
 
-const MONTHLY_LIMIT = 50;
+export const MONTHLY_LIMIT = 50;
 
 // Initialize Redis explicitly to avoid process.env issues in serverless
-const redis = new Redis({
-  url: KV_REST_API_URL,
-  token: KV_REST_API_TOKEN,
-});
+let redis = null;
+
+function getRedis() {
+  if (!redis) {
+    // Initialize only when needed; falls back to environment vars.
+    redis = new Redis({
+      url: KV_REST_API_URL,
+      token: KV_REST_API_TOKEN
+    });
+  }
+  return redis;
+}
+
+// Export for test injection
+export function __setRedisClient(client) {
+  redis = client;
+}
+
+
 
 // Create a burst ratelimiter (20 requests per 1 minute)
-const burstLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(20, '1 m'),
-  analytics: true,
-  prefix: 'ai:burst',
-});
+let burstLimiter = null;
+
+function getBurstLimiter() {
+  if (!burstLimiter) {
+    burstLimiter = new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(20, '1 m'),
+      analytics: true,
+      prefix: 'ai:burst',
+    });
+  }
+  return burstLimiter;
+}
+
+export function __setBurstLimiter(limiter) {
+  burstLimiter = limiter;
+}
 
 function getMonthlyKey(userId) {
   const date = new Date();
@@ -39,8 +65,20 @@ function getNextMonthDate() {
  * @returns {Promise<{ allowed: boolean, reason?: string, errorData?: any, remaining?: number, used?: number }>}
  */
 export async function checkAiQuota(userId) {
+  // 0. Validate userId
+  if (!userId || typeof userId !== 'string') {
+    return {
+      allowed: false,
+      reason: 'UNAUTHORIZED',
+      errorData: {
+        error: 'UNAUTHORIZED',
+        message: 'A valid user ID is required for AI operations.'
+      }
+    };
+  }
+
   // 1. Check Burst Limiter
-  const { success } = await burstLimiter.limit(userId);
+  const { success } = await getBurstLimiter().limit(userId);
   if (!success) {
     return {
       allowed: false,
@@ -56,10 +94,10 @@ export async function checkAiQuota(userId) {
   const monthlyKey = getMonthlyKey(userId);
   
   // Increment usage
-  const currentUsage = await redis.incr(monthlyKey);
+  const currentUsage = await getRedis().incr(monthlyKey);
   
   // Ensure the key has an expiry set to the start of the next month (1st day 00:00 UTC).
-  const ttl = await redis.ttl(monthlyKey);
+  const ttl = await getRedis().ttl(monthlyKey);
   if (ttl === -1) {
     // Calculate seconds until the first day of the next month (UTC)
     const now = new Date();
@@ -67,12 +105,12 @@ export async function checkAiQuota(userId) {
     const secondsToReset = Math.floor((resetDate.getTime() - now.getTime()) / 1000);
     // Fallback to a safe 1‑day expiry if calculation somehow yields non‑positive value
     const expireIn = secondsToReset > 0 ? secondsToReset : 60 * 60 * 24;
-    await redis.expire(monthlyKey, expireIn);
+    await getRedis().expire(monthlyKey, expireIn);
   }
 
   if (currentUsage > MONTHLY_LIMIT) {
     // Refund the reservation since they were over limit
-    await redis.decr(monthlyKey);
+    await getRedis().decr(monthlyKey);
     return {
       allowed: false,
       reason: 'MONTHLY_AI_LIMIT_EXCEEDED',
@@ -98,9 +136,9 @@ export async function checkAiQuota(userId) {
 export async function refundAiCredit(userId) {
   const monthlyKey = getMonthlyKey(userId);
   // Ensure we don't drop below 0 just in case
-  const current = await redis.get(monthlyKey);
+  const current = await getRedis().get(monthlyKey);
   if (current && parseInt(current.toString(), 10) > 0) {
-    await redis.decr(monthlyKey);
+    await getRedis().decr(monthlyKey);
   }
 }
 
@@ -110,7 +148,7 @@ export async function refundAiCredit(userId) {
  */
 export async function getAiCreditStatus(userId) {
   const monthlyKey = getMonthlyKey(userId);
-  const val = await redis.get(monthlyKey);
+  const val = await getRedis().get(monthlyKey);
   const used = val ? parseInt(val.toString(), 10) : 0;
   
   return {

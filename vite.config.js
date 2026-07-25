@@ -6,5 +6,10 @@ export default defineConfig({
   plugins: [tailwindcss(), sveltekit()],
   ssr: {
     noExternal: ['svelte-sonner']
+  },
+  test: {
+    alias: {
+      '$env/static/private': new URL('./tests/env-mock.js', import.meta.url).pathname
+    }
   }
 });

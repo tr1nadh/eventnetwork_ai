@@ -3,6 +3,8 @@ import { json } from '@sveltejs/kit';
 import { generateText } from 'ai';
 import { fireworks } from '@ai-sdk/fireworks';
 
+import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
+
 export async function POST({ request, locals }) {
   if (!FIREWORKS_API_KEY) {
     return json({ error: 'Missing FIREWORKS_API_KEY.' }, { status: 500 });
@@ -10,6 +12,11 @@ export async function POST({ request, locals }) {
 
   if (!locals.user) {
     return json({ error: 'Unauthorized.' }, { status: 401 });
+  }
+
+  const quota = await checkAiQuota(locals.user.id);
+  if (!quota.allowed) {
+    return json(quota.errorData, { status: 429 });
   }
 
   const body = await request.json().catch(() => null);
@@ -21,6 +28,7 @@ export async function POST({ request, locals }) {
   }
 
   if (!prompt) {
+    await refundAiCredit(locals.user.id);
     return json({ error: 'Prompt is required.' }, { status: 400 });
   }
 
@@ -36,6 +44,7 @@ export async function POST({ request, locals }) {
     return json({ text });
   } catch (err) {
     console.error('LLM generation failed:', err);
+    await refundAiCredit(locals.user.id);
     if (err.name === 'AbortError') {
       return json({ error: 'LLM request timed out after 30 seconds' }, { status: 504 });
     }

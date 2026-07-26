@@ -94,7 +94,14 @@ export async function checkAiQuota(userId) {
   const monthlyKey = getMonthlyKey(userId);
   
   // Increment usage
-  const currentUsage = await getRedis().incr(monthlyKey);
+  let currentUsage = await getRedis().incr(monthlyKey);
+  
+  // If a previous race condition left the key in a negative state,
+  // currentUsage might be <= 0 after incr. Fix the corrupted state to 1.
+  if (currentUsage <= 0) {
+    await getRedis().set(monthlyKey, 1);
+    currentUsage = 1;
+  }
   
   // Ensure the key has an expiry set to the start of the next month (1st day 00:00 UTC).
   const ttl = await getRedis().ttl(monthlyKey);
@@ -135,10 +142,10 @@ export async function checkAiQuota(userId) {
  */
 export async function refundAiCredit(userId) {
   const monthlyKey = getMonthlyKey(userId);
-  // Ensure we don't drop below 0 just in case
-  const current = await getRedis().get(monthlyKey);
-  if (current && parseInt(current.toString(), 10) > 0) {
-    await getRedis().decr(monthlyKey);
+  const newVal = await getRedis().decr(monthlyKey);
+  if (newVal < 0) {
+    // Revert the decrement if it dropped below zero
+    await getRedis().incr(monthlyKey);
   }
 }
 
@@ -149,12 +156,14 @@ export async function refundAiCredit(userId) {
 export async function getAiCreditStatus(userId) {
   const monthlyKey = getMonthlyKey(userId);
   const val = await getRedis().get(monthlyKey);
-  const used = val ? parseInt(val.toString(), 10) : 0;
+  const parsed = val ? parseInt(val.toString(), 10) : 0;
+  // Ensure used is between 0 and MONTHLY_LIMIT
+  const used = Math.max(0, Math.min(parsed, MONTHLY_LIMIT));
   
   return {
     limit: MONTHLY_LIMIT,
-    used: Math.min(used, MONTHLY_LIMIT), // Don't show >50 if something weird happens
-    remaining: Math.max(0, MONTHLY_LIMIT - used),
+    used,
+    remaining: MONTHLY_LIMIT - used,
     resetAt: getNextMonthDate().toISOString()
   };
 }

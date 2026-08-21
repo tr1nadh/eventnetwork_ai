@@ -64,13 +64,7 @@
       icon: UserCircle2,
       href: "/connections",
       active: () => isConnections,
-    },
-    {
-      label: "Create Event",
-      icon: Plus,
-      href: "/discover/create",
-      active: () => isCreate,
-    },
+    }
   ];
 </script>
 

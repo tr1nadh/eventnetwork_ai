@@ -9,6 +9,11 @@
     ArrowRight
   } from "@lucide/svelte";
   import PageShell from "$lib/components/page-shell.svelte";
+  import Sidebar from "$lib/components/sidebar.svelte";
+  import { createSupabaseBrowserClient } from "$lib/supabase/client";
+  import { goto } from "$app/navigation";
+  import { clearAllEventStores } from "$lib/stores/eventStore";
+  import { clearAllChatStores } from "$lib/stores/chatStore";
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { toast } from "$lib/components/ui/sonner/index.js";
@@ -22,6 +27,17 @@
   let connectionsPage = 1;
   let connectionsHasMore = false;
   let loadingMoreConnections = false;
+  let signingOut = false;
+  const supabase = createSupabaseBrowserClient();
+
+  async function signOut() {
+    signingOut = true;
+    await supabase.auth.signOut();
+    signingOut = false;
+    clearAllEventStores();
+    clearAllChatStores();
+    await goto("/");
+  }
 
   $: filteredConnections = connections.filter((conn) => {
     const isSender = conn.sender_user_id === data.user?.id;
@@ -95,6 +111,8 @@
 </svelte:head>
 
 <PageShell user={data.user}>
+  <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
+  
   <div class="max-w-4xl mx-auto space-y-8">
     <div class="flex items-center justify-between mt-8">
       <div>

@@ -324,7 +324,7 @@
 
     editingEvent = true;
     try {
-      const res = await fetch(`/api/discover/${currentEvent.id}`, {
+      const res = await fetch(`/api/events/${currentEvent.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -358,7 +358,7 @@
   async function handleSaveMap(e) {
     const newZones = e.detail;
     try {
-      const res = await fetch(`/api/discover/${currentEvent.id}`, {
+      const res = await fetch(`/api/events/${currentEvent.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -385,7 +385,7 @@
     deleteEventError = "";
     deletingEvent = true;
     try {
-      const res = await fetch(`/api/discover/${currentEvent.id}`, {
+      const res = await fetch(`/api/events/${currentEvent.id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -756,7 +756,7 @@
       }
 
       // Register the join in the database
-      const res = await fetch("/api/discover/join", {
+      const res = await fetch("/api/events/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ event_id: data.event.id }),

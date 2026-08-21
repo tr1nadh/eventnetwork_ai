@@ -49,7 +49,7 @@
     creatingEvent = true;
 
     try {
-      const response = await fetch("/api/discover", {
+      const response = await fetch("/api/events", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

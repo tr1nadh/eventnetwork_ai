@@ -9,7 +9,7 @@ export const load = async ({ locals, url, fetch }) => {
   const filter = url.searchParams.get('filter') || 'all';
   const q = url.searchParams.get('q') || '';
 
-  const res = await fetch(`/api/discover?filter=${filter}&q=${encodeURIComponent(q)}`);
+  const res = await fetch(`/api/events?filter=${filter}&q=${encodeURIComponent(q)}`);
 
   if (!res.ok) {
     const data = await res.json().catch(() => null);

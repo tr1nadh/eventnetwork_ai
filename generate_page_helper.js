@@ -1,6 +1,6 @@
 import fs from 'fs';
 
-const pagePath = 'd:\\Projects\\JsProjects\\active\\eventnetwork_ai\\src\\routes\\+page.svelte';
+const pagePath = 'd:\\Projects\\JsProjects\\active\\Evenai_ai\\src\\routes\\+page.svelte';
 const currentCode = fs.readFileSync(pagePath, 'utf8');
 
 // Extract the script block
@@ -9,7 +9,7 @@ const scriptBlock = scriptMatch ? scriptMatch[0] : '';
 
 const newTemplate = `
 <svelte:head>
-  <title>EventNetwork AI | AI-Powered Networking</title>
+  <title>Evenai | AI-Powered Networking</title>
   <meta name="description" content="AI-powered semantic matching to help attendees discover meaningful professional connections at events." />
 </svelte:head>
 
@@ -29,7 +29,7 @@ const newTemplate = `
           <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-transform group-hover:scale-105">
             <Sparkles size={16} />
           </div>
-          <span class="font-semibold text-sm tracking-wide text-slate-100">EventNetwork <span class="text-amber-400">AI</span></span>
+          <span class="font-semibold text-sm tracking-wide text-slate-100">Evenai <span class="text-amber-400">AI</span></span>
         </a>
         <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
           <a href="#features" class="hover:text-slate-100 transition-colors">Features</a>
@@ -67,7 +67,7 @@ const newTemplate = `
           </h1>
           
           <p class="mt-8 text-lg md:text-xl text-slate-400 max-w-2xl font-light">
-            EventNetwork AI uses AI-powered semantic matching to help attendees discover meaningful professional connections at hackathons, conferences, meetups, and networking events.
+            Evenai uses AI-powered semantic matching to help attendees discover meaningful professional connections at hackathons, conferences, meetups, and networking events.
           </p>
           
           <div class="mt-10 flex flex-col sm:flex-row items-center gap-4">
@@ -216,7 +216,7 @@ const newTemplate = `
         </div>
       </section>
 
-      <!-- WHY EVENTNETWORK -->
+      <!-- WHY Evenai -->
       <section class="w-full max-w-6xl mx-auto px-6 py-24 border-t border-white/5" data-section="why">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-8 divide-x divide-white/5">
           {#each whyStats as stat, i}
@@ -262,13 +262,13 @@ const newTemplate = `
           <div class="w-6 h-6 rounded bg-amber-500 flex items-center justify-center text-black">
             <Sparkles size={12} />
           </div>
-          <span class="text-slate-300 font-semibold text-sm">EventNetwork AI</span>
+          <span class="text-slate-300 font-semibold text-sm">Evenai</span>
         </div>
         
         <div class="flex gap-6 text-sm text-slate-500">
           <a href="#features" class="hover:text-slate-300 transition-colors">Features</a>
           <a href="#why" class="hover:text-slate-300 transition-colors">About</a>
-          <a href="https://github.com/tr1nadh/eventnetwork-ai" target="_blank" class="hover:text-slate-300 transition-colors">GitHub</a>
+          <a href="https://github.com/tr1nadh/Evenai-ai" target="_blank" class="hover:text-slate-300 transition-colors">GitHub</a>
           <a href="#" class="hover:text-slate-300 transition-colors">Documentation</a>
           <a href="#" class="hover:text-slate-300 transition-colors">Contact</a>
         </div>

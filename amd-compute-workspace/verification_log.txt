@@ -1,5 +1,5 @@
 root@hf-173-993d9846:/workspace# python amd-compute-verify.py
---- AMD Compute Verification: EventNetwork AI ---
+--- AMD Compute Verification: Evenai ---
 SUCCESS: Connection to Fireworks API verified.
 Model Response: I am Qwen, a large language model developed by Alibaba Group's Tongyi Lab. I operate on Alibaba Cloud's infrastructure. 
 

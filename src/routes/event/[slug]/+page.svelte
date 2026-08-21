@@ -1,5 +1,5 @@
 <script>
-  import { slide, fade } from 'svelte/transition';
+  import { slide, fade } from "svelte/transition";
   import { goto } from "$app/navigation";
   import {
     ArrowLeft,
@@ -45,21 +45,27 @@
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
-import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAllEventStores } from "$lib/stores/eventStore";
+  import {
+    activeTab,
+    matchesStore,
+    connectionsStore,
+    aiMeetingPrepStore,
+    clearAllEventStores,
+  } from "$lib/stores/eventStore";
   import { clearAllChatStores } from "$lib/stores/chatStore";
   import { aiCreditsStore } from "$lib/stores/ai-credits";
-  
+
   // Embedding helper – calls server-side /api/embeddings to keep the API key secure
   async function generateEmbedding(text) {
-    const res = await fetch('/api/embeddings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+    const res = await fetch("/api/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ text }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error ?? 'Embedding generation failed');
+      throw new Error(err.error ?? "Embedding generation failed");
     }
     const { embedding } = await res.json();
     return embedding;
@@ -75,18 +81,18 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
   onMount(() => {
     // Hide page loading indicator once mounted
     pageLoading = false;
-    
+
     // Always clear the connections store on mount so we don't show stale data from another event
     connectionsStore.set([]);
 
     try {
-      if (typeof window !== 'undefined' && 'Notification' in window) {
-        if (Notification.permission === 'default') {
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission === "default") {
           Notification.requestPermission().catch(console.error);
         }
       }
     } catch (e) {
-      console.error('Notification error:', e);
+      console.error("Notification error:", e);
     }
 
     if (!data.user?.id) return;
@@ -95,90 +101,173 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
       fetchAllConnections();
 
       // Setup a single channel for connections realtime updates
-      realtimeChannel = supabase.channel(`connections-changes-${Date.now()}`)
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'connections',
-          filter: `event_id=eq.${data.event.id}`
-        }, async (payload) => {
-          const { eventType, new: newRecord, old: oldRecord } = payload;
-          
-          if (eventType === 'INSERT') {
-            if (newRecord.receiver_user_id === data.user.id && newRecord.status === 'pending') {
-              const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.sender_user_id).eq('event_id', data.event.id).single();
-              const senderName = profile?.display_name || 'Someone';
-              
-              connectionsStore.update(conns => {
-                if (conns.find(c => c.id === newRecord.id)) return conns;
-                return [{...newRecord, profile: { display_name: senderName }}, ...conns];
-              });
+      realtimeChannel = supabase
+        .channel(`connections-changes-${Date.now()}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "connections",
+            filter: `event_id=eq.${data.event.id}`,
+          },
+          async (payload) => {
+            const { eventType, new: newRecord, old: oldRecord } = payload;
 
-              toast.custom(ConnectionToast, {
-                componentProps: { title: 'New Connection Request', message: `${senderName} wants to connect with you.`, type: 'request' }
-              });
+            if (eventType === "INSERT") {
+              if (
+                newRecord.receiver_user_id === data.user.id &&
+                newRecord.status === "pending"
+              ) {
+                const { data: profile } = await supabase
+                  .from("network_profiles")
+                  .select("display_name")
+                  .eq("user_id", newRecord.sender_user_id)
+                  .eq("event_id", data.event.id)
+                  .single();
+                const senderName = profile?.display_name || "Someone";
 
-              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                const notification = new Notification('New Connection Request', { body: `${senderName} wants to connect with you.` });
-                notification.onclick = () => {
-                  window.focus();
-                  connectionFilter = 'received';
-                  activeTab.set('connections');
-                };
-              }
-            } else if (newRecord.sender_user_id === data.user.id) {
-               // Fetch all connections for inserts we initiated so we get the profile join cleanly
-               fetchAllConnections();
-            }
-          } else if (eventType === 'UPDATE') {
-             if (newRecord.sender_user_id !== data.user.id && newRecord.receiver_user_id !== data.user.id) return;
-
-             connectionsStore.update(conns => {
-               const idx = conns.findIndex(c => c.id === newRecord.id);
-               if (idx >= 0) {
-                 conns[idx] = { ...conns[idx], ...newRecord };
-               }
-               return conns;
-             });
-
-             if (newRecord.sender_user_id === data.user.id && oldRecord.status === 'pending' && newRecord.status === 'accepted' && !newRecord.met_at) {
-               const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.receiver_user_id).eq('event_id', data.event.id).single();
-               const receiverName = profile?.display_name || 'Your connection';
-
-               toast.custom(ConnectionToast, {
-                 componentProps: { title: 'Connection Accepted', message: `${receiverName} accepted your connection request.`, type: 'accepted' }
-               });
-
-               if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                 const notification = new Notification('Connection Accepted', { body: `${receiverName} accepted your connection request.` });
-                 notification.onclick = () => {
-                   window.focus();
-                   connectionFilter = 'connected';
-                   activeTab.set('connections');
-                 };
-               }
-             } else if (newRecord.sender_user_id === data.user.id && oldRecord.status === 'pending' && newRecord.status === 'rejected') {
-               const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', newRecord.receiver_user_id).eq('event_id', data.event.id).single();
-               const receiverName = profile?.display_name || 'Your connection';
-
-               toast.custom(ConnectionToast, {
-                 componentProps: { title: 'Connection Request Declined', message: `${receiverName} declined your connection request.`, type: 'rejected' }
-               });
-             } else if (oldRecord.met_at == null && newRecord.met_at != null && newRecord.status === 'accepted') {
-                const otherUserId = newRecord.sender_user_id === data.user.id ? newRecord.receiver_user_id : newRecord.sender_user_id;
-                const { data: profile } = await supabase.from('network_profiles').select('display_name').eq('user_id', otherUserId).eq('event_id', data.event.id).single();
-                const name = profile?.display_name || 'Your connection';
+                connectionsStore.update((conns) => {
+                  if (conns.find((c) => c.id === newRecord.id)) return conns;
+                  return [
+                    { ...newRecord, profile: { display_name: senderName } },
+                    ...conns,
+                  ];
+                });
 
                 toast.custom(ConnectionToast, {
-                  componentProps: { title: 'Meeting Confirmed', message: `You and ${name} have officially met.`, type: 'met' }
+                  componentProps: {
+                    title: "New Connection Request",
+                    message: `${senderName} wants to connect with you.`,
+                    type: "request",
+                  },
                 });
-             }
-          } else if (eventType === 'DELETE') {
-             if (oldRecord.sender_user_id === data.user.id || oldRecord.receiver_user_id === data.user.id) {
-               fetchAllConnections();
-             }
-          }
-        })
+
+                if (
+                  typeof window !== "undefined" &&
+                  "Notification" in window &&
+                  Notification.permission === "granted"
+                ) {
+                  const notification = new Notification(
+                    "New Connection Request",
+                    { body: `${senderName} wants to connect with you.` },
+                  );
+                  notification.onclick = () => {
+                    window.focus();
+                    connectionFilter = "received";
+                    activeTab.set("connections");
+                  };
+                }
+              } else if (newRecord.sender_user_id === data.user.id) {
+                // Fetch all connections for inserts we initiated so we get the profile join cleanly
+                fetchAllConnections();
+              }
+            } else if (eventType === "UPDATE") {
+              if (
+                newRecord.sender_user_id !== data.user.id &&
+                newRecord.receiver_user_id !== data.user.id
+              )
+                return;
+
+              connectionsStore.update((conns) => {
+                const idx = conns.findIndex((c) => c.id === newRecord.id);
+                if (idx >= 0) {
+                  conns[idx] = { ...conns[idx], ...newRecord };
+                }
+                return conns;
+              });
+
+              if (
+                newRecord.sender_user_id === data.user.id &&
+                oldRecord.status === "pending" &&
+                newRecord.status === "accepted" &&
+                !newRecord.met_at
+              ) {
+                const { data: profile } = await supabase
+                  .from("network_profiles")
+                  .select("display_name")
+                  .eq("user_id", newRecord.receiver_user_id)
+                  .eq("event_id", data.event.id)
+                  .single();
+                const receiverName = profile?.display_name || "Your connection";
+
+                toast.custom(ConnectionToast, {
+                  componentProps: {
+                    title: "Connection Accepted",
+                    message: `${receiverName} accepted your connection request.`,
+                    type: "accepted",
+                  },
+                });
+
+                if (
+                  typeof window !== "undefined" &&
+                  "Notification" in window &&
+                  Notification.permission === "granted"
+                ) {
+                  const notification = new Notification("Connection Accepted", {
+                    body: `${receiverName} accepted your connection request.`,
+                  });
+                  notification.onclick = () => {
+                    window.focus();
+                    connectionFilter = "connected";
+                    activeTab.set("connections");
+                  };
+                }
+              } else if (
+                newRecord.sender_user_id === data.user.id &&
+                oldRecord.status === "pending" &&
+                newRecord.status === "rejected"
+              ) {
+                const { data: profile } = await supabase
+                  .from("network_profiles")
+                  .select("display_name")
+                  .eq("user_id", newRecord.receiver_user_id)
+                  .eq("event_id", data.event.id)
+                  .single();
+                const receiverName = profile?.display_name || "Your connection";
+
+                toast.custom(ConnectionToast, {
+                  componentProps: {
+                    title: "Connection Request Declined",
+                    message: `${receiverName} declined your connection request.`,
+                    type: "rejected",
+                  },
+                });
+              } else if (
+                oldRecord.met_at == null &&
+                newRecord.met_at != null &&
+                newRecord.status === "accepted"
+              ) {
+                const otherUserId =
+                  newRecord.sender_user_id === data.user.id
+                    ? newRecord.receiver_user_id
+                    : newRecord.sender_user_id;
+                const { data: profile } = await supabase
+                  .from("network_profiles")
+                  .select("display_name")
+                  .eq("user_id", otherUserId)
+                  .eq("event_id", data.event.id)
+                  .single();
+                const name = profile?.display_name || "Your connection";
+
+                toast.custom(ConnectionToast, {
+                  componentProps: {
+                    title: "Meeting Confirmed",
+                    message: `You and ${name} have officially met.`,
+                    type: "met",
+                  },
+                });
+              }
+            } else if (eventType === "DELETE") {
+              if (
+                oldRecord.sender_user_id === data.user.id ||
+                oldRecord.receiver_user_id === data.user.id
+              ) {
+                fetchAllConnections();
+              }
+            }
+          },
+        )
         .subscribe();
     }
   });
@@ -201,109 +290,115 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
   let editProfileOpen = false;
 
   let currentEvent = data.event;
-  
+
   // Edit & Delete state
   let editEventModalOpen = false;
   let deleteEventModalOpen = false;
   let editingEvent = false;
-  let editEventError = '';
-  let editEventName = '';
-  let editEventSlug = '';
-  let editEventDescription = '';
-  
+  let editEventError = "";
+  let editEventName = "";
+  let editEventSlug = "";
+  let editEventDescription = "";
+
   let deletingEvent = false;
-  let deleteEventError = '';
-  
+  let deleteEventError = "";
+
   function openEditModal() {
-    editEventName = currentEvent.name || '';
-    editEventSlug = currentEvent.slug || '';
-    editEventDescription = currentEvent.description || '';
-    editEventError = '';
+    editEventName = currentEvent.name || "";
+    editEventSlug = currentEvent.slug || "";
+    editEventDescription = currentEvent.description || "";
+    editEventError = "";
     editEventModalOpen = true;
   }
-  
+
   async function saveEventUpdates() {
-    editEventError = '';
+    editEventError = "";
     if (!editEventName.trim()) {
-      editEventError = 'Event name is required.';
+      editEventError = "Event name is required.";
       return;
     }
     if (!editEventSlug.trim()) {
-      editEventError = 'Slug is required.';
+      editEventError = "Slug is required.";
       return;
     }
-    
+
     editingEvent = true;
     try {
       const res = await fetch(`/api/events/${currentEvent.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editEventName,
           slug: editEventSlug,
-          description: editEventDescription
-        })
+          description: editEventDescription,
+        }),
       });
       const resData = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(resData.message || resData.error || 'Failed to update event');
+        throw new Error(
+          resData.message || resData.error || "Failed to update event",
+        );
       }
-      
+
       const oldSlug = currentEvent.slug;
       currentEvent = resData.event;
-      toast.success('✅ Event updated successfully.');
+      toast.success("✅ Event updated successfully.");
       editEventModalOpen = false;
-      
+
       if (resData.event.slug !== oldSlug) {
         goto(`/event/${resData.event.slug}`, { replaceState: true });
       }
-    } catch(e) {
+    } catch (e) {
       editEventError = e.message;
     } finally {
       editingEvent = false;
     }
   }
-  
+
   async function handleSaveMap(e) {
     const newZones = e.detail;
     try {
       const res = await fetch(`/api/events/${currentEvent.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: currentEvent.name,
           slug: currentEvent.slug,
           description: currentEvent.description,
-          venue_map: newZones
-        })
+          venue_map: newZones,
+        }),
       });
       const resData = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(resData.message || resData.error || 'Failed to update venue map');
+        throw new Error(
+          resData.message || resData.error || "Failed to update venue map",
+        );
       }
       currentEvent = resData.event;
-      toast.success('✅ Venue map updated successfully.');
-    } catch(err) {
+      toast.success("✅ Venue map updated successfully.");
+    } catch (err) {
       toast.error(err.message);
     }
   }
-  
+
   async function confirmDeleteEvent() {
-    deleteEventError = '';
+    deleteEventError = "";
     deletingEvent = true;
     try {
       const res = await fetch(`/api/events/${currentEvent.id}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
       if (!res.ok) {
         const resData = await res.json().catch(() => ({}));
-        throw new Error(resData.message || resData.error || 'Failed to delete event');
+        throw new Error(
+          resData.message || resData.error || "Failed to delete event",
+        );
       }
-      
-      toast.success('🗑 Event deleted successfully.');
+
+      toast.success("🗑 Event deleted successfully.");
       deleteEventModalOpen = false;
-      goto('/events');
-    } catch(e) {
+      goto("/events");
+    } catch (e) {
       deleteEventError = e.message;
       deletingEvent = false;
     }
@@ -312,10 +407,10 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
   let stage = data.isOrganizer
     ? "workspace"
     : data.networkProfile
-    ? "workspace"
-    : data.isParticipant
-      ? "profile"
-      : "preview";
+      ? "workspace"
+      : data.isParticipant
+        ? "profile"
+        : "preview";
 
   // Initialize matches store with server data
   matchesStore.set(data.suggestedMatches ?? []);
@@ -328,11 +423,20 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
         { label: "Connection Requests", value: analytics.connectionRequests },
         { label: "Accepted Connections", value: analytics.acceptedConnections },
         { label: "People Met", value: analytics.peopleMet },
-        { label: "Connection Acceptance Rate", value: `${analytics.connectionAcceptanceRate}%` },
-        { label: "QR Meet Completion Rate", value: `${analytics.qrMeetCompletionRate}%` }
+        {
+          label: "Connection Acceptance Rate",
+          value: `${analytics.connectionAcceptanceRate}%`,
+        },
+        {
+          label: "QR Meet Completion Rate",
+          value: `${analytics.qrMeetCompletionRate}%`,
+        },
       ]
     : [];
-  $: maxFunnelValue = Math.max(...(analytics?.networkingFunnel ?? []).map((item) => item.value), 1);
+  $: maxFunnelValue = Math.max(
+    ...(analytics?.networkingFunnel ?? []).map((item) => item.value),
+    1,
+  );
 
   function goToCreateEvent() {
     goto("/events/create");
@@ -341,23 +445,26 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
   async function fetchMatches() {
     refreshingMatches = true;
     try {
-      const res = await fetch(`/api/recommendations?event_id=${data.event.id}`, {
-        credentials: "include"
-      });
+      const res = await fetch(
+        `/api/recommendations?event_id=${data.event.id}`,
+        {
+          credentials: "include",
+        },
+      );
       if (!res.ok) {
         if (res.status === 429) {
           const errData = await res.json().catch(() => ({}));
-          if (errData.error === 'MONTHLY_AI_LIMIT_EXCEEDED') {
+          if (errData.error === "MONTHLY_AI_LIMIT_EXCEEDED") {
             aiCreditsStore.showExhaustedModal();
             return;
           }
-          throw new Error(errData.message || 'AI request limit reached');
+          throw new Error(errData.message || "AI request limit reached");
         }
         throw new Error("Failed to fetch matches");
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = '';
+      let buffer = "";
 
       matchesStore.set([]); // Clear existing matches while streaming new ones
       let creditDeducted = false;
@@ -367,21 +474,21 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        
-        buffer = lines.pop() || '';
+        const lines = buffer.split("\n");
+
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
           if (line.trim()) {
             try {
               const match = JSON.parse(line);
-              matchesStore.update(matches => [...matches, match]);
+              matchesStore.update((matches) => [...matches, match]);
               if (!creditDeducted) {
                 aiCreditsStore.useCredit();
                 creditDeducted = true;
               }
-            } catch(e) {
-              console.warn('Error parsing JSON from stream:', line, e);
+            } catch (e) {
+              console.warn("Error parsing JSON from stream:", line, e);
             }
           }
         }
@@ -398,11 +505,11 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
     refreshingFromDb = true;
     try {
       const res = await fetch(`/api/matches?event_id=${data.event.id}`, {
-        credentials: "include"
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to refresh matches from DB");
       const { matches: dbMatches } = await res.json();
-       matchesStore.set(dbMatches || []);
+      matchesStore.set(dbMatches || []);
       toast.success("Matches refreshed");
     } catch (error) {
       toast.error("Could not refresh matches");
@@ -421,181 +528,198 @@ import { activeTab, matchesStore, connectionsStore, aiMeetingPrepStore, clearAll
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
   }
-let loadingConnections = false;
-let connectionFilter = 'received'; // received | sent | connected | met
-let chatOpen = false;
-let venueLocation = null;
-let activeChatConnectionId = null;
-let prepModalOpen = false;
-let activePrepConnection = null;
-let connectingIds = [];
+  let loadingConnections = false;
+  let connectionFilter = "received"; // received | sent | connected | met
+  let chatOpen = false;
+  let venueLocation = null;
+  let activeChatConnectionId = null;
+  let prepModalOpen = false;
+  let activePrepConnection = null;
+  let connectingIds = [];
 
-function openMeetingPrep(connection) {
-  activePrepConnection = connection;
-  prepModalOpen = true;
-}
+  function openMeetingPrep(connection) {
+    activePrepConnection = connection;
+    prepModalOpen = true;
+  }
 
-// Reactive derived array for filtered connections
-$: filteredConnections = $connectionsStore.filter(conn => {
-  const isSender = conn.sender_user_id === data.user?.id;
-  const isReceiver = conn.receiver_user_id === data.user?.id;
-  
-  if (connectionFilter === 'received') {
-    return isReceiver && conn.status === 'pending';
-  }
-  if (connectionFilter === 'sent') {
-    return isSender && conn.status === 'pending';
-  }
-  if (connectionFilter === 'connected') {
-    return (isSender || isReceiver) && conn.status === 'accepted';
-  }
-  if (connectionFilter === 'met') {
-    return (isSender || isReceiver) && conn.status === 'accepted' && !!conn.met_at;
-  }
-  return false;
-});
-$: activeChatConnection = activeChatConnectionId
-  ? $connectionsStore.find((conn) => conn.id === activeChatConnectionId) ?? null
-  : null;
+  // Reactive derived array for filtered connections
+  $: filteredConnections = $connectionsStore.filter((conn) => {
+    const isSender = conn.sender_user_id === data.user?.id;
+    const isReceiver = conn.receiver_user_id === data.user?.id;
 
-let connectionsPage = 1;
-let connectionsHasMore = false;
-let loadingMoreConnections = false;
+    if (connectionFilter === "received") {
+      return isReceiver && conn.status === "pending";
+    }
+    if (connectionFilter === "sent") {
+      return isSender && conn.status === "pending";
+    }
+    if (connectionFilter === "connected") {
+      return (isSender || isReceiver) && conn.status === "accepted";
+    }
+    if (connectionFilter === "met") {
+      return (
+        (isSender || isReceiver) && conn.status === "accepted" && !!conn.met_at
+      );
+    }
+    return false;
+  });
+  $: activeChatConnection = activeChatConnectionId
+    ? ($connectionsStore.find((conn) => conn.id === activeChatConnectionId) ??
+      null)
+    : null;
 
-async function fetchAllConnections() {
-  loadingConnections = true;
-  connectionsPage = 1;
-  try {
-    const res = await fetch(`/api/connections?event_id=${data.event.id}&filter=all&page=1&limit=50`, {
-      credentials: 'include'
-    });
-    if (!res.ok) throw new Error('Failed to fetch connections');
-    const { connections: conn, hasMore } = await res.json();
-    connectionsStore.set(conn || []);
-    connectionsHasMore = hasMore;
-  } catch (e) {
-    toast.error('Could not load connections');
-  } finally {
-    loadingConnections = false;
+  let connectionsPage = 1;
+  let connectionsHasMore = false;
+  let loadingMoreConnections = false;
+
+  async function fetchAllConnections() {
+    loadingConnections = true;
+    connectionsPage = 1;
+    try {
+      const res = await fetch(
+        `/api/connections?event_id=${data.event.id}&filter=all&page=1&limit=50`,
+        {
+          credentials: "include",
+        },
+      );
+      if (!res.ok) throw new Error("Failed to fetch connections");
+      const { connections: conn, hasMore } = await res.json();
+      connectionsStore.set(conn || []);
+      connectionsHasMore = hasMore;
+    } catch (e) {
+      toast.error("Could not load connections");
+    } finally {
+      loadingConnections = false;
+    }
   }
-}
 
-async function loadMoreConnections() {
-  if (loadingMoreConnections || !connectionsHasMore) return;
-  loadingMoreConnections = true;
-  try {
-    const nextPage = connectionsPage + 1;
-    const res = await fetch(`/api/connections?event_id=${data.event.id}&filter=all&page=${nextPage}&limit=50`, {
-      credentials: 'include'
-    });
-    if (!res.ok) throw new Error('Failed to fetch more connections');
-    const { connections: newConns, hasMore } = await res.json();
-    connectionsStore.update(existing => {
-      // Deduplicate by ID
-      const existingIds = new Set(existing.map(c => c.id));
-      const uniqueNewConns = newConns.filter(c => !existingIds.has(c.id));
-      return [...existing, ...uniqueNewConns];
-    });
-    connectionsHasMore = hasMore;
-    connectionsPage = nextPage;
-  } catch (e) {
-    toast.error('Could not load more connections');
-  } finally {
-    loadingMoreConnections = false;
-  }
-}
-
-async function updateConnection(connectionId, newStatus) {
-  try {
-    const res = await fetch(`/api/connections/${connectionId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
-      credentials: 'include'
-    });
-    if (!res.ok) throw new Error('Failed to update connection');
-    
-    connectionsStore.update(conns => {
-      return conns.map(c => {
-        if (c.id === connectionId) {
-          return { 
-            ...c, 
-            status: newStatus === 'met' ? 'accepted' : newStatus, 
-            met_at: newStatus === 'met' ? new Date().toISOString() : c.met_at 
-          };
-        }
-        return c;
+  async function loadMoreConnections() {
+    if (loadingMoreConnections || !connectionsHasMore) return;
+    loadingMoreConnections = true;
+    try {
+      const nextPage = connectionsPage + 1;
+      const res = await fetch(
+        `/api/connections?event_id=${data.event.id}&filter=all&page=${nextPage}&limit=50`,
+        {
+          credentials: "include",
+        },
+      );
+      if (!res.ok) throw new Error("Failed to fetch more connections");
+      const { connections: newConns, hasMore } = await res.json();
+      connectionsStore.update((existing) => {
+        // Deduplicate by ID
+        const existingIds = new Set(existing.map((c) => c.id));
+        const uniqueNewConns = newConns.filter((c) => !existingIds.has(c.id));
+        return [...existing, ...uniqueNewConns];
       });
-    });
-    toast.success(`Connection ${newStatus}`);
-  } catch (e) {
-    toast.error('Could not update connection');
-  }
-}
-
-function openChatForConnection(connection) {
-  if (connection.status !== 'accepted') {
-    toast.error('Chat is only available for accepted connections.');
-    return;
-  }
-
-  activeChatConnectionId = connection.id;
-  chatOpen = true;
-}
-
-async function connectUser(match) {
-  // Check if there's an existing pending connection - no need to duplicate
-  const existingPending = $connectionsStore.find(c =>
-    ((c.sender_user_id === data.user?.id && c.receiver_user_id === match.user_id) ||
-     (c.receiver_user_id === data.user?.id && c.sender_user_id === match.user_id)) &&
-    c.status === 'pending'
-  );
-
-  if (existingPending) {
-    toast.info('Connection request already sent.');
-    return;
-  }
-
-  // If dummy user, show confirmation modal first
-  if (match.is_dummy) {
-    pendingDummyUserId = match.user_id;
-    dummyConnectModalOpen = true;
-    return;
-  }
-
-  await doConnect(match.user_id);
-}
-
-async function doConnect(matchUserId) {
-  connectingIds = [...connectingIds, matchUserId];
-  try {
-    const res = await fetch(`/api/connections/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: data.event.id, receiver_user_id: matchUserId }),
-      credentials: 'include'
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || err.error || 'Failed to create connection request');
+      connectionsHasMore = hasMore;
+      connectionsPage = nextPage;
+    } catch (e) {
+      toast.error("Could not load more connections");
+    } finally {
+      loadingMoreConnections = false;
     }
-    const { connection } = await res.json();
-    
-    connectionsStore.update(conns => {
-      return [...conns, connection];
-    });
-
-    if (connection.status === 'accepted') {
-      toast.success('Connected!');
-    } else {
-      toast.success('Connection request sent');
-    }
-  } catch (e) {
-    toast.error(e.message || 'Could not send request');
-  } finally {
-    connectingIds = connectingIds.filter(id => id !== matchUserId);
   }
-}
+
+  async function updateConnection(connectionId, newStatus) {
+    try {
+      const res = await fetch(`/api/connections/${connectionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update connection");
+
+      connectionsStore.update((conns) => {
+        return conns.map((c) => {
+          if (c.id === connectionId) {
+            return {
+              ...c,
+              status: newStatus === "met" ? "accepted" : newStatus,
+              met_at: newStatus === "met" ? new Date().toISOString() : c.met_at,
+            };
+          }
+          return c;
+        });
+      });
+      toast.success(`Connection ${newStatus}`);
+    } catch (e) {
+      toast.error("Could not update connection");
+    }
+  }
+
+  function openChatForConnection(connection) {
+    if (connection.status !== "accepted") {
+      toast.error("Chat is only available for accepted connections.");
+      return;
+    }
+
+    activeChatConnectionId = connection.id;
+    chatOpen = true;
+  }
+
+  async function connectUser(match) {
+    // Check if there's an existing pending connection - no need to duplicate
+    const existingPending = $connectionsStore.find(
+      (c) =>
+        ((c.sender_user_id === data.user?.id &&
+          c.receiver_user_id === match.user_id) ||
+          (c.receiver_user_id === data.user?.id &&
+            c.sender_user_id === match.user_id)) &&
+        c.status === "pending",
+    );
+
+    if (existingPending) {
+      toast.info("Connection request already sent.");
+      return;
+    }
+
+    // If dummy user, show confirmation modal first
+    if (match.is_dummy) {
+      pendingDummyUserId = match.user_id;
+      dummyConnectModalOpen = true;
+      return;
+    }
+
+    await doConnect(match.user_id);
+  }
+
+  async function doConnect(matchUserId) {
+    connectingIds = [...connectingIds, matchUserId];
+    try {
+      const res = await fetch(`/api/connections/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: data.event.id,
+          receiver_user_id: matchUserId,
+        }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          err.message || err.error || "Failed to create connection request",
+        );
+      }
+      const { connection } = await res.json();
+
+      connectionsStore.update((conns) => {
+        return [...conns, connection];
+      });
+
+      if (connection.status === "accepted") {
+        toast.success("Connected!");
+      } else {
+        toast.success("Connection request sent");
+      }
+    } catch (e) {
+      toast.error(e.message || "Could not send request");
+    } finally {
+      connectingIds = connectingIds.filter((id) => id !== matchUserId);
+    }
+  }
 
   async function signOut() {
     signingOut = true;
@@ -627,7 +751,7 @@ async function doConnect(matchUserId) {
       }
 
       if (!data.event.id) {
-        toast.error('This is a demo event and cannot be joined.');
+        toast.error("This is a demo event and cannot be joined.");
         return;
       }
 
@@ -640,7 +764,11 @@ async function doConnect(matchUserId) {
 
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.message || errBody.error || 'Failed to register event participation in database');
+        throw new Error(
+          errBody.message ||
+            errBody.error ||
+            "Failed to register event participation in database",
+        );
       }
 
       stage = "profile";
@@ -669,8 +797,11 @@ async function doConnect(matchUserId) {
     savingProfile = true;
     try {
       // Step 1: Build texts for embeddings
-      const aboutUserText = `What I do:\n${networkingProfile.whatTheyDo}` +
-        (networkingProfile.expectations ? `\n\nAbout me:\n${networkingProfile.expectations}` : '');
+      const aboutUserText =
+        `What I do:\n${networkingProfile.whatTheyDo}` +
+        (networkingProfile.expectations
+          ? `\n\nAbout me:\n${networkingProfile.expectations}`
+          : "");
       const lookingForText = `Looking for:\n${networkingProfile.whoTheyWant}`;
 
       // Step 2: Generate embeddings (parallel)
@@ -702,13 +833,13 @@ async function doConnect(matchUserId) {
       }
       // Transform DB row to UI shape
       const normalizeProfile = (p) => {
-        let lookingForStr = p.looking_for ?? '';
+        let lookingForStr = p.looking_for ?? "";
         try {
           const parsed = JSON.parse(lookingForStr);
           if (Array.isArray(parsed)) {
-            lookingForStr = parsed.join(', ');
+            lookingForStr = parsed.join(", ");
           }
-        } catch(e) {}
+        } catch (e) {}
         return {
           whoTheyAre: p.display_name,
           whatTheyDo: p.what_i_do,
@@ -745,7 +876,8 @@ async function doConnect(matchUserId) {
     }
 
     if (!aiProfileText.trim()) {
-      aiGenerationError = "Paste a short bio, LinkedIn About section, or resume summary to continue.";
+      aiGenerationError =
+        "Paste a short bio, LinkedIn About section, or resume summary to continue.";
       return;
     }
 
@@ -764,7 +896,7 @@ async function doConnect(matchUserId) {
       const responseData = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (res.status === 429) {
-          if (responseData.error === 'MONTHLY_AI_LIMIT_EXCEEDED') {
+          if (responseData.error === "MONTHLY_AI_LIMIT_EXCEEDED") {
             aiCreditsStore.showExhaustedModal();
             return;
           }
@@ -774,7 +906,7 @@ async function doConnect(matchUserId) {
           responseData.error ?? "Could not generate your profile right now.",
         );
       }
-      
+
       aiCreditsStore.useCredit();
       const generatedProfile = responseData.profile ?? {};
       networkingProfile = {
@@ -790,7 +922,9 @@ async function doConnect(matchUserId) {
       });
     } catch (error) {
       aiGenerationError =
-        error instanceof Error ? error.message : "Could not generate your profile.";
+        error instanceof Error
+          ? error.message
+          : "Could not generate your profile.";
       toast.error("AI profile generation failed", {
         description: aiGenerationError,
       });
@@ -845,14 +979,14 @@ async function doConnect(matchUserId) {
         "Share a little about yourself, including your experience, interests, skills, achievements, or the kind of work you're passionate about. This helps others understand who you are and makes AI matching more accurate.",
       id: "expectations",
       wsId: "ws-expectations",
-    }
+    },
   ];
 
-  $: profileValid = (networkingProfile.whoTheyAre?.trim()?.length || 0) > 0 &&
-                    (networkingProfile.whatTheyDo?.trim()?.length || 0) >= 20 &&
-                    (networkingProfile.whoTheyWant?.trim()?.length || 0) >= 20 &&
-                    (networkingProfile.expectations?.trim()?.length || 0) >= 20;
-
+  $: profileValid =
+    (networkingProfile.whoTheyAre?.trim()?.length || 0) > 0 &&
+    (networkingProfile.whatTheyDo?.trim()?.length || 0) >= 20 &&
+    (networkingProfile.whoTheyWant?.trim()?.length || 0) >= 20 &&
+    (networkingProfile.expectations?.trim()?.length || 0) >= 20;
 
   let dummyModalOpen = false;
   let creatingDummy = false;
@@ -865,43 +999,42 @@ async function doConnect(matchUserId) {
   async function createDummyUsers() {
     creatingDummy = true;
     try {
-      const res = await fetch('/api/dummy_users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ event_id: data.event.id })
+      const res = await fetch("/api/dummy_users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ event_id: data.event.id }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (res.status === 429) {
-          if (err.error === 'MONTHLY_AI_LIMIT_EXCEEDED') {
+          if (err.error === "MONTHLY_AI_LIMIT_EXCEEDED") {
             aiCreditsStore.showExhaustedModal();
             return;
           }
-          throw new Error(err.message || 'AI limit reached');
+          throw new Error(err.message || "AI limit reached");
         }
-        throw new Error(err.error ?? 'Failed to create simulation');
+        throw new Error(err.error ?? "Failed to create simulation");
       }
-      
+
       aiCreditsStore.useCredit();
       await fetchMatches();
-      toast.success('Dummy users created');
+      toast.success("Dummy users created");
       dummyModalOpen = false;
     } catch (e) {
-      toast.error('Could not create simulation', { description: e.message });
+      toast.error("Could not create simulation", { description: e.message });
     } finally {
       creatingDummy = false;
     }
   }
 </script>
 
-
 <svelte:head>
-  <title>{data.event.name} | EventNetwork AI</title>
+  <title>{data.event.name} | Evenai</title>
   <meta
     name="description"
     content="Join {data.event
-      .name} on EventNetwork AI and get AI-powered networking matches."
+      .name} on Evenai and get AI-powered networking matches."
   />
 </svelte:head>
 
@@ -1051,8 +1184,12 @@ async function doConnect(matchUserId) {
       <!-- ─── PROFILE STAGE ─── -->
     {:else if stage === "profile"}
       <div class="mx-auto max-w-5xl animate-slide-up">
-        <div class="glass rounded-3xl border border-violet-400/15 overflow-hidden">
-          <div class="h-1 bg-gradient-to-r from-violet-400 via-cyan-400/70 to-transparent"></div>
+        <div
+          class="glass rounded-3xl border border-violet-400/15 overflow-hidden"
+        >
+          <div
+            class="h-1 bg-gradient-to-r from-violet-400 via-cyan-400/70 to-transparent"
+          ></div>
           <div class="p-5 sm:p-6 space-y-4">
             <div class="space-y-2">
               <Badge
@@ -1063,25 +1200,46 @@ async function doConnect(matchUserId) {
                 AI onboarding
               </Badge>
               <div class="space-y-2">
-                <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                <h1
+                  class="text-2xl font-black tracking-tight text-white sm:text-3xl"
+                >
                   ✨ Magic AI Profile Auto-Fill
                 </h1>
                 <p class="max-w-xl text-sm leading-6 text-ink-300">
-                  Paste a short bio or LinkedIn blurb. The AI will turn it into a networking profile for review.
+                  Paste a short bio or LinkedIn blurb. The AI will turn it into
+                  a networking profile for review.
                 </p>
               </div>
             </div>
 
             <div class="mx-auto w-full max-w-2xl space-y-3">
-              <div class="rounded-2xl border border-white/8 bg-white/4 px-3 py-2">
-                <p class="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
+              <div
+                class="rounded-2xl border border-white/8 bg-white/4 px-3 py-2"
+              >
+                <p
+                  class="text-[10px] font-bold uppercase tracking-widest text-cyan-300"
+                >
                   Examples you can paste
                 </p>
-                <div class="mt-2 flex flex-wrap gap-2 text-[11px] leading-5 text-ink-300">
-                  <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">LinkedIn About</span>
-                  <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">Resume summary</span>
-                  <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">Startup bio</span>
-                  <span class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1">Goals + skills</span>
+                <div
+                  class="mt-2 flex flex-wrap gap-2 text-[11px] leading-5 text-ink-300"
+                >
+                  <span
+                    class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                    >LinkedIn About</span
+                  >
+                  <span
+                    class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                    >Resume summary</span
+                  >
+                  <span
+                    class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                    >Startup bio</span
+                  >
+                  <span
+                    class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                    >Goals + skills</span
+                  >
                 </div>
               </div>
 
@@ -1106,9 +1264,13 @@ async function doConnect(matchUserId) {
               {/if}
 
               {#if aiGenerationError}
-                <div class="rounded-2xl border border-amber-400/20 bg-amber-400/8 p-3 text-sm text-amber-100">
+                <div
+                  class="rounded-2xl border border-amber-400/20 bg-amber-400/8 p-3 text-sm text-amber-100"
+                >
                   <p class="font-semibold">Could not generate your profile.</p>
-                  <p class="mt-1 leading-6 text-amber-100/85">{aiGenerationError}</p>
+                  <p class="mt-1 leading-6 text-amber-100/85">
+                    {aiGenerationError}
+                  </p>
                   <div class="mt-3">
                     <Button
                       variant="outline"
@@ -1126,7 +1288,9 @@ async function doConnect(matchUserId) {
                 <p class="text-[11px] text-ink-400">
                   The AI will generate a draft you can edit.
                 </p>
-                <span class="text-[10px] uppercase tracking-widest text-ink-500">
+                <span
+                  class="text-[10px] uppercase tracking-widest text-ink-500"
+                >
                   Review first
                 </span>
               </div>
@@ -1184,12 +1348,18 @@ async function doConnect(matchUserId) {
                     <MoreVertical size={16} />
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="end" class="w-48">
-                    <DropdownMenu.Item onclick={openEditModal} class="cursor-pointer gap-2">
+                    <DropdownMenu.Item
+                      onclick={openEditModal}
+                      class="cursor-pointer gap-2"
+                    >
                       <Pencil size={14} />
                       Edit Event
                     </DropdownMenu.Item>
                     <DropdownMenu.Separator />
-                    <DropdownMenu.Item onclick={() => deleteEventModalOpen = true} class="cursor-pointer gap-2 text-red-400 focus:text-red-400">
+                    <DropdownMenu.Item
+                      onclick={() => (deleteEventModalOpen = true)}
+                      class="cursor-pointer gap-2 text-red-400 focus:text-red-400"
+                    >
                       <Trash2 size={14} />
                       Delete Event
                     </DropdownMenu.Item>
@@ -1221,42 +1391,50 @@ async function doConnect(matchUserId) {
           </div>
         {/if}
 
-        <Tabs.Root value={$activeTab} onValueChange={(v) => {
-          activeTab.set(v);
-        }}>
+        <Tabs.Root
+          value={$activeTab}
+          onValueChange={(v) => {
+            activeTab.set(v);
+          }}
+        >
           <!-- Scrollable tabs wrapper -->
-          <div class="overflow-x-auto overflow-y-hidden scrollbar-hide rounded-xl">
-          <Tabs.List
-            class="glass rounded-xl flex min-w-max divide-x divide-white/10"
+          <div
+            class="overflow-x-auto overflow-y-hidden scrollbar-hide rounded-xl"
           >
-            <Tabs.Trigger
-              value="details"
-              class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
+            <Tabs.List
+              class="glass rounded-xl flex min-w-max divide-x divide-white/10"
             >
-              <Info size={16} />
-              <span>Overview</span>
-            </Tabs.Trigger>
+              <Tabs.Trigger
+                value="details"
+                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
+              >
+                <Info size={16} />
+                <span>Overview</span>
+              </Tabs.Trigger>
 
-            <Tabs.Trigger
-              value="analytics"
-              class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-200 data-[state=inactive]:text-ink-500 hover:text-cyan-200"
-            >
-              <BarChart3 size={16} />
-              <span>Analytics</span>
-            </Tabs.Trigger>
+              <Tabs.Trigger
+                value="analytics"
+                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-200 data-[state=inactive]:text-ink-500 hover:text-cyan-200"
+              >
+                <BarChart3 size={16} />
+                <span>Analytics</span>
+              </Tabs.Trigger>
 
-            <Tabs.Trigger
-              value="matches"
-              class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
-            >
-              <Users size={16} />
-              <span class="flex items-center gap-1.5">Matches {#if $matchesStore.length}<span
-                   class="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300"
-                   >{$matchesStore.length}</span>
-                 {/if}</span>
-            </Tabs.Trigger>
+              <Tabs.Trigger
+                value="matches"
+                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
+              >
+                <Users size={16} />
+                <span class="flex items-center gap-1.5"
+                  >Matches {#if $matchesStore.length}<span
+                      class="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300"
+                      >{$matchesStore.length}</span
+                    >
+                  {/if}</span
+                >
+              </Tabs.Trigger>
 
-            <Tabs.Trigger
+              <Tabs.Trigger
                 value="connections"
                 class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-purple-400/15 data-[state=active]:text-purple-200 data-[state=inactive]:text-ink-500 hover:text-purple-200"
               >
@@ -1270,7 +1448,7 @@ async function doConnect(matchUserId) {
                 <MapPin size={16} />
                 <span>Venue</span>
               </Tabs.Trigger>
-              </Tabs.List>
+            </Tabs.List>
           </div>
 
           <!-- Details tab -->
@@ -1306,7 +1484,9 @@ async function doConnect(matchUserId) {
                       Room status
                     </p>
                     <p class="text-sm font-semibold text-emerald-300">
-                      {data.isOrganizer ? "Organizer dashboard active" : "Profile complete ✓"}
+                      {data.isOrganizer
+                        ? "Organizer dashboard active"
+                        : "Profile complete ✓"}
                     </p>
                   </div>
                 </div>
@@ -1341,22 +1521,38 @@ async function doConnect(matchUserId) {
             {#if data.isOrganizer && analytics}
               <div class="space-y-5">
                 <div class="glass rounded-2xl border border-white/8 p-6">
-                  <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div
+                    class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+                  >
                     <div>
                       <div class="flex items-center gap-2 mb-2">
                         <BarChart3 size={18} class="text-cyan-300" />
-                        <p class="text-xs font-bold uppercase tracking-widest text-cyan-300">
+                        <p
+                          class="text-xs font-bold uppercase tracking-widest text-cyan-300"
+                        >
                           Organizer Analytics
                         </p>
                       </div>
-                      <h2 class="text-2xl font-black text-white">Event performance dashboard</h2>
+                      <h2 class="text-2xl font-black text-white">
+                        Event performance dashboard
+                      </h2>
                       <p class="mt-2 max-w-2xl text-sm leading-6 text-ink-400">
-                        Monitor participant engagement, AI match activity, connection momentum, and QR meet completion for this event.
+                        Monitor participant engagement, AI match activity,
+                        connection momentum, and QR meet completion for this
+                        event.
                       </p>
                     </div>
-                    <div class="rounded-xl border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-right">
-                      <p class="text-[10px] font-bold uppercase tracking-widest text-amber-300">Live insight</p>
-                      <p class="mt-1 text-2xl font-black text-white">{analytics.connectionAcceptanceRate}%</p>
+                    <div
+                      class="rounded-xl border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-right"
+                    >
+                      <p
+                        class="text-[10px] font-bold uppercase tracking-widest text-amber-300"
+                      >
+                        Live insight
+                      </p>
+                      <p class="mt-1 text-2xl font-black text-white">
+                        {analytics.connectionAcceptanceRate}%
+                      </p>
                       <p class="text-xs text-ink-400">acceptance rate</p>
                     </div>
                   </div>
@@ -1364,9 +1560,17 @@ async function doConnect(matchUserId) {
 
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {#each analyticsMetricCards as metric}
-                    <div class="glass card-hover rounded-2xl border border-white/8 p-5">
-                      <p class="text-[10px] font-bold uppercase tracking-widest text-ink-500">{metric.label}</p>
-                      <p class="mt-3 text-3xl font-black text-white">{metric.value}</p>
+                    <div
+                      class="glass card-hover rounded-2xl border border-white/8 p-5"
+                    >
+                      <p
+                        class="text-[10px] font-bold uppercase tracking-widest text-ink-500"
+                      >
+                        {metric.label}
+                      </p>
+                      <p class="mt-3 text-3xl font-black text-white">
+                        {metric.value}
+                      </p>
                     </div>
                   {/each}
                 </div>
@@ -1375,19 +1579,32 @@ async function doConnect(matchUserId) {
                   <div class="glass rounded-2xl border border-white/8 p-6">
                     <div class="mb-5 flex items-center gap-2">
                       <Network size={17} class="text-amber-300" />
-                      <h3 class="text-lg font-bold text-white">Networking Funnel</h3>
+                      <h3 class="text-lg font-bold text-white">
+                        Networking Funnel
+                      </h3>
                     </div>
                     <div class="space-y-4">
                       {#each analytics.networkingFunnel as step}
                         <div>
-                          <div class="mb-1.5 flex items-center justify-between gap-3">
-                            <p class="text-sm font-semibold text-ink-200">{step.label}</p>
-                            <p class="text-sm font-bold text-white">{step.value}</p>
+                          <div
+                            class="mb-1.5 flex items-center justify-between gap-3"
+                          >
+                            <p class="text-sm font-semibold text-ink-200">
+                              {step.label}
+                            </p>
+                            <p class="text-sm font-bold text-white">
+                              {step.value}
+                            </p>
                           </div>
-                          <div class="h-2 overflow-hidden rounded-full bg-white/8">
+                          <div
+                            class="h-2 overflow-hidden rounded-full bg-white/8"
+                          >
                             <div
                               class="h-full rounded-full bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400"
-                              style="width: {Math.max((step.value / maxFunnelValue) * 100, step.value ? 8 : 2)}%"
+                              style="width: {Math.max(
+                                (step.value / maxFunnelValue) * 100,
+                                step.value ? 8 : 2,
+                              )}%"
                             ></div>
                           </div>
                         </div>
@@ -1398,9 +1615,13 @@ async function doConnect(matchUserId) {
                   <div class="glass rounded-2xl border border-white/8 p-6">
                     <div class="mb-5 flex items-center gap-2">
                       <TrendingUp size={17} class="text-emerald-300" />
-                      <h3 class="text-lg font-bold text-white">AI Organizer Summary</h3>
+                      <h3 class="text-lg font-bold text-white">
+                        AI Organizer Summary
+                      </h3>
                     </div>
-                    <p class="text-sm leading-6 text-ink-300">{analytics.organizerSummary}</p>
+                    <p class="text-sm leading-6 text-ink-300">
+                      {analytics.organizerSummary}
+                    </p>
                   </div>
                 </div>
 
@@ -1412,10 +1633,18 @@ async function doConnect(matchUserId) {
                     </div>
                     <div class="space-y-3">
                       {#each analytics.topSkills as skill}
-                        <div class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3">
-                          <p class="text-sm font-semibold text-white">{skill.label}</p>
-                          <span class="rounded-full bg-purple-400/15 px-2.5 py-1 text-[11px] font-bold text-purple-200">
-                            {skill.count ? `${skill.count} profile${skill.count === 1 ? '' : 's'}` : 'Waiting'}
+                        <div
+                          class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3"
+                        >
+                          <p class="text-sm font-semibold text-white">
+                            {skill.label}
+                          </p>
+                          <span
+                            class="rounded-full bg-purple-400/15 px-2.5 py-1 text-[11px] font-bold text-purple-200"
+                          >
+                            {skill.count
+                              ? `${skill.count} profile${skill.count === 1 ? "" : "s"}`
+                              : "Waiting"}
                           </span>
                         </div>
                       {/each}
@@ -1425,14 +1654,24 @@ async function doConnect(matchUserId) {
                   <div class="glass rounded-2xl border border-white/8 p-6">
                     <div class="mb-5 flex items-center gap-2">
                       <Target size={17} class="text-cyan-300" />
-                      <h3 class="text-lg font-bold text-white">Most Requested Networking Goals</h3>
+                      <h3 class="text-lg font-bold text-white">
+                        Most Requested Networking Goals
+                      </h3>
                     </div>
                     <div class="space-y-3">
                       {#each analytics.topGoals as goal}
-                        <div class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3">
-                          <p class="text-sm font-semibold text-white">{goal.label}</p>
-                          <span class="rounded-full bg-cyan-400/15 px-2.5 py-1 text-[11px] font-bold text-cyan-200">
-                            {goal.count ? `${goal.count} mention${goal.count === 1 ? '' : 's'}` : 'Waiting'}
+                        <div
+                          class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3"
+                        >
+                          <p class="text-sm font-semibold text-white">
+                            {goal.label}
+                          </p>
+                          <span
+                            class="rounded-full bg-cyan-400/15 px-2.5 py-1 text-[11px] font-bold text-cyan-200"
+                          >
+                            {goal.count
+                              ? `${goal.count} mention${goal.count === 1 ? "" : "s"}`
+                              : "Waiting"}
                           </span>
                         </div>
                       {/each}
@@ -1442,40 +1681,67 @@ async function doConnect(matchUserId) {
               </div>
             {:else}
               <div class="glass rounded-2xl border border-white/8 p-8 sm:p-10">
-                <div class="mx-auto grid max-w-4xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+                <div
+                  class="mx-auto grid max-w-4xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center"
+                >
                   <div class="relative mx-auto h-56 w-full max-w-xs">
-                    <div class="absolute inset-0 rounded-2xl border border-cyan-400/20 bg-cyan-400/8"></div>
-                    <div class="absolute left-6 right-6 top-8 rounded-xl border border-white/10 bg-ink-950/70 p-4 shadow-glow-cyan">
+                    <div
+                      class="absolute inset-0 rounded-2xl border border-cyan-400/20 bg-cyan-400/8"
+                    ></div>
+                    <div
+                      class="absolute left-6 right-6 top-8 rounded-xl border border-white/10 bg-ink-950/70 p-4 shadow-glow-cyan"
+                    >
                       <div class="mb-4 flex items-center justify-between">
                         <div class="flex items-center gap-2">
                           <BarChart3 size={17} class="text-cyan-300" />
-                          <span class="text-xs font-bold uppercase tracking-widest text-cyan-200">Analytics</span>
+                          <span
+                            class="text-xs font-bold uppercase tracking-widest text-cyan-200"
+                            >Analytics</span
+                          >
                         </div>
-                        <span class="h-2 w-2 rounded-full bg-emerald-300"></span>
+                        <span class="h-2 w-2 rounded-full bg-emerald-300"
+                        ></span>
                       </div>
                       <div class="space-y-3">
-                        <div class="h-2 w-3/4 rounded-full bg-amber-300/80"></div>
-                        <div class="h-2 w-full rounded-full bg-cyan-300/70"></div>
-                        <div class="h-2 w-1/2 rounded-full bg-emerald-300/70"></div>
+                        <div
+                          class="h-2 w-3/4 rounded-full bg-amber-300/80"
+                        ></div>
+                        <div
+                          class="h-2 w-full rounded-full bg-cyan-300/70"
+                        ></div>
+                        <div
+                          class="h-2 w-1/2 rounded-full bg-emerald-300/70"
+                        ></div>
                       </div>
                     </div>
-                    <div class="absolute bottom-7 left-10 flex h-20 w-20 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10">
+                    <div
+                      class="absolute bottom-7 left-10 flex h-20 w-20 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10"
+                    >
                       <LineChart size={34} class="text-amber-300" />
                     </div>
-                    <div class="absolute bottom-8 right-8 flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-400/20 bg-purple-400/10">
+                    <div
+                      class="absolute bottom-8 right-8 flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-400/20 bg-purple-400/10"
+                    >
                       <PieChart size={28} class="text-purple-300" />
                     </div>
                   </div>
 
                   <div class="text-center lg:text-left">
-                    <p class="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-300">
+                    <p
+                      class="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-300"
+                    >
                       Event insights
                     </p>
-                    <h2 class="text-2xl font-black text-white">Organizer Analytics</h2>
-                    <p class="mx-auto mt-4 max-w-xl whitespace-pre-line text-sm leading-6 text-ink-300 lg:mx-0">
-                      Detailed event analytics are only available to the event organizer.
-
-                      Create your own event to unlock organizer analytics and monitor participant engagement, AI matches, networking activity, and event insights.
+                    <h2 class="text-2xl font-black text-white">
+                      Organizer Analytics
+                    </h2>
+                    <p
+                      class="mx-auto mt-4 max-w-xl whitespace-pre-line text-sm leading-6 text-ink-300 lg:mx-0"
+                    >
+                      Detailed event analytics are only available to the event
+                      organizer. Create your own event to unlock organizer
+                      analytics and monitor participant engagement, AI matches,
+                      networking activity, and event insights.
                     </p>
                     <Button onclick={goToCreateEvent} class="mt-6 gap-2">
                       <Plus size={16} />
@@ -1489,7 +1755,9 @@ async function doConnect(matchUserId) {
 
           <!-- Networking profile dialog (portaled outside) -->
           <Dialog.Root bind:open={editProfileOpen}>
-            <Dialog.Content class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto">
+            <Dialog.Content
+              class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto"
+            >
               <Dialog.Header class="hidden">
                 <Dialog.Title>Edit networking profile</Dialog.Title>
               </Dialog.Header>
@@ -1503,8 +1771,12 @@ async function doConnect(matchUserId) {
               </div>
 
               <!-- AI Auto-fill section in Edit Modal -->
-              <div class="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 mb-5">
-                <p class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2 flex items-center gap-1.5">
+              <div
+                class="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 mb-5"
+              >
+                <p
+                  class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2 flex items-center gap-1.5"
+                >
                   <Brain size={12} /> Magic AI Auto-Fill
                 </p>
                 <textarea
@@ -1512,27 +1784,31 @@ async function doConnect(matchUserId) {
                   placeholder="Paste your LinkedIn About section or a short bio here..."
                   class="min-h-[80px] w-full rounded-xl border border-white/10 bg-white/4 p-3 text-xs leading-5 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/15 mb-3"
                 ></textarea>
-              <div class="relative group w-full">
-                <Button
-                  variant="outline"
-                  onclick={generateAiProfile}
-                  disabled={aiGenerating || !aiProfileText.trim()}
-                  class="w-full h-8 text-xs border-cyan-400/20 text-cyan-300 hover:bg-cyan-400/10"
-                >
-                  {#if aiGenerating}
-                    <LoaderCircle size={12} class="animate-spin mr-2" />
-                    Generating fields...
-                  {:else}
-                    <Sparkles size={12} class="mr-2" />
-                    Auto-fill below fields
-                  {/if}
-                </Button>
-                <div class="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[10px] font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap z-50">
-                  Uses 1 AI credit
+                <div class="relative group w-full">
+                  <Button
+                    variant="outline"
+                    onclick={generateAiProfile}
+                    disabled={aiGenerating || !aiProfileText.trim()}
+                    class="w-full h-8 text-xs border-cyan-400/20 text-cyan-300 hover:bg-cyan-400/10"
+                  >
+                    {#if aiGenerating}
+                      <LoaderCircle size={12} class="animate-spin mr-2" />
+                      Generating fields...
+                    {:else}
+                      <Sparkles size={12} class="mr-2" />
+                      Auto-fill below fields
+                    {/if}
+                  </Button>
+                  <div
+                    class="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[10px] font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap z-50"
+                  >
+                    Uses 1 AI credit
+                  </div>
                 </div>
-              </div>
                 {#if aiGenerationError}
-                  <p class="mt-2 text-[10px] text-amber-400">{aiGenerationError}</p>
+                  <p class="mt-2 text-[10px] text-amber-400">
+                    {aiGenerationError}
+                  </p>
                 {/if}
               </div>
               <div class="grid gap-4 sm:grid-cols-2 mb-5">
@@ -1559,8 +1835,14 @@ async function doConnect(matchUserId) {
                         maxlength="500"
                       ></textarea>
                       <div class="flex justify-between mt-1">
-                        <span class="text-[10px] text-amber-500/80">{(networkingProfile[field.key]?.length || 0) < 20 ? 'Minimum 20 characters required' : ''}</span>
-                        <span class="text-[10px] text-ink-500 text-right">{networkingProfile[field.key]?.length || 0} / 500</span>
+                        <span class="text-[10px] text-amber-500/80"
+                          >{(networkingProfile[field.key]?.length || 0) < 20
+                            ? "Minimum 20 characters required"
+                            : ""}</span
+                        >
+                        <span class="text-[10px] text-ink-500 text-right"
+                          >{networkingProfile[field.key]?.length || 0} / 500</span
+                        >
                       </div>
                     {/if}
                   </div>
@@ -1594,18 +1876,29 @@ async function doConnect(matchUserId) {
 
           <!-- Matches tab -->
           <Tabs.Content value="matches" class="mt-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div
+              class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
+            >
               <div class="flex items-center gap-2">
                 <Users size={18} class="text-white" />
                 <h2 class="text-lg font-bold text-white">Your Matches</h2>
               </div>
               <div class="flex flex-wrap items-center gap-2">
-                <Button variant="outline" class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10" onclick={() => (editProfileOpen = true)}>
+                <Button
+                  variant="outline"
+                  class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10"
+                  onclick={() => (editProfileOpen = true)}
+                >
                   <UserCircle2 size={15} class="mr-2" />
                   <span class="hidden sm:inline">Edit profile</span>
                   <span class="sm:hidden">Edit</span>
                 </Button>
-                <Button variant="outline" class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10 gap-2" onclick={refreshFromDb} disabled={refreshingFromDb}>
+                <Button
+                  variant="outline"
+                  class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10 gap-2"
+                  onclick={refreshFromDb}
+                  disabled={refreshingFromDb}
+                >
                   {#if refreshingFromDb}
                     <LoaderCircle size={15} class="animate-spin" />
                   {:else}
@@ -1613,24 +1906,32 @@ async function doConnect(matchUserId) {
                   {/if}
                   <span class="hidden sm:inline">Refresh</span>
                 </Button>
-              <div class="flex-1 sm:flex-none w-full sm:w-auto">
-                <Button class="w-full gap-2" onclick={() => (findMatchesModalOpen = true)} disabled={refreshingMatches}>
-                  {#if refreshingMatches}
-                    <LoaderCircle size={15} class="animate-spin" />
-                    Finding…
-                  {:else}
-                    <Sparkles size={15} />
-                    Find matches
-                  {/if}
-                </Button>
-              </div>
-              
-              <div class="flex-1 sm:flex-none w-full sm:w-auto">
-                <Button variant="outline" class="w-full gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = true)}>
-                  <Users size={15} />
-                  Simulation
-                </Button>
-              </div>
+                <div class="flex-1 sm:flex-none w-full sm:w-auto">
+                  <Button
+                    class="w-full gap-2"
+                    onclick={() => (findMatchesModalOpen = true)}
+                    disabled={refreshingMatches}
+                  >
+                    {#if refreshingMatches}
+                      <LoaderCircle size={15} class="animate-spin" />
+                      Finding…
+                    {:else}
+                      <Sparkles size={15} />
+                      Find matches
+                    {/if}
+                  </Button>
+                </div>
+
+                <div class="flex-1 sm:flex-none w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    class="w-full gap-2 border-white/10 text-white hover:bg-white/10"
+                    onclick={() => (dummyModalOpen = true)}
+                  >
+                    <Users size={15} />
+                    Simulation
+                  </Button>
+                </div>
               </div>
             </div>
             {#if refreshingMatches}
@@ -1641,19 +1942,27 @@ async function doConnect(matchUserId) {
               />
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {#each Array(3) as _}
-                  <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                  <div
+                    class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
+                  ></div>
                 {/each}
               </div>
             {:else if refreshingFromDb}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {#each Array(3) as _}
-                  <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                  <div
+                    class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
+                  ></div>
                 {/each}
               </div>
             {:else if $matchesStore.length}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {#each $matchesStore as match, i}
-                  {@const conn = $connectionsStore.find(c => c.sender_user_id === match.user_id || c.receiver_user_id === match.user_id)}
+                  {@const conn = $connectionsStore.find(
+                    (c) =>
+                      c.sender_user_id === match.user_id ||
+                      c.receiver_user_id === match.user_id,
+                  )}
                   <div
                     class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
                   >
@@ -1664,16 +1973,21 @@ async function doConnect(matchUserId) {
                     ></div>
 
                     <div class="flex-1 flex flex-col p-5">
-                      <Tabs.Root value="ai-insights" class="flex-1 flex flex-col">
-                        <Tabs.List class="grid w-full grid-cols-2 mb-4 bg-white/5 border border-white/10 rounded-xl p-1">
-                          <Tabs.Trigger 
-                            value="ai-insights" 
+                      <Tabs.Root
+                        value="ai-insights"
+                        class="flex-1 flex flex-col"
+                      >
+                        <Tabs.List
+                          class="grid w-full grid-cols-2 mb-4 bg-white/5 border border-white/10 rounded-xl p-1"
+                        >
+                          <Tabs.Trigger
+                            value="ai-insights"
                             class="rounded-lg text-xs font-semibold data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-300"
                           >
                             🤖 AI Insights
                           </Tabs.Trigger>
-                          <Tabs.Trigger 
-                            value="profile" 
+                          <Tabs.Trigger
+                            value="profile"
                             class="rounded-lg text-xs font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white"
                           >
                             👤 Profile
@@ -1681,8 +1995,13 @@ async function doConnect(matchUserId) {
                         </Tabs.List>
 
                         <!-- AI Insights Tab -->
-                        <Tabs.Content value="ai-insights" class="flex-1 space-y-4 outline-none m-0">
-                          <div class="flex items-start justify-between gap-3 mb-2">
+                        <Tabs.Content
+                          value="ai-insights"
+                          class="flex-1 space-y-4 outline-none m-0"
+                        >
+                          <div
+                            class="flex items-start justify-between gap-3 mb-2"
+                          >
                             <div>
                               <h3 class="text-base font-bold text-white">
                                 {match.name}
@@ -1691,14 +2010,20 @@ async function doConnect(matchUserId) {
                                 AI Match Analysis
                               </p>
                             </div>
-                            <span class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300">
-                              {match.matchPercentage ?? '—'}% Match
+                            <span
+                              class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
+                            >
+                              {match.matchPercentage ?? "—"}% Match
                             </span>
                           </div>
 
                           {#if match.explanation}
-                            <div class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-4">
-                              <p class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2">
+                            <div
+                              class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-4"
+                            >
+                              <p
+                                class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2"
+                              >
                                 Why this match
                               </p>
                               <p class="text-sm leading-6 text-ink-300">
@@ -1706,28 +2031,44 @@ async function doConnect(matchUserId) {
                               </p>
                             </div>
                           {:else}
-                            <div class="rounded-xl border border-white/5 bg-white/5 p-4 text-center">
-                              <p class="text-xs text-ink-400">No detailed AI insights available for this match.</p>
+                            <div
+                              class="rounded-xl border border-white/5 bg-white/5 p-4 text-center"
+                            >
+                              <p class="text-xs text-ink-400">
+                                No detailed AI insights available for this
+                                match.
+                              </p>
                             </div>
                           {/if}
                         </Tabs.Content>
 
                         <!-- Profile Tab -->
-                        <Tabs.Content value="profile" class="flex-1 space-y-4 outline-none m-0">
-                          <div class="flex items-start justify-between gap-3 mb-2">
+                        <Tabs.Content
+                          value="profile"
+                          class="flex-1 space-y-4 outline-none m-0"
+                        >
+                          <div
+                            class="flex items-start justify-between gap-3 mb-2"
+                          >
                             <div>
                               <h3 class="text-base font-bold text-white">
                                 {match.name}
                               </h3>
                               <p class="mt-0.5 text-xs text-ink-400">
-                                {match.role}{match.company ? ` · ${match.company}` : ''}
+                                {match.role}{match.company
+                                  ? ` · ${match.company}`
+                                  : ""}
                               </p>
                             </div>
                           </div>
 
                           <div class="space-y-3">
                             <div>
-                              <p class="text-[10px] font-bold uppercase tracking-widest text-ink-500 mb-1">About Me</p>
+                              <p
+                                class="text-[10px] font-bold uppercase tracking-widest text-ink-500 mb-1"
+                              >
+                                About Me
+                              </p>
                               <p class="text-xs leading-5 text-ink-300">
                                 {match.about}
                               </p>
@@ -1737,7 +2078,9 @@ async function doConnect(matchUserId) {
                           {#if match.tags?.length}
                             <div class="flex flex-wrap gap-1.5 pt-2">
                               {#each match.tags.slice(0, 4) as tag}
-                                <span class="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] text-ink-400">
+                                <span
+                                  class="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] text-ink-400"
+                                >
                                   #{tag}
                                 </span>
                               {/each}
@@ -1747,28 +2090,49 @@ async function doConnect(matchUserId) {
                       </Tabs.Root>
                       <!-- Connect Button -->
                       <div class="pt-4 mt-auto">
-                        {#if !conn || conn.status === 'cancelled'}
-                          <Button class="w-full bg-white text-black hover:bg-white/90 gap-2" disabled={connectingIds.includes(match.user_id)} onclick={() => connectUser(match)}>
+                        {#if !conn || conn.status === "cancelled"}
+                          <Button
+                            class="w-full bg-white text-black hover:bg-white/90 gap-2"
+                            disabled={connectingIds.includes(match.user_id)}
+                            onclick={() => connectUser(match)}
+                          >
                             {#if connectingIds.includes(match.user_id)}
                               <LoaderCircle size={16} class="animate-spin" /> Connecting...
                             {:else}
                               <Users size={16} /> Connect
                             {/if}
                           </Button>
-                        {:else if conn.status === 'pending' && conn.sender_user_id === data.user?.id}
-                          <Button variant="outline" class="w-full gap-2 text-ink-300 border-ink-600 hover:text-white" onclick={() => updateConnection(conn.id, 'cancelled')}>
+                        {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
+                          <Button
+                            variant="outline"
+                            class="w-full gap-2 text-ink-300 border-ink-600 hover:text-white"
+                            onclick={() =>
+                              updateConnection(conn.id, "cancelled")}
+                          >
                             Cancel Request
                           </Button>
-                        {:else if conn.status === 'pending' && conn.receiver_user_id === data.user?.id}
-                          <Button variant="outline" class="w-full gap-2 text-amber-300 border-amber-600/50" disabled>
+                        {:else if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
+                          <Button
+                            variant="outline"
+                            class="w-full gap-2 text-amber-300 border-amber-600/50"
+                            disabled
+                          >
                             Pending Response
                           </Button>
-                        {:else if conn.status === 'accepted'}
-                          <Button variant="secondary" class="w-full gap-2 bg-purple-500/20 text-purple-300 border border-purple-500/30" disabled>
+                        {:else if conn.status === "accepted"}
+                          <Button
+                            variant="secondary"
+                            class="w-full gap-2 bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                            disabled
+                          >
                             <CheckCircle2 size={16} /> Connected
                           </Button>
-                        {:else if conn.status === 'rejected'}
-                          <Button variant="outline" class="w-full gap-2 text-red-400 border-red-500/30" disabled>
+                        {:else if conn.status === "rejected"}
+                          <Button
+                            variant="outline"
+                            class="w-full gap-2 text-red-400 border-red-500/30"
+                            disabled
+                          >
                             Rejected
                           </Button>
                         {/if}
@@ -1798,26 +2162,38 @@ async function doConnect(matchUserId) {
 
             <!-- Create Dummy Users confirmation modal -->
             <Dialog.Root bind:open={dummyModalOpen}>
-              <Dialog.Content class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white">
+              <Dialog.Content
+                class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+              >
                 <Dialog.Header>
-                  <Dialog.Title class="text-xl font-bold text-white flex items-center gap-2">
+                  <Dialog.Title
+                    class="text-xl font-bold text-white flex items-center gap-2"
+                  >
                     <Users size={20} class="text-cyan-400" />
                     Create Simulation
                   </Dialog.Title>
                 </Dialog.Header>
                 <p class="text-sm leading-6 text-ink-300 mt-2">
-                  This action will create 5 dummy participants with unique dummy email addresses.
-                  Each participant will automatically join this event and generate a realistic
-                  networking profile designed to be relevant to your profile, allowing you to test
-                  the AI matchmaking experience.
+                  This action will create 5 dummy participants with unique dummy
+                  email addresses. Each participant will automatically join this
+                  event and generate a realistic networking profile designed to
+                  be relevant to your profile, allowing you to test the AI
+                  matchmaking experience.
                 </p>
-                <div class="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 flex items-start gap-3">
+                <div
+                  class="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 flex items-start gap-3"
+                >
                   <div class="mt-0.5 rounded-full bg-cyan-400/10 p-1">
                     <Sparkles size={14} class="text-cyan-300" />
                   </div>
                   <div>
-                    <p class="text-sm font-semibold text-cyan-100">Uses 1 AI credit</p>
-                    <p class="mt-1 text-xs text-ink-400">Generating the 5 realistic participant profiles consumes a single AI credit.</p>
+                    <p class="text-sm font-semibold text-cyan-100">
+                      Uses 1 AI credit
+                    </p>
+                    <p class="mt-1 text-xs text-ink-400">
+                      Generating the 5 realistic participant profiles consumes a
+                      single AI credit.
+                    </p>
                   </div>
                 </div>
                 {#if creatingDummy}
@@ -1828,10 +2204,19 @@ async function doConnect(matchUserId) {
                   />
                 {/if}
                 <div class="flex justify-end gap-3 mt-6">
-                  <Button variant="outline" class="border-white/10 text-white hover:bg-white/10" onclick={() => (dummyModalOpen = false)} disabled={creatingDummy}>
+                  <Button
+                    variant="outline"
+                    class="border-white/10 text-white hover:bg-white/10"
+                    onclick={() => (dummyModalOpen = false)}
+                    disabled={creatingDummy}
+                  >
                     Cancel
                   </Button>
-                  <Button class="gap-2" onclick={createDummyUsers} disabled={creatingDummy}>
+                  <Button
+                    class="gap-2"
+                    onclick={createDummyUsers}
+                    disabled={creatingDummy}
+                  >
                     {#if creatingDummy}
                       <LoaderCircle size={15} class="animate-spin" />
                       Creating…
@@ -1845,42 +2230,75 @@ async function doConnect(matchUserId) {
 
             <!-- Find Matches Modal -->
             <Dialog.Root bind:open={findMatchesModalOpen}>
-              <Dialog.Content class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white">
+              <Dialog.Content
+                class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+              >
                 <Dialog.Header>
-                  <Dialog.Title class="text-xl font-bold text-white flex items-center gap-2">
+                  <Dialog.Title
+                    class="text-xl font-bold text-white flex items-center gap-2"
+                  >
                     <Sparkles size={20} class="text-amber-400" />
                     AI Matchmaking
                   </Dialog.Title>
                 </Dialog.Header>
                 <div class="space-y-4 mt-2">
                   <p class="text-sm leading-6 text-ink-300">
-                    Our AI analyzes your networking profile—what you do, who you want to meet, and your expectations—and compares it against every other participant in the event to find the most synergetic connections.
+                    Our AI analyzes your networking profile—what you do, who you
+                    want to meet, and your expectations—and compares it against
+                    every other participant in the event to find the most
+                    synergetic connections.
                   </p>
                   <ul class="space-y-3">
-                    <li class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5">
+                    <li
+                      class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                    >
                       <span class="text-amber-400 mt-0.5">•</span>
-                      <span class="text-sm text-ink-200 leading-relaxed">Generates a compatibility score for each attendee.</span>
+                      <span class="text-sm text-ink-200 leading-relaxed"
+                        >Generates a compatibility score for each attendee.</span
+                      >
                     </li>
-                    <li class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5">
+                    <li
+                      class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                    >
                       <span class="text-amber-400 mt-0.5">•</span>
-                      <span class="text-sm text-ink-200 leading-relaxed">Provides a detailed explanation of exactly why you should connect with them.</span>
+                      <span class="text-sm text-ink-200 leading-relaxed"
+                        >Provides a detailed explanation of exactly why you
+                        should connect with them.</span
+                      >
                     </li>
                   </ul>
-                  <div class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 flex items-start gap-3">
+                  <div
+                    class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 flex items-start gap-3"
+                  >
                     <div class="mt-0.5 rounded-full bg-amber-400/10 p-1">
                       <Sparkles size={14} class="text-amber-300" />
                     </div>
                     <div>
-                      <p class="text-sm font-semibold text-amber-100">Uses 1 AI credit</p>
-                      <p class="mt-1 text-xs text-ink-400">Running the matchmaking algorithm against the attendee list consumes a single AI credit.</p>
+                      <p class="text-sm font-semibold text-amber-100">
+                        Uses 1 AI credit
+                      </p>
+                      <p class="mt-1 text-xs text-ink-400">
+                        Running the matchmaking algorithm against the attendee
+                        list consumes a single AI credit.
+                      </p>
                     </div>
                   </div>
                 </div>
                 <div class="flex justify-end gap-3 mt-6">
-                  <Button variant="outline" class="border-white/10 text-white hover:bg-white/10" onclick={() => (findMatchesModalOpen = false)}>
+                  <Button
+                    variant="outline"
+                    class="border-white/10 text-white hover:bg-white/10"
+                    onclick={() => (findMatchesModalOpen = false)}
+                  >
                     Cancel
                   </Button>
-                  <Button class="gap-2 bg-amber-500 text-black hover:bg-amber-600 font-bold" onclick={() => { findMatchesModalOpen = false; fetchMatches(); }}>
+                  <Button
+                    class="gap-2 bg-amber-500 text-black hover:bg-amber-600 font-bold"
+                    onclick={() => {
+                      findMatchesModalOpen = false;
+                      fetchMatches();
+                    }}
+                  >
                     <Sparkles size={15} />
                     Find My Matches
                   </Button>
@@ -1891,20 +2309,41 @@ async function doConnect(matchUserId) {
 
           <!-- Dummy user connect confirmation modal -->
           <Dialog.Root bind:open={dummyConnectModalOpen}>
-            <Dialog.Content class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white">
+            <Dialog.Content
+              class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
+            >
               <Dialog.Header>
-                <Dialog.Title class="text-xl font-bold text-white flex items-center gap-2">
+                <Dialog.Title
+                  class="text-xl font-bold text-white flex items-center gap-2"
+                >
                   <span class="text-amber-400">⚠</span> Dummy User
                 </Dialog.Title>
               </Dialog.Header>
               <p class="text-sm leading-6 text-ink-300 mt-2">
-                This is a dummy user created for testing. The connection request will be automatically accepted.
+                This is a dummy user created for testing. The connection request
+                will be automatically accepted.
               </p>
               <div class="flex gap-3 mt-4">
-                <Button variant="outline" class="flex-1 border-white/10 text-white hover:bg-white/10" onclick={() => { dummyConnectModalOpen = false; pendingDummyUserId = null; }}>
+                <Button
+                  variant="outline"
+                  class="flex-1 border-white/10 text-white hover:bg-white/10"
+                  onclick={() => {
+                    dummyConnectModalOpen = false;
+                    pendingDummyUserId = null;
+                  }}
+                >
                   Cancel
                 </Button>
-                <Button class="flex-1" onclick={async () => { dummyConnectModalOpen = false; if (pendingDummyUserId) { await doConnect(pendingDummyUserId); pendingDummyUserId = null; } }}>
+                <Button
+                  class="flex-1"
+                  onclick={async () => {
+                    dummyConnectModalOpen = false;
+                    if (pendingDummyUserId) {
+                      await doConnect(pendingDummyUserId);
+                      pendingDummyUserId = null;
+                    }
+                  }}
+                >
                   Continue
                 </Button>
               </div>
@@ -1915,20 +2354,25 @@ async function doConnect(matchUserId) {
           <Tabs.Content value="connections" class="mt-4">
             <!-- Filter tabs + Refresh -->
             <div class="flex flex-wrap items-center gap-2 mb-4">
-              {#each ['received', 'sent', 'connected', 'met'] as f}
+              {#each ["received", "sent", "connected", "met"] as f}
                 <Button
-                  variant={connectionFilter === f ? 'default' : 'outline'}
+                  variant={connectionFilter === f ? "default" : "outline"}
                   class="capitalize"
-                  onclick={() => { connectionFilter = f; }}
-                >{f}</Button>
+                  onclick={() => {
+                    connectionFilter = f;
+                  }}>{f}</Button
+                >
               {/each}
-              <Button 
-                variant="outline" 
-                class="ml-auto gap-2 text-ink-300 border-white/10 hover:bg-white/10" 
+              <Button
+                variant="outline"
+                class="ml-auto gap-2 text-ink-300 border-white/10 hover:bg-white/10"
                 onclick={fetchAllConnections}
                 disabled={loadingConnections}
               >
-                <RefreshCw size={16} class={loadingConnections ? "animate-spin" : ""} />
+                <RefreshCw
+                  size={16}
+                  class={loadingConnections ? "animate-spin" : ""}
+                />
                 Refresh
               </Button>
             </div>
@@ -1936,21 +2380,38 @@ async function doConnect(matchUserId) {
             {#if loadingConnections}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {#each Array(3) as _}
-                  <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                  <div
+                    class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
+                  ></div>
                 {/each}
               </div>
             {:else if filteredConnections.length}
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {#each filteredConnections as conn (conn.id)}
-                  <div transition:slide class="glass card-hover rounded-2xl border border-white/8 overflow-hidden">
-                    <div class="h-0.5 bg-gradient-to-r from-purple-400 to-pink-400" style="width: {conn.matchPercentage ?? 50}%"></div>
+                  <div
+                    transition:slide
+                    class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
+                  >
+                    <div
+                      class="h-0.5 bg-gradient-to-r from-purple-400 to-pink-400"
+                      style="width: {conn.matchPercentage ?? 50}%"
+                    ></div>
                     <div class="p-5 flex flex-col gap-2">
-                      <h3 class="text-base font-bold text-white">{conn.profile?.display_name || 'Unknown'}</h3>
-                      <span class="rounded-full bg-purple-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-300">{conn.matchPercentage ?? '—'}% Match</span>
+                      <h3 class="text-base font-bold text-white">
+                        {conn.profile?.display_name || "Unknown"}
+                      </h3>
+                      <span
+                        class="rounded-full bg-purple-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-300"
+                        >{conn.matchPercentage ?? "—"}% Match</span
+                      >
                       {#if conn.explanation}
-                        <div class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300">{conn.explanation}</div>
+                        <div
+                          class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300"
+                        >
+                          {conn.explanation}
+                        </div>
                       {/if}
-                      {#if conn.status === 'accepted'}
+                      {#if conn.status === "accepted"}
                         <div class="flex gap-2 mt-2">
                           <Button
                             variant="secondary"
@@ -1970,26 +2431,54 @@ async function doConnect(matchUserId) {
                         </div>
                       {/if}
                       <!-- Action buttons based on status -->
-                      {#if conn.status === 'pending' && conn.receiver_user_id === data.user?.id}
+                      {#if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
                         <div class="flex gap-2 mt-2">
-                          <Button class="flex-1" onclick={() => updateConnection(conn.id, 'accepted')}>Accept</Button>
-                          <Button variant="destructive" class="flex-1" onclick={() => updateConnection(conn.id, 'rejected')}>Reject</Button>
+                          <Button
+                            class="flex-1"
+                            onclick={() =>
+                              updateConnection(conn.id, "accepted")}
+                            >Accept</Button
+                          >
+                          <Button
+                            variant="destructive"
+                            class="flex-1"
+                            onclick={() =>
+                              updateConnection(conn.id, "rejected")}
+                            >Reject</Button
+                          >
                         </div>
-                      {:else if conn.status === 'pending' && conn.sender_user_id === data.user?.id}
-                        <Button variant="outline" class="mt-2 w-full" onclick={() => updateConnection(conn.id, 'cancelled')}>Cancel Request</Button>
-                      {:else if conn.status === 'accepted' && !conn.met_at}
-                        <Button variant="outline" class="mt-2 w-full" onclick={() => updateConnection(conn.id, 'met')}>Mark as Met</Button>
-                      {:else if conn.status === 'accepted' && conn.met_at}
-                        <span class="mt-2 text-xs text-emerald-400 font-semibold">✓ Met</span>
+                      {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
+                        <Button
+                          variant="outline"
+                          class="mt-2 w-full"
+                          onclick={() => updateConnection(conn.id, "cancelled")}
+                          >Cancel Request</Button
+                        >
+                      {:else if conn.status === "accepted" && !conn.met_at}
+                        <Button
+                          variant="outline"
+                          class="mt-2 w-full"
+                          onclick={() => updateConnection(conn.id, "met")}
+                          >Mark as Met</Button
+                        >
+                      {:else if conn.status === "accepted" && conn.met_at}
+                        <span
+                          class="mt-2 text-xs text-emerald-400 font-semibold"
+                          >✓ Met</span
+                        >
                       {/if}
                     </div>
                   </div>
                 {/each}
               </div>
-              
+
               {#if connectionsHasMore}
                 <div class="mt-6 flex justify-center">
-                  <Button variant="outline" onclick={loadMoreConnections} disabled={loadingMoreConnections}>
+                  <Button
+                    variant="outline"
+                    onclick={loadMoreConnections}
+                    disabled={loadingMoreConnections}
+                  >
                     {#if loadingMoreConnections}
                       <LoaderCircle size={16} class="animate-spin mr-2" />
                       Loading...
@@ -2000,12 +2489,20 @@ async function doConnect(matchUserId) {
                 </div>
               {/if}
             {:else}
-              <div in:fade class="flex flex-col items-center justify-center p-12 text-center glass rounded-2xl border border-white/5">
-                <div class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+              <div
+                in:fade
+                class="flex flex-col items-center justify-center p-12 text-center glass rounded-2xl border border-white/5"
+              >
+                <div
+                  class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
+                >
                   <Ghost size={28} class="text-ink-500" />
                 </div>
                 <h3 class="text-white font-bold mb-1">No connections yet</h3>
-                <p class="text-sm text-ink-400 max-w-sm">We couldn't find any connections matching this filter. Go to the Matches tab to find new people to connect with.</p>
+                <p class="text-sm text-ink-400 max-w-sm">
+                  We couldn't find any connections matching this filter. Go to
+                  the Matches tab to find new people to connect with.
+                </p>
               </div>
             {/if}
             <ConnectionChatModal
@@ -2025,7 +2522,9 @@ async function doConnect(matchUserId) {
               isOrganizer={data.isOrganizer}
               initialZones={currentEvent.venue_map}
               currentLocation={venueLocation}
-              on:locationChange={(e) => { venueLocation = e.detail; }}
+              on:locationChange={(e) => {
+                venueLocation = e.detail;
+              }}
               on:saveMap={handleSaveMap}
             />
           </Tabs.Content>
@@ -2035,13 +2534,17 @@ async function doConnect(matchUserId) {
 
     {#if stage !== "workspace"}
       <Dialog.Root bind:open={editProfileOpen}>
-        <Dialog.Content class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto">
+        <Dialog.Content
+          class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto"
+        >
           <Dialog.Header class="hidden">
             <Dialog.Title>Review networking profile</Dialog.Title>
           </Dialog.Header>
           <div class="flex items-center gap-2 mb-5">
             <Sparkles size={15} class="text-amber-300" />
-            <p class="text-xs font-bold uppercase tracking-widest text-amber-300">
+            <p
+              class="text-xs font-bold uppercase tracking-widest text-amber-300"
+            >
               Review networking profile
             </p>
           </div>
@@ -2069,8 +2572,14 @@ async function doConnect(matchUserId) {
                     maxlength="500"
                   ></textarea>
                   <div class="flex justify-between mt-1">
-                    <span class="text-[10px] text-amber-500/80">{(networkingProfile[field.key]?.length || 0) < 20 ? 'Minimum 20 characters required' : ''}</span>
-                    <span class="text-[10px] text-ink-500 text-right">{networkingProfile[field.key]?.length || 0} / 500</span>
+                    <span class="text-[10px] text-amber-500/80"
+                      >{(networkingProfile[field.key]?.length || 0) < 20
+                        ? "Minimum 20 characters required"
+                        : ""}</span
+                    >
+                    <span class="text-[10px] text-ink-500 text-right"
+                      >{networkingProfile[field.key]?.length || 0} / 500</span
+                    >
                   </div>
                 {/if}
               </div>
@@ -2096,31 +2605,69 @@ async function doConnect(matchUserId) {
     {/if}
     <!-- Edit Event Modal -->
     <Dialog.Root bind:open={editEventModalOpen}>
-      <Dialog.Content class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white">
+      <Dialog.Content
+        class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
+      >
         <Dialog.Header>
           <Dialog.Title class="text-xl font-bold">Edit Event</Dialog.Title>
         </Dialog.Header>
         <div class="grid gap-4 py-4">
           <div class="space-y-2">
-            <Label for="edit-name" class="text-xs uppercase tracking-widest text-ink-400">Event Name *</Label>
-            <Input id="edit-name" bind:value={editEventName} class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20" />
+            <Label
+              for="edit-name"
+              class="text-xs uppercase tracking-widest text-ink-400"
+              >Event Name *</Label
+            >
+            <Input
+              id="edit-name"
+              bind:value={editEventName}
+              class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+            />
           </div>
           <div class="space-y-2">
-            <Label for="edit-slug" class="text-xs uppercase tracking-widest text-ink-400">Event ID (Slug) *</Label>
-            <Input id="edit-slug" bind:value={editEventSlug} class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20" />
+            <Label
+              for="edit-slug"
+              class="text-xs uppercase tracking-widest text-ink-400"
+              >Event ID (Slug) *</Label
+            >
+            <Input
+              id="edit-slug"
+              bind:value={editEventSlug}
+              class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+            />
           </div>
           <div class="space-y-2">
-            <Label for="edit-desc" class="text-xs uppercase tracking-widest text-ink-400">Description</Label>
-            <textarea id="edit-desc" bind:value={editEventDescription} rows="3" class="w-full bg-white/5 border border-white/10 text-white rounded-md p-2 focus:border-amber-400/50 focus:ring-amber-400/20 outline-none"></textarea>
+            <Label
+              for="edit-desc"
+              class="text-xs uppercase tracking-widest text-ink-400"
+              >Description</Label
+            >
+            <textarea
+              id="edit-desc"
+              bind:value={editEventDescription}
+              rows="3"
+              class="w-full bg-white/5 border border-white/10 text-white rounded-md p-2 focus:border-amber-400/50 focus:ring-amber-400/20 outline-none"
+            ></textarea>
           </div>
           {#if editEventError}
             <p class="text-red-400 text-sm">{editEventError}</p>
           {/if}
         </div>
         <div class="flex justify-end gap-3 mt-2">
-          <Button variant="ghost" onclick={() => editEventModalOpen = false} disabled={editingEvent}>Cancel</Button>
-          <Button onclick={saveEventUpdates} disabled={editingEvent} class="gap-2">
-            {#if editingEvent}<LoaderCircle size={15} class="animate-spin" />{/if}
+          <Button
+            variant="ghost"
+            onclick={() => (editEventModalOpen = false)}
+            disabled={editingEvent}>Cancel</Button
+          >
+          <Button
+            onclick={saveEventUpdates}
+            disabled={editingEvent}
+            class="gap-2"
+          >
+            {#if editingEvent}<LoaderCircle
+                size={15}
+                class="animate-spin"
+              />{/if}
             Save Changes
           </Button>
         </div>
@@ -2129,13 +2676,22 @@ async function doConnect(matchUserId) {
 
     <!-- Delete Event Modal -->
     <Dialog.Root bind:open={deleteEventModalOpen}>
-      <Dialog.Content class="sm:max-w-md bg-[#0f0f11] border border-red-500/20 text-white">
+      <Dialog.Content
+        class="sm:max-w-md bg-[#0f0f11] border border-red-500/20 text-white"
+      >
         <Dialog.Header>
-          <Dialog.Title class="text-xl font-bold text-red-400">Delete Event</Dialog.Title>
+          <Dialog.Title class="text-xl font-bold text-red-400"
+            >Delete Event</Dialog.Title
+          >
         </Dialog.Header>
         <div class="py-4 space-y-4 text-sm text-ink-300">
-          <p class="font-semibold text-white">Are you sure you want to delete this event?</p>
-          <p>This action cannot be undone. Deleting this event will permanently remove:</p>
+          <p class="font-semibold text-white">
+            Are you sure you want to delete this event?
+          </p>
+          <p>
+            This action cannot be undone. Deleting this event will permanently
+            remove:
+          </p>
           <ul class="list-disc pl-5 space-y-1 text-ink-400">
             <li>Event details</li>
             <li>Participants</li>
@@ -2144,15 +2700,29 @@ async function doConnect(matchUserId) {
             <li>Connections</li>
             <li>Messages</li>
           </ul>
-          <p class="text-red-400 font-semibold mt-2">This action is irreversible.</p>
+          <p class="text-red-400 font-semibold mt-2">
+            This action is irreversible.
+          </p>
           {#if deleteEventError}
             <p class="text-red-400 text-sm mt-2">{deleteEventError}</p>
           {/if}
         </div>
         <div class="flex justify-end gap-3 mt-2">
-          <Button variant="ghost" onclick={() => deleteEventModalOpen = false} disabled={deletingEvent}>Cancel</Button>
-          <Button variant="destructive" onclick={confirmDeleteEvent} disabled={deletingEvent} class="gap-2 bg-red-500 hover:bg-red-600 text-white">
-            {#if deletingEvent}<LoaderCircle size={15} class="animate-spin" />{/if}
+          <Button
+            variant="ghost"
+            onclick={() => (deleteEventModalOpen = false)}
+            disabled={deletingEvent}>Cancel</Button
+          >
+          <Button
+            variant="destructive"
+            onclick={confirmDeleteEvent}
+            disabled={deletingEvent}
+            class="gap-2 bg-red-500 hover:bg-red-600 text-white"
+          >
+            {#if deletingEvent}<LoaderCircle
+                size={15}
+                class="animate-spin"
+              />{/if}
             Delete Event
           </Button>
         </div>

@@ -96,7 +96,7 @@ export async function GET({ url, cookies }) {
     await Promise.all(
       scored.map(async (match) => {
         const { data: authUser } = await admin.auth.admin.getUserById(match.user_id);
-        if (/^dummy\d+\+.+@eventnetwork\.ai$/.test(authUser?.user?.email ?? '')) {
+        if (/^dummy\d+\+.+@Evenai\.ai$/.test(authUser?.user?.email ?? '')) {
           match.is_dummy = true;
         }
       })
@@ -182,7 +182,7 @@ Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
       try {
         await Promise.all(promises);
         controller.close();
-        
+
         // If no AI generations succeeded, refund the credit
         if (aiSuccessCount === 0 && scored.length > 0) {
           await refundAiCredit(user.id);

@@ -1,6 +1,6 @@
 <script>
-  import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
   import {
     LogIn,
     LogOut,
@@ -12,12 +12,12 @@
     ChevronRight,
     Cpu,
     Home,
-  } from '@lucide/svelte';
-  import * as Avatar from '$lib/components/ui/avatar/index.js';
-  import AICredits from '$lib/components/AICredits.svelte';
-  import { aiCreditsStore } from '$lib/stores/ai-credits';
-  import { sidebarCollapsed } from '$lib/stores/sidebar';
-  import { onMount } from 'svelte';
+  } from "@lucide/svelte";
+  import * as Avatar from "$lib/components/ui/avatar/index.js";
+  import AICredits from "$lib/components/AICredits.svelte";
+  import { aiCreditsStore } from "$lib/stores/ai-credits";
+  import { sidebarCollapsed } from "$lib/stores/sidebar";
+  import { onMount } from "svelte";
 
   export let user = null;
   export let signingIn = false;
@@ -25,16 +25,21 @@
   export let onSignIn = undefined;
   export let onSignOut = undefined;
 
-  $: avatar = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? '';
-  $: name = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email ?? 'Account';
-  $: firstName = name.split(' ')[0];
+  $: avatar =
+    user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? "";
+  $: name =
+    user?.user_metadata?.full_name ??
+    user?.user_metadata?.name ??
+    user?.email ??
+    "Account";
+  $: firstName = name.split(" ")[0];
   $: initials = name.slice(0, 1).toUpperCase();
 
   $: collapsed = $sidebarCollapsed;
 
-  $: currentPath = $page?.url?.pathname ?? '';
-  $: isEvents   = currentPath === '/events' || currentPath === '/events/';
-  $: isCreate   = currentPath.startsWith('/events/create');
+  $: currentPath = $page?.url?.pathname ?? "";
+  $: isEvents = currentPath === "/events" || currentPath === "/events/";
+  $: isCreate = currentPath.startsWith("/events/create");
 
   onMount(() => {
     if (user) {
@@ -47,17 +52,23 @@
   }
 
   const navItems = [
-    { label: 'Discover', icon: LayoutGrid, href: '/events', active: () => isEvents },
-    { label: 'Create Event', icon: Plus, href: '/events/create', active: () => isCreate },
+    {
+      label: "Discover",
+      icon: LayoutGrid,
+      href: "/events",
+      active: () => isEvents,
+    },
+    {
+      label: "Create Event",
+      icon: Plus,
+      href: "/events/create",
+      active: () => isCreate,
+    },
   ];
 </script>
 
 <!-- ── Desktop Sidebar (hidden on mobile) ── -->
-<aside
-  class="sidebar-root"
-  class:collapsed
-  aria-label="Main navigation"
->
+<aside class="sidebar-root" class:collapsed aria-label="Main navigation">
   <!-- Glow accent line at the top -->
   <div class="sidebar-top-accent"></div>
 
@@ -69,7 +80,7 @@
           <Sparkles size={16} />
         </div>
         <div class="logo-text">
-          <p class="logo-title">EventNetwork AI</p>
+          <p class="logo-title">Evenai</p>
           <p class="logo-sub">AI networking for events</p>
         </div>
       </a>
@@ -77,8 +88,8 @@
     <button
       class="toggle-btn"
       onclick={toggle}
-      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      title={collapsed ? 'Expand' : 'Collapse'}
+      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      title={collapsed ? "Expand" : "Collapse"}
     >
       {#if collapsed}
         <ChevronRight size={14} />
@@ -97,9 +108,11 @@
         onclick={() => goto(item.href)}
         title={collapsed ? item.label : undefined}
         aria-label={item.label}
-        aria-current={item.active() ? 'page' : undefined}
+        aria-current={item.active() ? "page" : undefined}
       >
-        <span class="nav-icon"><svelte:component this={item.icon} size={18} /></span>
+        <span class="nav-icon"
+          ><svelte:component this={item.icon} size={18} /></span
+        >
         {#if !collapsed}
           <span class="nav-label">{item.label}</span>
         {/if}
@@ -122,7 +135,9 @@
       >
         <Cpu size={13} />
         {#if !collapsed}
-          <span>{$aiCreditsStore.remaining} / {$aiCreditsStore.limit} credits</span>
+          <span
+            >{$aiCreditsStore.remaining} / {$aiCreditsStore.limit} credits</span
+          >
         {:else}
           <span class="sr-only">{$aiCreditsStore.remaining} credits</span>
         {/if}
@@ -150,12 +165,14 @@
         class="nav-item signout"
         onclick={() => onSignOut?.()}
         disabled={signingOut}
-        title={collapsed ? 'Sign out' : undefined}
+        title={collapsed ? "Sign out" : undefined}
         aria-label="Sign out"
       >
         <span class="nav-icon"><LogOut size={16} /></span>
         {#if !collapsed}
-          <span class="nav-label">{signingOut ? 'Signing out…' : 'Sign out'}</span>
+          <span class="nav-label"
+            >{signingOut ? "Signing out…" : "Sign out"}</span
+          >
         {/if}
       </button>
     {:else}
@@ -163,12 +180,14 @@
         class="nav-item signin"
         onclick={() => onSignIn?.()}
         disabled={signingIn}
-        title={collapsed ? 'Sign in' : undefined}
+        title={collapsed ? "Sign in" : undefined}
         aria-label="Sign in with Google"
       >
         <span class="nav-icon"><LogIn size={16} /></span>
         {#if !collapsed}
-          <span class="nav-label">{signingIn ? 'Redirecting…' : 'Continue with Google'}</span>
+          <span class="nav-label"
+            >{signingIn ? "Redirecting…" : "Continue with Google"}</span
+          >
         {/if}
       </button>
     {/if}
@@ -177,7 +196,12 @@
 
 <!-- ── Mobile Bottom Bar ── -->
 <nav class="mobile-bar" aria-label="Mobile navigation">
-  <a href="/" class="mobile-item" class:active={currentPath === '/'} title="Home">
+  <a
+    href="/"
+    class="mobile-item"
+    class:active={currentPath === "/"}
+    title="Home"
+  >
     <Home size={20} />
     <span>Home</span>
   </a>
@@ -198,7 +222,10 @@
         {#if avatar}
           <Avatar.Image src={avatar} alt={name} />
         {/if}
-        <Avatar.Fallback class="text-[9px] font-bold bg-amber-400/20 text-amber-300">{initials}</Avatar.Fallback>
+        <Avatar.Fallback
+          class="text-[9px] font-bold bg-amber-400/20 text-amber-300"
+          >{initials}</Avatar.Fallback
+        >
       </Avatar.Root>
       <span>Account</span>
     </button>
@@ -229,7 +256,9 @@
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-right: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.4), inset -1px 0 0 rgba(255,255,255,0.04);
+    box-shadow:
+      4px 0 32px rgba(0, 0, 0, 0.4),
+      inset -1px 0 0 rgba(255, 255, 255, 0.04);
 
     transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
@@ -241,7 +270,9 @@
 
   /* Hide on mobile — bottom bar takes over */
   @media (max-width: 767px) {
-    .sidebar-root { display: none; }
+    .sidebar-root {
+      display: none;
+    }
   }
 
   /* ── Top amber accent line ── */
@@ -251,7 +282,12 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, rgba(250, 204, 21, 0.8) 0%, rgba(34, 211, 238, 0.4) 60%, transparent 100%);
+    background: linear-gradient(
+      90deg,
+      rgba(250, 204, 21, 0.8) 0%,
+      rgba(34, 211, 238, 0.4) 60%,
+      transparent 100%
+    );
   }
 
   /* ── Logo ── */
@@ -282,7 +318,9 @@
     min-width: 0;
     flex: 1;
   }
-  .logo-link:hover { background: rgba(255,255,255,0.05); }
+  .logo-link:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
 
   .logo-icon {
     flex-shrink: 0;
@@ -295,14 +333,19 @@
     background: #facc15;
     color: #0a0a0a;
     box-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
-    transition: box-shadow 200ms, transform 200ms;
+    transition:
+      box-shadow 200ms,
+      transform 200ms;
   }
   .logo-link:hover .logo-icon {
     box-shadow: 0 0 20px rgba(250, 204, 21, 0.55);
     transform: scale(1.05);
   }
 
-  .logo-text { min-width: 0; overflow: hidden; }
+  .logo-text {
+    min-width: 0;
+    overflow: hidden;
+  }
   .logo-title {
     font-size: 0.7rem;
     font-weight: 800;
@@ -331,7 +374,9 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(148, 163, 184, 0.7);
     cursor: pointer;
-    transition: background 200ms, color 200ms;
+    transition:
+      background 200ms,
+      color 200ms;
   }
   .toggle-btn:hover {
     background: rgba(250, 204, 21, 0.12);
@@ -361,7 +406,9 @@
     background: transparent;
     border: none;
     text-align: left;
-    transition: background 180ms, color 180ms;
+    transition:
+      background 180ms,
+      color 180ms;
     white-space: nowrap;
     overflow: hidden;
     min-width: 0;
@@ -432,8 +479,16 @@
     overflow: hidden;
     white-space: nowrap;
   }
-  .credits-pill.warn  { color: #fde68a; background: rgba(250,204,21,0.06); border-color: rgba(250,204,21,0.2); }
-  .credits-pill.danger { color: #fda4af; background: rgba(251,113,133,0.06); border-color: rgba(251,113,133,0.2); }
+  .credits-pill.warn {
+    color: #fde68a;
+    background: rgba(250, 204, 21, 0.06);
+    border-color: rgba(250, 204, 21, 0.2);
+  }
+  .credits-pill.danger {
+    color: #fda4af;
+    background: rgba(251, 113, 133, 0.06);
+    border-color: rgba(251, 113, 133, 0.2);
+  }
 
   .user-row {
     display: flex;
@@ -442,7 +497,7 @@
     padding: 0.5rem 0.6rem;
     border-radius: 0.625rem;
     overflow: hidden;
-    background: rgba(255,255,255,0.04);
+    background: rgba(255, 255, 255, 0.04);
   }
 
   :global(.avatar-root) {
@@ -457,7 +512,10 @@
     color: #fde68a;
   }
 
-  .user-info { min-width: 0; overflow: hidden; }
+  .user-info {
+    min-width: 0;
+    overflow: hidden;
+  }
   .user-name {
     font-size: 0.8rem;
     font-weight: 600;

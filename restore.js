@@ -52,7 +52,7 @@ const venueSection = `
 
 `;
 
-const whyIndex = newCode.indexOf('<!-- WHY EVENTNETWORK -->');
+const whyIndex = newCode.indexOf('<!-- WHY Evenai -->');
 const testimonialsIndex = newCode.indexOf('<!-- CTA -->');
 
 const testimonialsSection = `

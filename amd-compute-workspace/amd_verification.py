@@ -8,7 +8,7 @@ client = OpenAI(
 )
 
 def verify_compute():
-    print("--- AMD Compute Verification: EventNetwork AI ---")
+    print("--- AMD Compute Verification: Evenai ---")
     try:
         response = client.chat.completions.create(
             model="accounts/fireworks/models/qwen3p7-plus",

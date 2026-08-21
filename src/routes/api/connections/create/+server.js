@@ -57,7 +57,7 @@ export async function POST({ request, cookies }) {
   const adminClient = createSupabaseAdminClient();
   const { data: receiverAuthData } = await adminClient.auth.admin.getUserById(receiver_user_id);
   const receiverEmail = receiverAuthData?.user?.email ?? '';
-  const isDummy = /^dummy\d+\+.+@eventnetwork\.ai$/.test(receiverEmail);
+  const isDummy = /^dummy\d+\+.+@Evenai\.ai$/.test(receiverEmail);
 
   // Auto-accept if dummy, else start as pending
   const initialStatus = isDummy ? 'accepted' : 'pending';

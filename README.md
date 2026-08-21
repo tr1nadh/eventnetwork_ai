@@ -1,10 +1,10 @@
-# 🚀 EventNetwork AI
+# 🚀 Evenai
 
 > **AI-powered networking for offline events.**
 
-EventNetwork AI helps attendees discover the **right people**, not just **more people**, at hackathons, conferences, meetups, and networking events using AI-powered semantic matching.
+Evenai helps attendees discover the **right people**, not just **more people**, at hackathons, conferences, meetups, and networking events using AI-powered semantic matching.
 
-Instead of relying on random conversations, EventNetwork AI understands who attendees are, what they do, and who they are looking for, then recommends meaningful professional connections.
+Instead of relying on random conversations, Evenai understands who attendees are, what they do, and who they are looking for, then recommends meaningful professional connections.
 
 Built for **AMD Developer Hackathon – ACT II**.
 
@@ -12,10 +12,10 @@ Built for **AMD Developer Hackathon – ACT II**.
 
 # 🔗 Project Links
 
-- 🌐 **Live Demo:** https://eventnetwork-ai.vercel.app
+- 🌐 **Live Demo:** https://Evenai-ai.vercel.app
 - 🎥 **Demo Video:** [Demo video](https://drive.google.com/file/d/1WYLzYtEHecC1oadmghmuyvCGWrg-26Yz/view?usp=sharing)
 - 📊 **Presentation Slides:** [Pitch deck pdf](https://drive.google.com/file/d/1E1yVJJ5STX29A1F644AMbllMWhzJvD0A/view?usp=sharing)
-- 💻 **GitHub Repository:** https://github.com/tr1nadh/eventnetwork-ai
+- 💻 **GitHub Repository:** https://github.com/tr1nadh/Evenai-ai
 
 ---
 
@@ -25,15 +25,15 @@ Every year, thousands of people attend hackathons, conferences, and networking e
 
 Unfortunately, networking is still largely based on luck. Attendees often leave without meeting the people who could have had the greatest impact on their careers.
 
-EventNetwork AI transforms networking into an intelligent, AI-assisted experience by helping attendees discover meaningful professional connections before opportunities are missed.
+Evenai transforms networking into an intelligent, AI-assisted experience by helping attendees discover meaningful professional connections before opportunities are missed.
 
 ---
 
-# 🎯 Why EventNetwork AI?
+# 🎯 Why Evenai?
 
 Traditional networking apps rely on manual browsing and keyword searches.
 
-EventNetwork AI combines **AI profile extraction**, **semantic participant matching**, **AI-generated networking insights**, and **real-time collaboration** to help attendees build meaningful professional relationships during offline events.
+Evenai combines **AI profile extraction**, **semantic participant matching**, **AI-generated networking insights**, and **real-time collaboration** to help attendees build meaningful professional relationships during offline events.
 
 ---
 

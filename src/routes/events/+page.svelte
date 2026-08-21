@@ -22,7 +22,7 @@
   import { clearAllChatStores } from "$lib/stores/chatStore";
 
   export let data;
-  
+
   $: {
     if (data.events) {
       myEventsStore.set(data.events);
@@ -95,10 +95,10 @@
 </script>
 
 <svelte:head>
-  <title>Discover | EventNetwork AI</title>
+  <title>Discover | Evenai</title>
   <meta
     name="description"
-    content="Discover and join networking events on EventNetwork AI."
+    content="Discover and join networking events on Evenai."
   />
 </svelte:head>
 
@@ -112,7 +112,6 @@
     >
       <div>
         <h1 class="text-3xl font-black text-white">Discover</h1>
-
       </div>
       <Button
         id="create-event-btn"
@@ -163,10 +162,7 @@
         </button>
       </div>
 
-      <form
-        onsubmit={applySearch}
-        class="relative w-full sm:w-64"
-      >
+      <form onsubmit={applySearch} class="relative w-full sm:w-64">
         <Search
           class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-500"
         />
@@ -210,17 +206,22 @@
         {/each}
       {:else if $myEventsStore.length}
         {#each $myEventsStore as event}
-          <div class="glass card-hover rounded-2xl p-6 border border-amber-400/70">
-              <div
-                class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
-              >
-                <div class="space-y-3 min-w-0">
-                  <div>
-                    <h2 class="text-xl font-bold text-white flex items-center gap-2">{event.name}
-  {#if event.joined}
-    <CheckCheck size={14} class="text-amber-400" />
-  {/if}
-</h2>
+          <div
+            class="glass card-hover rounded-2xl p-6 border border-amber-400/70"
+          >
+            <div
+              class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
+            >
+              <div class="space-y-3 min-w-0">
+                <div>
+                  <h2
+                    class="text-xl font-bold text-white flex items-center gap-2"
+                  >
+                    {event.name}
+                    {#if event.joined}
+                      <CheckCheck size={14} class="text-amber-400" />
+                    {/if}
+                  </h2>
                   <p class="mt-1.5 text-sm leading-6 text-ink-400 line-clamp-2">
                     {event.description ?? "No description added yet."}
                   </p>

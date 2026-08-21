@@ -73,7 +73,7 @@ The current user's networking profile (create profiles relevant to this person):
   }
 
   // ── 1. Clean up previous dummy users for this event ──────────────────
-  const dummyEmailPattern = `dummy%+${event_id}@eventnetwork.ai`;
+  const dummyEmailPattern = `dummy%+${event_id}@Evenai.ai`;
   const { data: existingDummies } = await supabase
     .from('network_profiles')
     .select('user_id')
@@ -87,13 +87,13 @@ The current user's networking profile (create profiles relevant to this person):
 
   // Fallback: look up dummy users by email in auth
   const dummyIds = [];
-  
+
   // We cannot trust listUsers to filter properly, so fetch all and filter manually
   const { data: list } = await supabase.auth.admin.listUsers();
   const allUsers = list?.users ?? [];
-  
+
   for (let i = 1; i <= 10; i++) {
-    const email = `dummy${i}+${event_id}@eventnetwork.ai`;
+    const email = `dummy${i}+${event_id}@Evenai.ai`;
     const foundUser = allUsers.find(u => u.email === email);
     if (foundUser) {
       dummyIds.push(foundUser.id);
@@ -156,7 +156,7 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
     // If no markdown block, fallback to finding the first { or [
     const objStart = jsonStr.indexOf('{');
     const arrStart = jsonStr.indexOf('[');
-    
+
     let startIdx = -1;
     let isArray = false;
 
@@ -178,12 +178,12 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
     let parsed = false;
     let endChar = isArray ? ']' : '}';
     let endIdx = jsonStr.lastIndexOf(endChar);
-    
+
     while (endIdx !== -1) {
       try {
         const attempt = jsonStr.substring(0, endIdx + 1);
         const data = JSON.parse(attempt);
-        
+
         if (Array.isArray(data)) {
           profiles = data;
           parsed = true;
@@ -214,7 +214,7 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
 
   for (let i = 0; i < Math.min(profiles.length, 5); i++) {
     const profile = profiles[i];
-    const email = `dummy${i + 1}+${event_id}@eventnetwork.ai`;
+    const email = `dummy${i + 1}+${event_id}@Evenai.ai`;
 
     try {
       // 3a. Create auth account
@@ -237,8 +237,8 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
       });
       if (partErr) {
         console.warn(`Participant insert warning for dummy ${i + 1}:`, partErr);
-      } 
-      
+      }
+
       // 3c. Generate embeddings (parallel)
       const aboutUserText = `What I do: ${profile.what_i_do}\n\nAbout me: ${profile.about_me}`;
       const lookingForText = `Looking for: ${profile.looking_for}`;

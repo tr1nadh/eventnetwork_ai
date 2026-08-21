@@ -1,15 +1,21 @@
 <script>
-  import { ArrowLeft, FolderPlus, LoaderCircle, Plus, Link as LinkIcon } from '@lucide/svelte';
-  import { goto } from '$app/navigation';
-  import Sidebar from '$lib/components/sidebar.svelte';
-  import PageShell from '$lib/components/page-shell.svelte';
-  import { Button } from '$lib/components/ui/button/index.js';
-  import { Input } from '$lib/components/ui/input/index.js';
-  import { Label } from '$lib/components/ui/label/index.js';
-  import { toast } from '$lib/components/ui/sonner/index.js';
-  import { createSupabaseBrowserClient } from '$lib/supabase/client';
-  import { clearAllEventStores } from '$lib/stores/eventStore';
-  import { clearAllChatStores } from '$lib/stores/chatStore';
+  import {
+    ArrowLeft,
+    FolderPlus,
+    LoaderCircle,
+    Plus,
+    Link as LinkIcon,
+  } from "@lucide/svelte";
+  import { goto } from "$app/navigation";
+  import Sidebar from "$lib/components/sidebar.svelte";
+  import PageShell from "$lib/components/page-shell.svelte";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
+  import { Label } from "$lib/components/ui/label/index.js";
+  import { toast } from "$lib/components/ui/sonner/index.js";
+  import { createSupabaseBrowserClient } from "$lib/supabase/client";
+  import { clearAllEventStores } from "$lib/stores/eventStore";
+  import { clearAllChatStores } from "$lib/stores/chatStore";
 
   export let data;
 
@@ -17,14 +23,14 @@
 
   let signingOut = false;
   let creatingEvent = false;
-  let form = { name: '', id: '', description: '' };
+  let form = { name: "", id: "", description: "" };
 
   // Auto-generate event ID from name
   $: autoId = form.name
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[^a-z0-9\s-]/g, "")
     .trim()
-    .replace(/\s+/g, '-')
+    .replace(/\s+/g, "-")
     .slice(0, 48);
 
   $: resolvedId = form.id.trim() || autoId;
@@ -35,7 +41,7 @@
     signingOut = false;
     clearAllEventStores();
     clearAllChatStores();
-    await goto('/');
+    await goto("/");
   }
 
   async function createEvent() {
@@ -43,32 +49,38 @@
     creatingEvent = true;
 
     try {
-      const response = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
+      const response = await fetch("/api/events", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: form.name,
           id: resolvedId,
-          description: form.description
-        })
+          description: form.description,
+        }),
       });
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        const message = payload?.error ?? 'Could not create event.';
-        toast.error(response.status === 409 ? 'ID already exists' : 'Event creation failed', {
-          description: message
-        });
+        const message = payload?.error ?? "Could not create event.";
+        toast.error(
+          response.status === 409
+            ? "ID already exists"
+            : "Event creation failed",
+          {
+            description: message,
+          },
+        );
         return;
       }
 
-      toast.success('Event created', {
-        description: 'Your new event is now available in your dashboard.'
+      toast.success("Event created", {
+        description: "Your new event is now available in your dashboard.",
       });
-      await goto('/events');
+      await goto("/events");
     } catch (err) {
-      toast.error('Event creation failed', {
-        description: err instanceof Error ? err.message : 'Could not create event.'
+      toast.error("Event creation failed", {
+        description:
+          err instanceof Error ? err.message : "Could not create event.",
       });
     } finally {
       creatingEvent = false;
@@ -77,24 +89,29 @@
 </script>
 
 <svelte:head>
-  <title>Create Event | EventNetwork AI</title>
-  <meta name="description" content="Create a new networking event on EventNetwork AI." />
+  <title>Create Event | Evenai</title>
+  <meta name="description" content="Create a new networking event on Evenai." />
 </svelte:head>
 
 <PageShell>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
 
   <main class="mx-auto max-w-2xl px-4 pb-20 sm:px-6">
-
     <!-- Back + header -->
     <div class="mb-8 flex items-center justify-between animate-fade-in">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-amber-300 mb-1">New event</p>
-        <h1 class="text-3xl font-black text-white">Create a networking event</h1>
+        <p
+          class="text-xs font-bold uppercase tracking-[0.2em] text-amber-300 mb-1"
+        >
+          New event
+        </p>
+        <h1 class="text-3xl font-black text-white">
+          Create a networking event
+        </h1>
       </div>
       <Button
         variant="secondary"
-        onclick={() => goto('/events')}
+        onclick={() => goto("/events")}
         class="gap-2 shrink-0"
       >
         <ArrowLeft size={15} />
@@ -103,18 +120,26 @@
     </div>
 
     <!-- Form card -->
-    <div class="glass rounded-2xl overflow-hidden border border-amber-400/15 animate-slide-up">
+    <div
+      class="glass rounded-2xl overflow-hidden border border-amber-400/15 animate-slide-up"
+    >
       <!-- Card accent top border -->
-      <div class="h-0.5 bg-gradient-to-r from-amber-400 via-amber-300 to-transparent"></div>
+      <div
+        class="h-0.5 bg-gradient-to-r from-amber-400 via-amber-300 to-transparent"
+      ></div>
 
       <div class="p-7 space-y-6">
         <div class="flex items-center gap-2.5">
-          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/12 border border-amber-400/20">
+          <div
+            class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/12 border border-amber-400/20"
+          >
             <FolderPlus size={17} class="text-amber-300" />
           </div>
           <div>
             <p class="text-sm font-semibold text-white">Event details</p>
-            <p class="text-xs text-ink-500">Capture the name, ID, and description attendees will see.</p>
+            <p class="text-xs text-ink-500">
+              Capture the name, ID, and description attendees will see.
+            </p>
           </div>
         </div>
 
@@ -122,7 +147,11 @@
 
         <!-- Event name -->
         <div class="space-y-1.5">
-          <Label for="name" class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event name</Label>
+          <Label
+            for="name"
+            class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+            >Event name</Label
+          >
           <Input
             id="name"
             bind:value={form.name}
@@ -133,14 +162,20 @@
 
         <!-- Event ID -->
         <div class="space-y-1.5">
-          <Label for="id" class="text-xs font-semibold uppercase tracking-widest text-ink-400">
-            Event ID <span class="text-ink-600 normal-case tracking-normal font-normal">(optional — auto-generated)</span>
+          <Label
+            for="id"
+            class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+          >
+            Event ID <span
+              class="text-ink-600 normal-case tracking-normal font-normal"
+              >(optional — auto-generated)</span
+            >
           </Label>
           <div class="relative">
             <Input
               id="id"
               bind:value={form.id}
-              placeholder={autoId || 'hacknight-delhi-2026'}
+              placeholder={autoId || "hacknight-delhi-2026"}
               class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50 focus:ring-amber-400/20 font-mono"
             />
           </div>
@@ -148,14 +183,22 @@
           {#if resolvedId}
             <div class="flex items-center gap-1.5 text-xs text-ink-500">
               <LinkIcon size={11} />
-              <span>Event URL: <span class="text-ink-300 font-mono">/event/{resolvedId}</span></span>
+              <span
+                >Event URL: <span class="text-ink-300 font-mono"
+                  >/event/{resolvedId}</span
+                ></span
+              >
             </div>
           {/if}
         </div>
 
         <!-- Description -->
         <div class="space-y-1.5">
-          <Label for="description" class="text-xs font-semibold uppercase tracking-widest text-ink-400">Description</Label>
+          <Label
+            for="description"
+            class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+            >Description</Label
+          >
           <textarea
             id="description"
             bind:value={form.description}
@@ -181,7 +224,9 @@
               Create event
             {/if}
           </Button>
-          <p class="text-xs text-ink-500">ID is auto-generated from the name if left blank.</p>
+          <p class="text-xs text-ink-500">
+            ID is auto-generated from the name if left blank.
+          </p>
         </div>
       </div>
     </div>

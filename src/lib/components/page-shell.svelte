@@ -1,4 +1,15 @@
 <!-- Shared full-screen page shell: background gradients + dot grid + container -->
+<script>
+  import { sidebarCollapsed } from '$lib/stores/sidebar';
+  import { browser } from '$app/environment';
+
+  // On mobile there's no sidebar — no padding needed.
+  // We apply padding-left via inline style so the transition is smooth.
+  $: paddingLeft = browser
+    ? `var(--sidebar-width, ${$sidebarCollapsed ? '64px' : '240px'})`
+    : '240px';
+</script>
+
 <div class="relative min-h-screen bg-ink-950 text-ink-50 overflow-x-hidden">
   <!-- Ambient gradient layer -->
   <div
@@ -18,8 +29,22 @@
     style="background-image: var(--background-image-radial-grid); background-size: 24px 24px;"
   ></div>
 
-  <!-- Page content -->
-  <div class="relative z-10">
+  <!-- Page content — shifts right to accommodate the sidebar on desktop -->
+  <div
+    class="relative z-10 page-content"
+    style="padding-left: {paddingLeft}; padding-top: 2rem; transition: padding-left 300ms cubic-bezier(0.4, 0, 0.2, 1);"
+  >
     <slot />
   </div>
 </div>
+
+<style>
+  /* On mobile the sidebar is replaced by a bottom bar — remove left padding */
+  @media (max-width: 767px) {
+    .page-content {
+      padding-left: 0 !important;
+      /* Add bottom padding so content isn't hidden behind the mobile bottom bar */
+      padding-bottom: 4.5rem;
+    }
+  }
+</style>

@@ -29,7 +29,7 @@
     Pencil,
     Trash2,
   } from "@lucide/svelte";
-  import Navbar from "$lib/components/navbar.svelte";
+  import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
   import ConnectionChatModal from "$lib/components/connection-chat-modal.svelte";
   import AiMeetingPrepModal from "$lib/components/ai-meeting-prep-modal.svelte";
@@ -906,7 +906,7 @@ async function doConnect(matchUserId) {
 </svelte:head>
 
 <PageShell>
-  <Navbar
+  <Sidebar
     user={data.user}
     {signingOut}
     onSignOut={signOut}

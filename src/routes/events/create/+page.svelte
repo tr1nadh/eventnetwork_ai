@@ -1,7 +1,7 @@
 <script>
   import { ArrowLeft, FolderPlus, LoaderCircle, Plus, Link as LinkIcon } from '@lucide/svelte';
   import { goto } from '$app/navigation';
-  import Navbar from '$lib/components/navbar.svelte';
+  import Sidebar from '$lib/components/sidebar.svelte';
   import PageShell from '$lib/components/page-shell.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
@@ -82,7 +82,7 @@
 </svelte:head>
 
 <PageShell>
-  <Navbar user={data.user} {signingOut} onSignOut={signOut} />
+  <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
 
   <main class="mx-auto max-w-2xl px-4 pb-20 sm:px-6">
 

@@ -9,7 +9,7 @@
     CalendarClock,
     Search,
   } from "@lucide/svelte";
-  import Navbar from "$lib/components/navbar.svelte";
+  import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
   import { createSupabaseBrowserClient } from "$lib/supabase/client";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -103,7 +103,7 @@
 </svelte:head>
 
 <PageShell>
-  <Navbar user={data.user} {signingOut} onSignOut={signOut} />
+  <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
 
   <main class="mx-auto max-w-4xl px-4 pb-20 sm:px-6">
     <!-- Page header -->

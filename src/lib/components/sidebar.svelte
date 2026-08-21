@@ -40,6 +40,7 @@
   $: currentPath = $page?.url?.pathname ?? "";
   $: isEvents = currentPath === "/discover" || currentPath === "/discover/";
   $: isCreate = currentPath.startsWith("/discover/create");
+  $: isConnections = currentPath.startsWith("/connections");
 
   onMount(() => {
     if (user) {
@@ -57,6 +58,12 @@
       icon: LayoutGrid,
       href: "/discover",
       active: () => isEvents,
+    },
+    {
+      label: "Connections",
+      icon: UserCircle2,
+      href: "/connections",
+      active: () => isConnections,
     },
     {
       label: "Create Event",

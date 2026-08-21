@@ -5,7 +5,6 @@ import { createSupabaseAdminClient } from '$lib/supabase/admin';
 export async function GET({ url, cookies }) {
   const eventId = url.searchParams.get('event_id');
   const filter = url.searchParams.get('filter');
-  if (!eventId) throw error(400, 'Missing event_id');
   if (!filter) throw error(400, 'Missing filter');
 
   const supabase = createSupabaseServerClient(cookies);
@@ -20,8 +19,11 @@ export async function GET({ url, cookies }) {
   // Base query for connections of the event
   let query = supabase
     .from('connections')
-    .select('id, status, met_at, match_id, sender_user_id, receiver_user_id, matches(match_details)', { count: 'exact' })
-    .eq('event_id', eventId);
+    .select('id, event_id, status, met_at, match_id, sender_user_id, receiver_user_id, matches(match_details), events(name, slug)', { count: 'exact' });
+
+  if (eventId) {
+    query = query.eq('event_id', eventId);
+  }
 
   // Apply filter
   if (filter === 'all') {
@@ -51,13 +53,21 @@ export async function GET({ url, cookies }) {
   let usersMap = {};
 
   if (otherUserIds.length > 0) {
+    let profilesQuery = supabase.from('network_profiles').select('user_id, event_id, display_name, what_i_do, about_me, looking_for').in('user_id', otherUserIds);
+    if (eventId) {
+      profilesQuery = profilesQuery.eq('event_id', eventId);
+    }
+    
     const [profilesRes, usersRes] = await Promise.all([
-      supabase.from('network_profiles').select('user_id, display_name, what_i_do, about_me, looking_for').eq('event_id', eventId).in('user_id', otherUserIds),
+      profilesQuery,
       admin.from('users').select('id, name, avatar_url').in('id', otherUserIds)
     ]);
 
     if (profilesRes.data) {
-      for (const p of profilesRes.data) profilesMap[p.user_id] = p;
+      for (const p of profilesRes.data) {
+        if (!profilesMap[p.user_id]) profilesMap[p.user_id] = {};
+        profilesMap[p.user_id][p.event_id] = p;
+      }
     }
     if (usersRes.data) {
       for (const u of usersRes.data) usersMap[u.id] = u;
@@ -70,11 +80,14 @@ export async function GET({ url, cookies }) {
     const matchDetails = c.matches?.match_details ?? null;
 
     const otherUserId = c.sender_user_id === user.id ? c.receiver_user_id : c.sender_user_id;
-    const profile = profilesMap[otherUserId] || {};
+    const profile = profilesMap[otherUserId]?.[c.event_id] || {};
     const otherUser = usersMap[otherUserId];
 
     return {
       id: c.id,
+      event_id: c.event_id,
+      event_name: c.events?.name ?? 'Unknown Event',
+      event_slug: c.events?.slug ?? '',
       status: c.status,
       met_at: c.met_at,
       match_id: c.match_id,

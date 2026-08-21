@@ -12,6 +12,7 @@
     ChevronRight,
     Cpu,
     Home,
+    LayoutDashboard,
   } from "@lucide/svelte";
   import * as Avatar from "$lib/components/ui/avatar/index.js";
   import AICredits from "$lib/components/AICredits.svelte";
@@ -38,6 +39,7 @@
   $: collapsed = $sidebarCollapsed;
 
   $: currentPath = $page?.url?.pathname ?? "";
+  $: isDashboard = currentPath === "/dashboard" || currentPath === "/dashboard/";
   $: isEvents = currentPath === "/discover" || currentPath === "/discover/";
   $: isCreate = currentPath.startsWith("/discover/create");
   $: isConnections = currentPath.startsWith("/connections");
@@ -53,6 +55,12 @@
   }
 
   const navItems = [
+    {
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      href: "/dashboard",
+      active: () => isDashboard,
+    },
     {
       label: "Discover",
       icon: LayoutGrid,

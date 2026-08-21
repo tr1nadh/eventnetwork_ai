@@ -38,8 +38,8 @@
   $: collapsed = $sidebarCollapsed;
 
   $: currentPath = $page?.url?.pathname ?? "";
-  $: isEvents = currentPath === "/events" || currentPath === "/events/";
-  $: isCreate = currentPath.startsWith("/events/create");
+  $: isEvents = currentPath === "/discover" || currentPath === "/discover/";
+  $: isCreate = currentPath.startsWith("/discover/create");
 
   onMount(() => {
     if (user) {
@@ -55,13 +55,13 @@
     {
       label: "Discover",
       icon: LayoutGrid,
-      href: "/events",
+      href: "/discover",
       active: () => isEvents,
     },
     {
       label: "Create Event",
       icon: Plus,
-      href: "/events/create",
+      href: "/discover/create",
       active: () => isCreate,
     },
   ];

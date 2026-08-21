@@ -359,7 +359,7 @@
 
   function goToPrimaryAction() {
     if (user) {
-      goto("/events/create");
+      goto("/discover/create");
       return;
     }
 

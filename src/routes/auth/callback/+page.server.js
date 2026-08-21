@@ -2,15 +2,15 @@ import { syncUserRecord } from '$lib/supabase/sync-user';
 
 function sanitizeNext(value) {
   if (!value || !value.startsWith('/')) {
-    return '/events';
+    return '/discover';
   }
   return value;
 }
 
 export async function load(event) {
   const { url, locals: { supabase } } = event;
-  const code   = url.searchParams.get('code');
-  const next   = sanitizeNext(url.searchParams.get('next'));
+  const code = url.searchParams.get('code');
+  const next = sanitizeNext(url.searchParams.get('next'));
 
   let exchangeOk = false;
 

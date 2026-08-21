@@ -324,7 +324,7 @@
 
     editingEvent = true;
     try {
-      const res = await fetch(`/api/events/${currentEvent.id}`, {
+      const res = await fetch(`/api/discover/${currentEvent.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -358,7 +358,7 @@
   async function handleSaveMap(e) {
     const newZones = e.detail;
     try {
-      const res = await fetch(`/api/events/${currentEvent.id}`, {
+      const res = await fetch(`/api/discover/${currentEvent.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -385,7 +385,7 @@
     deleteEventError = "";
     deletingEvent = true;
     try {
-      const res = await fetch(`/api/events/${currentEvent.id}`, {
+      const res = await fetch(`/api/discover/${currentEvent.id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -397,7 +397,7 @@
 
       toast.success("🗑 Event deleted successfully.");
       deleteEventModalOpen = false;
-      goto("/events");
+      goto("/discover");
     } catch (e) {
       deleteEventError = e.message;
       deletingEvent = false;
@@ -439,7 +439,7 @@
   );
 
   function goToCreateEvent() {
-    goto("/events/create");
+    goto("/discover/create");
   }
 
   async function fetchMatches() {
@@ -756,7 +756,7 @@
       }
 
       // Register the join in the database
-      const res = await fetch("/api/events/join", {
+      const res = await fetch("/api/discover/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ event_id: data.event.id }),
@@ -1049,7 +1049,7 @@
   <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
     <div class="mb-6 animate-slide-up">
       <button
-        onclick={() => goto("/events")}
+        onclick={() => goto("/discover")}
         class="inline-flex items-center gap-2 text-sm font-semibold text-ink-500 transition hover:text-white"
       >
         <ArrowLeft size={16} />

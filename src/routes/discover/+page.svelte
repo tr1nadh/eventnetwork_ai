@@ -115,7 +115,7 @@
       </div>
       <Button
         id="create-event-btn"
-        onclick={() => goto("/events/create")}
+        onclick={() => goto("/discover/create")}
         class="gap-2 shrink-0"
         disabled={$navigating}
       >
@@ -282,7 +282,7 @@
             Create your first event and share the link with attendees. The AI
             takes it from there.
           </p>
-          <Button onclick={() => goto("/events/create")} class="gap-2">
+          <Button onclick={() => goto("/discover/create")} class="gap-2">
             <Plus size={16} />
             Create your first event
           </Button>

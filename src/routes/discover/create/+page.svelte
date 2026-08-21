@@ -49,7 +49,7 @@
     creatingEvent = true;
 
     try {
-      const response = await fetch("/api/events", {
+      const response = await fetch("/api/discover", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -76,7 +76,7 @@
       toast.success("Event created", {
         description: "Your new event is now available in your dashboard.",
       });
-      await goto("/events");
+      await goto("/discover");
     } catch (err) {
       toast.error("Event creation failed", {
         description:
@@ -111,7 +111,7 @@
       </div>
       <Button
         variant="secondary"
-        onclick={() => goto("/events")}
+        onclick={() => goto("/discover")}
         class="gap-2 shrink-0"
       >
         <ArrowLeft size={15} />

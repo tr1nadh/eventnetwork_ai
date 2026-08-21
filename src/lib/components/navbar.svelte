@@ -66,7 +66,7 @@
         <!-- Quick nav links on desktop -->
         <div class="hidden md:flex items-center gap-1">
           <button
-            onclick={() => goto("/events")}
+            onclick={() => goto("/discover")}
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-ink-300 transition hover:bg-white/8 hover:text-white"
           >
             <LayoutGrid size={14} />
@@ -144,7 +144,10 @@
           <Separator.Root class="my-1.5" />
 
           {#if user}
-            <DropdownMenu.Item onSelect={() => goto("/events")} class="gap-2.5">
+            <DropdownMenu.Item
+              onSelect={() => goto("/discover")}
+              class="gap-2.5"
+            >
               <LayoutGrid size={15} class="text-ink-400" />
               My events
             </DropdownMenu.Item>

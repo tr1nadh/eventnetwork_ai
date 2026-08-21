@@ -1,80 +1,100 @@
 <script>
-  import { Sparkles, MessageCircle, HelpCircle, Handshake, LoaderCircle, RefreshCw, X } from '@lucide/svelte';
-  import { aiMeetingPrepStore } from '$lib/stores/eventStore';
-  import { aiCreditsStore } from '$lib/stores/ai-credits';
-  import { Button } from '$lib/components/ui/button/index.js';
-  import * as Dialog from '$lib/components/ui/dialog/index.js';
-  import AmdAiLoading from '$lib/components/amd-ai-loading.svelte';
-  import { toast } from '$lib/components/ui/sonner/index.js';
-  import { slide, fade } from 'svelte/transition';
+  import {
+    Sparkles,
+    MessageCircle,
+    HelpCircle,
+    Handshake,
+    LoaderCircle,
+    RefreshCw,
+    X,
+  } from "@lucide/svelte";
+  import { aiMeetingPrepStore } from "$lib/stores/eventStore";
+  import { aiCreditsStore } from "$lib/stores/ai-credits";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import * as Dialog from "$lib/components/ui/dialog/index.js";
+  import AmdAiLoading from "$lib/components/amd-ai-loading.svelte";
+  import { toast } from "$lib/components/ui/sonner/index.js";
+  import { slide, fade } from "svelte/transition";
 
   export let open = false;
   export let connection = null;
 
   let generating = false;
-  let generationError = '';
+  let generationError = "";
 
   // Reactive access to the store using the connection.id
   $: prepData = connection?.id ? $aiMeetingPrepStore[connection.id] : null;
 
   async function generatePrep(regenerate = false) {
     if (!connection?.id || generating) return;
-    
+
     generating = true;
-    generationError = '';
+    generationError = "";
 
     try {
-      const url = `/api/meeting-prep?connection_id=${connection.id}${regenerate ? '&regenerate=true' : ''}`;
+      const url = `/api/meeting-prep?connection_id=${connection.id}${regenerate ? "&regenerate=true" : ""}`;
       const res = await fetch(url);
-      
+
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         if (res.status === 429) {
-          if (errData.error === 'MONTHLY_AI_LIMIT_EXCEEDED') {
+          if (errData.error === "MONTHLY_AI_LIMIT_EXCEEDED") {
             aiCreditsStore.showExhaustedModal();
             return;
           }
-          throw new Error(errData.message || 'AI request limit reached');
+          throw new Error(errData.message || "AI request limit reached");
         }
-        throw new Error(errData.message || 'Failed to generate Meeting Prep');
+        throw new Error(errData.message || "Failed to generate Meeting Prep");
       }
 
       const data = await res.json();
-      
+
       // Update store
-      aiMeetingPrepStore.update(store => {
+      aiMeetingPrepStore.update((store) => {
         return {
           ...store,
-          [connection.id]: data
+          [connection.id]: data,
         };
       });
-      
+
       aiCreditsStore.useCredit();
-      toast.success(regenerate ? 'Meeting Prep regenerated' : 'Meeting Prep generated successfully');
+      toast.success(
+        regenerate
+          ? "Meeting Prep regenerated"
+          : "Meeting Prep generated successfully",
+      );
     } catch (err) {
-      generationError = err.message || 'An unexpected error occurred';
-      toast.error('Generation Failed', { description: generationError });
+      generationError = err.message || "An unexpected error occurred";
+      toast.error("Generation Failed", { description: generationError });
     } finally {
       generating = false;
     }
   }
-
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white p-0 max-h-[85vh] flex flex-col overflow-hidden">
-    <Dialog.Header class="border-b border-white/8 bg-gradient-to-r from-amber-400/10 via-transparent to-transparent px-6 py-5 shrink-0">
+  <Dialog.Content
+    class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white p-0 max-h-[85vh] flex flex-col overflow-hidden"
+  >
+    <Dialog.Header
+      class="border-b border-white/8 bg-gradient-to-r from-amber-400/10 via-transparent to-transparent px-6 py-5 shrink-0"
+    >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="h-10 w-10 rounded-full bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
+          <div
+            class="h-10 w-10 rounded-full bg-amber-400/10 border border-amber-400/20 flex items-center justify-center"
+          >
             <Sparkles size={20} class="text-amber-300" />
           </div>
           <div>
-            <Dialog.Title class="text-xl font-bold text-white flex items-center gap-2">
+            <Dialog.Title
+              class="text-xl font-bold text-white flex items-center gap-2"
+            >
               AI Meeting Prep
             </Dialog.Title>
             <Dialog.Description class="mt-0.5 text-sm text-ink-300">
-              Prepare for your meeting with {connection?.profile?.display_name || 'your connection'}
+              Prepare for your meeting with {connection?.profile
+                ?.display_name || "your connection"}
             </Dialog.Description>
           </div>
         </div>
@@ -95,13 +115,19 @@
           <div class="glass rounded-2xl border border-white/8 p-5">
             <div class="flex items-center gap-2 mb-4">
               <MessageCircle size={18} class="text-cyan-400" />
-              <h3 class="text-lg font-bold text-white">Conversation Starters</h3>
+              <h3 class="text-lg font-bold text-white">
+                Conversation Starters
+              </h3>
             </div>
             <ul class="space-y-3">
               {#each prepData.conversation_starters as starter}
-                <li class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5">
+                <li
+                  class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                >
                   <span class="text-cyan-400 mt-0.5">•</span>
-                  <span class="text-sm text-ink-200 leading-relaxed">{starter}</span>
+                  <span class="text-sm text-ink-200 leading-relaxed"
+                    >{starter}</span
+                  >
                 </li>
               {/each}
             </ul>
@@ -115,19 +141,27 @@
             </div>
             <ul class="space-y-3">
               {#each prepData.questions_to_ask as question}
-                <li class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5">
+                <li
+                  class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                >
                   <span class="text-purple-400 mt-0.5">?</span>
-                  <span class="text-sm text-ink-200 leading-relaxed">{question}</span>
+                  <span class="text-sm text-ink-200 leading-relaxed"
+                    >{question}</span
+                  >
                 </li>
               {/each}
             </ul>
           </div>
 
           <!-- Collaboration Opportunity -->
-          <div class="glass rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5">
+          <div
+            class="glass rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5"
+          >
             <div class="flex items-center gap-2 mb-3">
               <Handshake size={18} class="text-amber-400" />
-              <h3 class="text-lg font-bold text-white">Collaboration Opportunity</h3>
+              <h3 class="text-lg font-bold text-white">
+                Collaboration Opportunity
+              </h3>
             </div>
             <p class="text-sm leading-relaxed text-ink-200">
               {prepData.collaboration_opportunity}
@@ -136,23 +170,34 @@
         </div>
       {:else}
         <!-- Empty State -->
-        <div class="flex flex-col items-center justify-center py-12 text-center" in:fade>
-          <div class="h-16 w-16 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mb-5">
+        <div
+          class="flex flex-col items-center justify-center py-12 text-center"
+          in:fade
+        >
+          <div
+            class="h-16 w-16 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mb-5"
+          >
             <Sparkles size={28} class="text-amber-400" />
           </div>
           <h3 class="text-xl font-bold text-white mb-2">Prepare Yourself</h3>
           <p class="text-sm text-ink-300 max-w-md mx-auto mb-8 leading-relaxed">
-            Generate personalized conversation starters, questions, and collaboration opportunities based on both networking profiles and your AI match.
+            Generate personalized conversation starters, questions, and
+            collaboration opportunities based on both networking profiles and
+            your AI match.
           </p>
-          <div class="flex flex-col items-center gap-2 relative group w-max mx-auto">
-            <Button 
-              class="gap-2 bg-amber-500 hover:bg-amber-600 text-black px-8 py-6 rounded-xl font-bold transition-all hover:scale-105" 
+          <div
+            class="flex flex-col items-center gap-2 relative group w-max mx-auto"
+          >
+            <Button
+              class="gap-2 bg-amber-500 hover:bg-amber-600 text-black px-8 py-6 rounded-xl font-bold transition-all hover:scale-105"
               onclick={() => generatePrep(false)}
             >
               <Sparkles size={18} />
               Generate AI Meeting Prep
             </Button>
-            <div class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[11px] font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap z-50">
+            <div
+              class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[11px] font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap z-50"
+            >
               Uses 1 AI credit
             </div>
           </div>
@@ -165,9 +210,18 @@
 
     <!-- Footer for regeneration (only show if we have data) -->
     {#if prepData && !generating}
-      <div class="border-t border-white/8 px-6 py-4 bg-black/20 shrink-0 flex items-center justify-between" in:fade>
-        <span class="text-[10px] uppercase tracking-widest text-ink-500 pl-2">Uses 1 AI credit</span>
-        <Button variant="outline" class="gap-2 border-white/10 text-white hover:bg-white/10" onclick={() => generatePrep(true)}>
+      <div
+        class="border-t border-white/8 px-6 py-4 bg-black/20 shrink-0 flex items-center justify-between"
+        in:fade
+      >
+        <span class="text-[10px] uppercase tracking-widest text-ink-500 pl-2"
+          >Uses 1 AI credit</span
+        >
+        <Button
+          variant="outline"
+          class="gap-2 border-white/10 text-white hover:bg-white/10"
+          onclick={() => generatePrep(true)}
+        >
           <RefreshCw size={15} />
           Regenerate
         </Button>

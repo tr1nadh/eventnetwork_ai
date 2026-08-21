@@ -401,7 +401,7 @@
             <Sparkles size={16} />
           </div>
           <span class="font-semibold text-sm tracking-wide text-slate-100"
-            >Evenai <span class="text-amber-400">AI</span></span
+            >Evenai</span
           >
         </a>
         <nav

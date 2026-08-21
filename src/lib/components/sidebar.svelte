@@ -61,34 +61,32 @@
   <!-- Glow accent line at the top -->
   <div class="sidebar-top-accent"></div>
 
-  <!-- ── Logo ── -->
-  <div class="sidebar-logo">
-    <a href="/" class="logo-link" title="Home">
-      <div class="logo-icon">
-        <Sparkles size={16} />
-      </div>
-      {#if !collapsed}
-        <div class="logo-text" aria-hidden={collapsed}>
+  <!-- ── Logo + Toggle row ── -->
+  <div class="sidebar-logo" class:collapsed>
+    {#if !collapsed}
+      <a href="/" class="logo-link" title="Home">
+        <div class="logo-icon">
+          <Sparkles size={16} />
+        </div>
+        <div class="logo-text">
           <p class="logo-title">EventNetwork AI</p>
           <p class="logo-sub">AI networking for events</p>
         </div>
-      {/if}
-    </a>
-  </div>
-
-  <!-- ── Toggle button ── -->
-  <button
-    class="toggle-btn"
-    onclick={toggle}
-    aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-    title={collapsed ? 'Expand' : 'Collapse'}
-  >
-    {#if collapsed}
-      <ChevronRight size={14} />
-    {:else}
-      <ChevronLeft size={14} />
+      </a>
     {/if}
-  </button>
+    <button
+      class="toggle-btn"
+      onclick={toggle}
+      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      title={collapsed ? 'Expand' : 'Collapse'}
+    >
+      {#if collapsed}
+        <ChevronRight size={14} />
+      {:else}
+        <ChevronLeft size={14} />
+      {/if}
+    </button>
+  </div>
 
   <!-- ── Nav links ── -->
   <nav class="sidebar-nav">
@@ -258,10 +256,19 @@
 
   /* ── Logo ── */
   .sidebar-logo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
     padding: 0 0.25rem 0.75rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     margin-bottom: 0.5rem;
     flex-shrink: 0;
+  }
+
+  /* When collapsed, center just the toggle button */
+  .sidebar-logo.collapsed {
+    justify-content: center;
   }
 
   .logo-link {
@@ -273,6 +280,7 @@
     padding: 0.4rem 0.5rem;
     transition: background 200ms;
     min-width: 0;
+    flex: 1;
   }
   .logo-link:hover { background: rgba(255,255,255,0.05); }
 
@@ -312,27 +320,23 @@
 
   /* ── Toggle ── */
   .toggle-btn {
-    position: absolute;
-    top: 4.5rem;
-    right: -12px;
-    z-index: 60;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: rgba(30, 35, 60, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: rgba(148, 163, 184, 0.8);
+    width: 26px;
+    height: 26px;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(148, 163, 184, 0.7);
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    transition: background 200ms, color 200ms, transform 200ms;
+    transition: background 200ms, color 200ms;
   }
   .toggle-btn:hover {
-    background: rgba(250, 204, 21, 0.15);
+    background: rgba(250, 204, 21, 0.12);
     color: #facc15;
-    transform: scale(1.1);
+    border-color: rgba(250, 204, 21, 0.25);
   }
 
   /* ── Nav ── */

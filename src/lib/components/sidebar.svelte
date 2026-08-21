@@ -47,7 +47,7 @@
   }
 
   const navItems = [
-    { label: 'My Events', icon: LayoutGrid, href: '/events', active: () => isEvents },
+    { label: 'Discover', icon: LayoutGrid, href: '/events', active: () => isEvents },
     { label: 'Create Event', icon: Plus, href: '/events/create', active: () => isCreate },
   ];
 </script>

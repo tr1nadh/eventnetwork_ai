@@ -95,10 +95,10 @@
 </script>
 
 <svelte:head>
-  <title>Events | EventNetwork AI</title>
+  <title>Discover | EventNetwork AI</title>
   <meta
     name="description"
-    content="Manage your networking events on EventNetwork AI."
+    content="Discover and join networking events on EventNetwork AI."
   />
 </svelte:head>
 
@@ -111,7 +111,7 @@
       class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-slide-up"
     >
       <div>
-        <h1 class="text-3xl font-black text-white">Events</h1>
+        <h1 class="text-3xl font-black text-white">Discover</h1>
 
       </div>
       <Button

@@ -33,6 +33,31 @@
   let signingOut = false;
   let copiedSlug = null;
 
+  let statusFilter = "all";
+
+  $: {
+    if (data.filter) {
+      statusFilter = "all";
+    }
+  }
+
+  function getEventStatus(event) {
+    const text = `${event.name} ${event.description || ""}`.toLowerCase();
+    if (text.includes("archive")) return "archived";
+    if (text.includes("live")) return "live";
+    if (text.includes("upcoming") || text.includes("upcomming")) return "upcoming";
+
+    const ageInDays = (new Date() - new Date(event.created_at)) / (1000 * 60 * 60 * 24);
+    if (ageInDays <= 7) return "live";
+    if (ageInDays <= 30) return "upcoming";
+    return "archived";
+  }
+
+  $: filteredEvents = $myEventsStore.filter(event => {
+    if (statusFilter === "all") return true;
+    return getEventStatus(event) === statusFilter;
+  });
+
   $: searchQuery = data.q || "";
 
   async function signOut() {
@@ -60,6 +85,7 @@
   }
 
   function applyFilter(f) {
+    statusFilter = 'all';
     const params = new URLSearchParams(window.location.search);
     params.set("filter", f);
     if (searchQuery) params.set("q", searchQuery);
@@ -176,6 +202,25 @@
       </form>
     </div>
 
+    <!-- Sub-filters (always visible) -->
+    <div class="mb-6 flex flex-wrap gap-2 animate-slide-up">
+      {#each [
+        { value: 'all', label: 'All Statuses' },
+        { value: 'live', label: '🔴 Live' },
+        { value: 'upcoming', label: '📅 Upcoming' },
+        { value: 'archived', label: '📁 Archived' }
+      ] as statusOpt}
+        <button
+          class="rounded-lg px-3.5 py-1.5 text-xs font-semibold border transition duration-200 {statusFilter === statusOpt.value
+            ? 'bg-amber-400/20 text-amber-300 border-amber-400/35 shadow-sm shadow-amber-400/10'
+            : 'border-white/8 text-ink-400 hover:text-white hover:border-white/15 hover:bg-white/4'}"
+          onclick={() => statusFilter = statusOpt.value}
+        >
+          {statusOpt.label}
+        </button>
+      {/each}
+    </div>
+
     <!-- Events list -->
     <div class="space-y-4 animate-slide-up-delay-1">
       {#if $navigating}
@@ -204,8 +249,8 @@
             </div>
           </div>
         {/each}
-      {:else if $myEventsStore.length}
-        {#each $myEventsStore as event}
+      {:else if filteredEvents.length}
+        {#each filteredEvents as event}
           <div
             class="glass card-hover rounded-2xl p-6 border border-amber-400/70"
           >
@@ -251,6 +296,26 @@
                       year: "numeric",
                     })}
                   </span>
+
+                  <!-- Status Badge -->
+                  {#each [getEventStatus(event)] as status}
+                    {#if status === 'live'}
+                      <span class="flex items-center gap-1 text-[11px] text-rose-400 bg-rose-400/10 px-2.5 py-0.5 rounded-full font-semibold border border-rose-400/20">
+                        <span class="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                        Live
+                      </span>
+                    {:else if status === 'upcoming'}
+                      <span class="flex items-center gap-1 text-[11px] text-cyan-400 bg-cyan-400/10 px-2.5 py-0.5 rounded-full font-semibold border border-cyan-400/20">
+                        <span class="h-1.5 w-1.5 rounded-full bg-cyan-400"></span>
+                        Upcoming
+                      </span>
+                    {:else}
+                      <span class="flex items-center gap-1 text-[11px] text-ink-500 bg-white/5 px-2.5 py-0.5 rounded-full font-semibold border border-white/5">
+                        <span class="h-1.5 w-1.5 rounded-full bg-ink-500"></span>
+                        Archived
+                      </span>
+                    {/if}
+                  {/each}
                 </div>
               </div>
 
@@ -277,15 +342,21 @@
           >
             <Sparkles class="text-amber-300" size={22} />
           </div>
-          <h2 class="text-xl font-bold text-white mb-2">No events yet</h2>
+          <h2 class="text-xl font-bold text-white mb-2">No events found</h2>
           <p class="text-sm text-ink-400 max-w-xs mx-auto mb-6">
-            Create your first event and share the link with attendees. The AI
-            takes it from there.
+            {#if statusFilter !== 'all'}
+              There are no {statusFilter} events matching this filter.
+            {:else}
+              Create your first event and share the link with attendees. The AI
+              takes it from there.
+            {/if}
           </p>
-          <Button onclick={() => goto("/events/create")} class="gap-2">
-            <Plus size={16} />
-            Create your first event
-          </Button>
+          {#if statusFilter === 'all'}
+            <Button onclick={() => goto("/events/create")} class="gap-2">
+              <Plus size={16} />
+              Create your first event
+            </Button>
+          {/if}
         </div>
       {/if}
     </div>

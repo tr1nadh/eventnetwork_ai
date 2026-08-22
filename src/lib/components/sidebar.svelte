@@ -39,9 +39,10 @@
   $: collapsed = $sidebarCollapsed;
 
   $: currentPath = $page?.url?.pathname ?? "";
-  $: isDashboard = currentPath === "/dashboard" || currentPath === "/dashboard/";
-  $: isEvents = currentPath === "/discover" || currentPath === "/discover/";
-  $: isCreate = currentPath.startsWith("/discover/create");
+  $: isDashboard =
+    currentPath === "/dashboard" || currentPath === "/dashboard/";
+  $: isEvents = currentPath === "/events" || currentPath === "/events/";
+  $: isCreate = currentPath.startsWith("/events/create");
   $: isConnections = currentPath.startsWith("/connections");
 
   onMount(() => {
@@ -62,9 +63,9 @@
       active: () => isDashboard,
     },
     {
-      label: "Discover",
+      label: "Events",
       icon: LayoutGrid,
-      href: "/discover",
+      href: "/events",
       active: () => isEvents,
     },
     {
@@ -72,7 +73,7 @@
       icon: UserCircle2,
       href: "/connections",
       active: () => isConnections,
-    }
+    },
   ];
 </script>
 

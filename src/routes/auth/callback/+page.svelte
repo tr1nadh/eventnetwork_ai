@@ -64,7 +64,7 @@
       // Let the success checkmark render for a brief moment
       await new Promise((r) => setTimeout(r, 400));
 
-      goto(data.next ?? "/discover", { replaceState: true });
+      goto(data.next ?? "/events", { replaceState: true });
     } catch (err) {
       clearInterval(tickTimer);
       errorMessage = err?.message ?? "An unexpected error occurred.";

@@ -2,7 +2,7 @@ import { syncUserRecord } from '$lib/supabase/sync-user';
 
 function sanitizeNext(value) {
   if (!value || !value.startsWith('/')) {
-    return '/discover';
+    return '/events';
   }
   return value;
 }

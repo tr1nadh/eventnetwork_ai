@@ -51,7 +51,7 @@ export const organizerInsights = [
   },
   {
     label: 'Networking Intent',
-    value: 'Founder discovery',
+    value: 'Founder Eventsy',
     detail: 'Most participants are open to meeting founders, collaborators, and future cofounders.'
   },
   {

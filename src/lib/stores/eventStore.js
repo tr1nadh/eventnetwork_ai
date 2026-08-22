@@ -13,7 +13,7 @@ export const connectionsStore = persisted('event-connections', []);
 // AI Meeting Prep cache - maps connection_id to generated meeting prep data
 export const aiMeetingPrepStore = persisted('event-ai-meeting-prep', {});
 
-// Cached list of events for the /discover page
+// Cached list of events for the /events page
 export const myEventsStore = persisted('my-events', []);
 
 export function clearAllEventStores() {

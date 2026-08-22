@@ -2,7 +2,7 @@
 
 > **AI-powered networking for offline events.**
 
-Evenai helps attendees discover the **right people**, not just **more people**, at hackathons, conferences, meetups, and networking events using AI-powered semantic matching.
+Evenai helps attendees Events the **right people**, not just **more people**, at hackathons, conferences, meetups, and networking events using AI-powered semantic matching.
 
 Instead of relying on random conversations, Evenai understands who attendees are, what they do, and who they are looking for, then recommends meaningful professional connections.
 
@@ -25,7 +25,7 @@ Every year, thousands of people attend hackathons, conferences, and networking e
 
 Unfortunately, networking is still largely based on luck. Attendees often leave without meeting the people who could have had the greatest impact on their careers.
 
-Evenai transforms networking into an intelligent, AI-assisted experience by helping attendees discover meaningful professional connections before opportunities are missed.
+Evenai transforms networking into an intelligent, AI-assisted experience by helping attendees Events meaningful professional connections before opportunities are missed.
 
 ---
 

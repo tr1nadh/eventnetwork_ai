@@ -359,7 +359,7 @@
 
   function goToPrimaryAction() {
     if (user) {
-      goto("/discover/create");
+      goto("/events/create");
       return;
     }
 
@@ -371,7 +371,7 @@
   <title>Evenai | AI-Powered Networking</title>
   <meta
     name="description"
-    content="AI-powered semantic matching to help attendees discover meaningful professional connections at events."
+    content="AI-powered semantic matching to help attendees Events meaningful professional connections at events."
   />
 </svelte:head>
 
@@ -472,7 +472,7 @@
           <p
             class="mt-8 text-lg md:text-xl text-slate-400 max-w-2xl font-light"
           >
-            Evenai uses AI-powered semantic matching to help attendees discover
+            Evenai uses AI-powered semantic matching to help attendees Events
             meaningful professional connections at hackathons, conferences,
             meetups, and networking events.
           </p>

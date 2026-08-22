@@ -10,7 +10,7 @@ const scriptBlock = scriptMatch ? scriptMatch[0] : '';
 const newTemplate = `
 <svelte:head>
   <title>Evenai | AI-Powered Networking</title>
-  <meta name="description" content="AI-powered semantic matching to help attendees discover meaningful professional connections at events." />
+  <meta name="description" content="AI-powered semantic matching to help attendees Events meaningful professional connections at events." />
 </svelte:head>
 
 <svelte:window bind:scrollY />
@@ -67,7 +67,7 @@ const newTemplate = `
           </h1>
           
           <p class="mt-8 text-lg md:text-xl text-slate-400 max-w-2xl font-light">
-            Evenai uses AI-powered semantic matching to help attendees discover meaningful professional connections at hackathons, conferences, meetups, and networking events.
+            Evenai uses AI-powered semantic matching to help attendees Events meaningful professional connections at hackathons, conferences, meetups, and networking events.
           </p>
           
           <div class="mt-10 flex flex-col sm:flex-row items-center gap-4">

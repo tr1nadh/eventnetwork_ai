@@ -76,7 +76,7 @@
       toast.success("Event created", {
         description: "Your new event is now available in your dashboard.",
       });
-      await goto("/discover");
+      await goto("/events");
     } catch (err) {
       toast.error("Event creation failed", {
         description:
@@ -111,7 +111,7 @@
       </div>
       <Button
         variant="secondary"
-        onclick={() => goto("/discover")}
+        onclick={() => goto("/events")}
         class="gap-2 shrink-0"
       >
         <ArrowLeft size={15} />

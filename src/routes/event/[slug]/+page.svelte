@@ -397,7 +397,7 @@
 
       toast.success("🗑 Event deleted successfully.");
       deleteEventModalOpen = false;
-      goto("/discover");
+      goto("/events");
     } catch (e) {
       deleteEventError = e.message;
       deletingEvent = false;
@@ -439,7 +439,7 @@
   );
 
   function goToCreateEvent() {
-    goto("/discover/create");
+    goto("/events/create");
   }
 
   async function fetchMatches() {
@@ -1049,7 +1049,7 @@
   <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
     <div class="mb-6 animate-slide-up">
       <button
-        onclick={() => goto("/discover")}
+        onclick={() => goto("/events")}
         class="inline-flex items-center gap-2 text-sm font-semibold text-ink-500 transition hover:text-white"
       >
         <ArrowLeft size={16} />

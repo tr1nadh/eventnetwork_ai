@@ -95,10 +95,10 @@
 </script>
 
 <svelte:head>
-  <title>Discover | Evenai</title>
+  <title>Events | Evenai</title>
   <meta
     name="description"
-    content="Discover and join networking events on Evenai."
+    content="Events and join networking events on Evenai."
   />
 </svelte:head>
 
@@ -111,11 +111,11 @@
       class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-slide-up"
     >
       <div>
-        <h1 class="text-3xl font-black text-white">Discover</h1>
+        <h1 class="text-3xl font-black text-white">Events</h1>
       </div>
       <Button
         id="create-event-btn"
-        onclick={() => goto("/discover/create")}
+        onclick={() => goto("/events/create")}
         class="gap-2 shrink-0"
         disabled={$navigating}
       >
@@ -282,7 +282,7 @@
             Create your first event and share the link with attendees. The AI
             takes it from there.
           </p>
-          <Button onclick={() => goto("/discover/create")} class="gap-2">
+          <Button onclick={() => goto("/events/create")} class="gap-2">
             <Plus size={16} />
             Create your first event
           </Button>

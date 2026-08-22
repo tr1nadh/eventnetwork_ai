@@ -13,6 +13,7 @@
     Cpu,
     Home,
     LayoutDashboard,
+    Compass,
   } from "@lucide/svelte";
   import * as Avatar from "$lib/components/ui/avatar/index.js";
   import AICredits from "$lib/components/AICredits.svelte";
@@ -42,6 +43,7 @@
   $: isDashboard =
     currentPath === "/dashboard" || currentPath === "/dashboard/";
   $: isEvents = currentPath === "/events" || currentPath === "/events/";
+  $: isDiscover = currentPath === "/discover" || currentPath === "/discover/";
   $: isCreate = currentPath.startsWith("/events/create");
   $: isConnections = currentPath.startsWith("/connections");
 
@@ -67,6 +69,12 @@
       icon: LayoutGrid,
       href: "/events",
       active: () => isEvents,
+    },
+    {
+      label: "Discover",
+      icon: Compass,
+      href: "/discover",
+      active: () => isDiscover,
     },
     {
       label: "Connections",

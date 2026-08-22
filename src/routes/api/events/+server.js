@@ -118,14 +118,39 @@ export async function GET({ url, locals }) {
         const { data } = await getJoinedQuery();
         events = data || [];
       } else if (filter === 'all') {
-          // Fetch all public events (no host/join restriction)
-          const { data, error } = await admin
-            .from('events')
-            .select('id, name, description, slug, created_by, created_at, updated_at')
-            .order('created_at', { ascending: false });
-          if (error) throw error;
-          events = data || [];
-        }
+          // Fetch only events hosted or joined by the user
+          const { data: hosted } = await getHostingQuery();
+          const { data: joined } = await getJoinedQuery();
+          
+          const combinedMap = new Map();
+          for (const item of [...(hosted || []), ...(joined || [])]) {
+            const existing = combinedMap.get(item.id);
+            if (!existing || item.joined) {
+              combinedMap.set(item.id, item);
+            }
+          }
+          events = Array.from(combinedMap.values());
+      } else if (filter === 'discover') {
+          // Fetch all public events (no host/join restriction) and flag them with joined status
+          let query = admin.from('events')
+            .select('id, name, description, slug, created_by, created_at, updated_at');
+          if (q) {
+            query = query.or(`name.ilike.%${safeQ}%,description.ilike.%${safeQ}%`);
+          }
+          const { data, error: err } = await query.order('created_at', { ascending: false });
+          if (err) throw err;
+          
+          const { data: joined, error: jErr } = await admin.from('event_participants')
+            .select('event_id')
+            .eq('user_id', locals.user.id)
+            .eq('status', 'joined');
+          const joinedIds = !jErr && joined ? joined.map(j => j.event_id) : [];
+          
+          events = (data || []).map(e => ({
+            ...e,
+            joined: joinedIds.includes(e.id)
+          }));
+      }
 
     // Sort descending by created_at
     events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));

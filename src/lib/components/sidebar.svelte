@@ -6,7 +6,7 @@
     LogOut,
     Sparkles,
     UserCircle2,
-    LayoutGrid,
+    Calendar,
     Plus,
     ChevronLeft,
     ChevronRight,
@@ -66,7 +66,7 @@
     },
     {
       label: "Events",
-      icon: LayoutGrid,
+      icon: Calendar,
       href: "/events",
       active: () => isEvents,
     },

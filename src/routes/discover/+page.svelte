@@ -33,10 +33,10 @@
   async function signOut() {
     signingOut = true;
     await supabase.auth.signOut();
-    signingOut = false;
     clearAllEventStores();
     clearAllChatStores();
     await goto("/");
+    signingOut = false;
   }
 
   async function copySlug(slug) {

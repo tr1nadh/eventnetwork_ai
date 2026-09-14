@@ -48,8 +48,11 @@ export async function GET({ url, cookies }) {
     .eq('event_id', connection.event_id)
     .in('user_id', [user.id, otherUserId]);
 
-  if (profErr || !profiles || profiles.length !== 2) {
-    throw error(500, 'Could not load networking profiles for both users');
+  if (profErr) {
+    throw error(500, 'Could not load networking profiles');
+  }
+  if (!profiles || profiles.length !== 2) {
+    throw error(404, 'One or both users have not set up a networking profile for this event');
   }
 
   const myProfile = profiles.find(p => p.user_id === user.id);

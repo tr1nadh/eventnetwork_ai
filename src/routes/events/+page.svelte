@@ -35,10 +35,11 @@
 
   let statusFilter = "all";
 
-  $: {
-    if (data.filter) {
-      statusFilter = "all";
-    }
+  // Reset client-side sub-filter only when the URL filter tab changes
+  let _lastFilter = data.filter;
+  $: if (data.filter !== _lastFilter) {
+    _lastFilter = data.filter;
+    statusFilter = "all";
   }
 
   function getEventStatus(event) {
@@ -63,10 +64,10 @@
   async function signOut() {
     signingOut = true;
     await supabase.auth.signOut();
-    signingOut = false;
     clearAllEventStores();
     clearAllChatStores();
     await goto("/");
+    signingOut = false;
   }
 
   async function copySlug(slug) {
@@ -85,7 +86,6 @@
   }
 
   function applyFilter(f) {
-    statusFilter = 'all';
     const params = new URLSearchParams(window.location.search);
     params.set("filter", f);
     if (searchQuery) params.set("q", searchQuery);

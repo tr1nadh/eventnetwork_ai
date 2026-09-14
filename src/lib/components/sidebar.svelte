@@ -57,7 +57,7 @@
     sidebarCollapsed.update((v) => !v);
   }
 
-  const navItems = [
+  $: navItems = [
     {
       label: "Dashboard",
       icon: LayoutDashboard,

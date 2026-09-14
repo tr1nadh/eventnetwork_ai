@@ -7,13 +7,13 @@
     UserCircle2,
     LayoutGrid,
     LayoutDashboard,
+    Cpu,
   } from "@lucide/svelte";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
   import * as Avatar from "$lib/components/ui/avatar/index.js";
   import * as Separator from "$lib/components/ui/separator/index.js";
   import AICredits from "$lib/components/AICredits.svelte";
   import { aiCreditsStore } from "$lib/stores/ai-credits";
-  import { Cpu } from "@lucide/svelte";
   import { onMount } from "svelte";
 
   export let user = null;

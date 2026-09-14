@@ -205,7 +205,7 @@
     <!-- Sub-filters (always visible) -->
     <div class="mb-6 flex flex-wrap gap-2 animate-slide-up">
       {#each [
-        { value: 'all', label: 'All Statuses' },
+        { value: 'all', label: 'All' },
         { value: 'live', label: '🔴 Live' },
         { value: 'upcoming', label: '📅 Upcoming' },
         { value: 'archived', label: '📁 Archived' }

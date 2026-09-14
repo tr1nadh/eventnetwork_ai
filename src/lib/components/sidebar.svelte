@@ -11,7 +11,6 @@
     ChevronLeft,
     ChevronRight,
     Cpu,
-    Home,
     LayoutDashboard,
     Compass,
   } from "@lucide/svelte";
@@ -214,15 +213,6 @@
 
 <!-- ── Mobile Bottom Bar ── -->
 <nav class="mobile-bar" aria-label="Mobile navigation">
-  <a
-    href="/"
-    class="mobile-item"
-    class:active={currentPath === "/"}
-    title="Home"
-  >
-    <Home size={20} />
-    <span>Home</span>
-  </a>
   {#each navItems as item}
     <button
       class="mobile-item"

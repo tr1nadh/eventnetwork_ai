@@ -9,6 +9,7 @@
     CalendarClock,
     Search,
     Compass,
+    Crown,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -158,11 +159,18 @@
 
               <!-- Card body -->
               <div class="card-body">
-                <!-- Joined badge if user joined -->
-                {#if event.joined}
+                <!-- Role badge if hosting or joined -->
+                {#if event.created_by === data.user?.id}
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="hosting-badge">
+                      <Crown size={10} class="text-amber-300" />
+                      Hosting
+                    </span>
+                  </div>
+                {:else if event.joined}
                   <div class="flex items-center gap-2 mb-3">
                     <span class="joined-badge">
-                      <CheckCheck size={10} />
+                      <CheckCheck size={10} class="text-emerald-400" />
                       Joined
                     </span>
                   </div>
@@ -327,17 +335,28 @@
   .copy-btn:hover {
     color: rgba(251, 191, 36, 0.9);
   }
+  .hosting-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    padding: 0.18rem 0.48rem;
+    border-radius: 9999px;
+  }
   .joined-badge {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
     font-size: 0.625rem;
-    font-weight: 600;
-    color: #fbbf24;
-    background: rgba(251, 191, 36, 0.1);
-    border: 1px solid rgba(251, 191, 36, 0.2);
-    padding: 0.15rem 0.45rem;
-    border-rounded: 0.375rem;
+    font-weight: 700;
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+    padding: 0.18rem 0.48rem;
     border-radius: 9999px;
   }
   .event-card-skeleton {

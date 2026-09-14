@@ -9,6 +9,7 @@
     CalendarClock,
     Search,
     RefreshCw,
+    Crown,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -301,9 +302,14 @@
                       Archived
                     </span>
                   {/if}
-                  {#if event.joined}
+                  {#if event.created_by === data.user?.id}
+                    <span class="hosting-badge">
+                      <Crown size={10} class="text-amber-300" />
+                      Hosting
+                    </span>
+                  {:else if event.joined}
                     <span class="joined-badge">
-                      <CheckCheck size={10} />
+                      <CheckCheck size={10} class="text-emerald-400" />
                       Joined
                     </span>
                   {/if}
@@ -402,7 +408,8 @@
   .status-live     { color: #fca5a5; background: rgba(251,113,133,.1);       border-color: rgba(251,113,133,.25); }
   .status-upcoming { color: #67e8f9; background: rgba(34,211,238,.08);        border-color: rgba(34,211,238,.2); }
   .status-archived { color: rgba(100,116,139,.9); background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); }
-  .joined-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.2); padding: .18rem .48rem; border-radius: 9999px; }
+  .hosting-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.3); padding: .18rem .48rem; border-radius: 9999px; }
+  .joined-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 700; color: #34d399; background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.3); padding: .18rem .48rem; border-radius: 9999px; }
   .event-card-skeleton { display: flex; flex-direction: column; }
   .skeleton-header { height: 3px; background: rgba(255,255,255,.06); }
 </style>

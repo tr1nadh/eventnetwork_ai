@@ -16,6 +16,8 @@
     TrendingUp,
     Users,
     CheckCircle2,
+    CheckCheck,
+    Crown,
     RefreshCcw,
     Brain,
     UserCircle2,
@@ -1126,9 +1128,13 @@
                     {#if data.user}Join event{:else}Join with Google{/if}
                   {/if}
                 </Button>
+              {:else if data.isOrganizer}
+                <div class="flex items-center gap-2 text-amber-400 font-semibold">
+                  <Crown size={18} /> Hosting
+                </div>
               {:else}
-                <div class="flex items-center gap-2 text-amber-400">
-                  <CheckCircle2 size={18} /> Joined
+                <div class="flex items-center gap-2 text-emerald-400 font-semibold">
+                  <CheckCheck size={18} /> Joined
                 </div>
               {/if}
             </div>
@@ -1360,13 +1366,23 @@
             {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
-                <Badge
-                  variant="secondary"
-                  class="gap-2 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-widest px-3 py-3"
-                >
-                  <CheckCircle2 size={14} class="text-emerald-400" />
-                  Joined
-                </Badge>
+                {#if data.isOrganizer}
+                  <Badge
+                    variant="secondary"
+                    class="gap-1.5 border-amber-400/30 bg-amber-400/10 text-amber-300 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
+                  >
+                    <Crown size={14} class="text-amber-400" />
+                    Hosting
+                  </Badge>
+                {:else if data.isParticipant}
+                  <Badge
+                    variant="secondary"
+                    class="gap-1.5 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
+                  >
+                    <CheckCheck size={14} class="text-emerald-400" />
+                    Joined
+                  </Badge>
+                {/if}
                 <h1
                   class="text-4xl sm:text-5xl font-black tracking-tight text-white"
                 >

@@ -221,125 +221,113 @@
       {/each}
     </div>
 
-    <!-- Events list -->
-    <div class="space-y-4 animate-slide-up-delay-1">
+    <!-- Events grid -->
+    <div class="animate-slide-up-delay-1">
       {#if $navigating}
-        <!-- Skeleton Loaders -->
-        {#each Array(3) as _}
-          <div
-            class="glass rounded-2xl p-6 border border-white/8 animate-pulse"
-          >
-            <div
-              class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
-            >
-              <div class="space-y-4 w-full max-w-md">
-                <div class="space-y-2.5">
-                  <div class="h-7 w-2/3 rounded-lg bg-white/10"></div>
-                  <div class="h-4 w-full rounded-lg bg-white/5"></div>
-                  <div class="h-4 w-4/5 rounded-lg bg-white/5"></div>
-                </div>
-                <div class="flex items-center gap-3 pt-1">
-                  <div class="h-8 w-32 rounded-lg bg-white/10"></div>
-                  <div class="h-4 w-24 rounded-lg bg-white/5"></div>
-                </div>
+        <!-- Skeleton card grid -->
+        <div class="events-grid">
+          {#each Array(6) as _}
+            <div class="glass rounded-2xl border border-white/8 animate-pulse event-card-skeleton">
+              <div class="skeleton-header"></div>
+              <div class="p-5 space-y-3">
+                <div class="h-5 w-3/4 rounded-lg bg-white/10"></div>
+                <div class="h-3.5 w-full rounded-lg bg-white/5"></div>
+                <div class="h-3.5 w-4/5 rounded-lg bg-white/5"></div>
               </div>
-              <div class="shrink-0 mt-2 sm:mt-0">
-                <div class="h-10 w-32 rounded-lg bg-white/10"></div>
+              <div class="p-5 pt-0 flex items-center justify-between">
+                <div class="h-6 w-24 rounded-full bg-white/8"></div>
+                <div class="h-8 w-20 rounded-lg bg-white/10"></div>
               </div>
             </div>
-          </div>
-        {/each}
+          {/each}
+        </div>
       {:else if filteredEvents.length}
-        {#each filteredEvents as event}
-          <div
-            class="glass card-hover rounded-2xl p-6 border border-amber-400/70"
-          >
-            <div
-              class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
+        <div class="events-grid">
+          {#each filteredEvents as event}
+            {@const status = getEventStatus(event)}
+            <div class="event-card glass card-hover rounded-2xl border"
+              class:border-rose-400-20={status === 'live'}
+              class:border-cyan-400-20={status === 'upcoming'}
+              class:border-white-8={status === 'archived'}
             >
-              <div class="space-y-3 min-w-0">
-                <div>
-                  <h2
-                    class="text-xl font-bold text-white flex items-center gap-2"
-                  >
-                    {event.name}
-                    {#if event.joined}
-                      <CheckCheck size={14} class="text-amber-400" />
-                    {/if}
-                  </h2>
-                  <p class="mt-1.5 text-sm leading-6 text-ink-400 line-clamp-2">
-                    {event.description ?? "No description added yet."}
-                  </p>
+              <!-- Card top accent bar + status -->
+              <div class="card-accent" class:accent-live={status === 'live'} class:accent-upcoming={status === 'upcoming'} class:accent-archived={status === 'archived'}></div>
+
+              <!-- Card body -->
+              <div class="card-body">
+                <!-- Status + joined badge -->
+                <div class="flex items-center gap-2 mb-3">
+                  {#if status === 'live'}
+                    <span class="status-badge status-live">
+                      <span class="status-dot bg-rose-400 animate-pulse"></span>
+                      Live
+                    </span>
+                  {:else if status === 'upcoming'}
+                    <span class="status-badge status-upcoming">
+                      <span class="status-dot bg-cyan-400"></span>
+                      Upcoming
+                    </span>
+                  {:else}
+                    <span class="status-badge status-archived">
+                      <span class="status-dot bg-slate-500"></span>
+                      Archived
+                    </span>
+                  {/if}
+                  {#if event.joined}
+                    <span class="joined-badge">
+                      <CheckCheck size={10} />
+                      Joined
+                    </span>
+                  {/if}
                 </div>
 
-                <div class="flex flex-wrap items-center gap-3">
-                  <!-- Slug badge with copy -->
+                <!-- Title -->
+                <h2 class="card-title">{event.name}</h2>
+
+                <!-- Description -->
+                <p class="card-desc">
+                  {event.description ?? 'No description added yet.'}
+                </p>
+              </div>
+
+              <!-- Card footer -->
+              <div class="card-footer">
+                <div class="card-meta">
+                  <span class="meta-date">
+                    <CalendarClock size={11} />
+                    {new Date(event.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
                   <button
                     id="copy-link-{event.slug}"
                     onclick={() => copySlug(event.slug)}
-                    class="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-3 py-1.5 text-xs font-mono text-ink-300 transition hover:border-amber-400/30 hover:text-amber-200 hover:bg-amber-400/6"
+                    class="copy-btn"
+                    title="Copy event link"
                   >
                     {#if copiedSlug === event.slug}
-                      <CheckCheck size={13} class="text-emerald-400" />
+                      <CheckCheck size={11} class="text-emerald-400" />
                       Copied!
                     {:else}
-                      <Copy size={13} />
-                      /event/{event.slug}
+                      <Copy size={11} />
+                      /{event.slug}
                     {/if}
                   </button>
-
-                  <span class="flex items-center gap-1.5 text-xs text-ink-500">
-                    <CalendarClock size={13} />
-                    {new Date(event.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-
-                  <!-- Status Badge -->
-                  {#each [getEventStatus(event)] as status}
-                    {#if status === 'live'}
-                      <span class="flex items-center gap-1 text-[11px] text-rose-400 bg-rose-400/10 px-2.5 py-0.5 rounded-full font-semibold border border-rose-400/20">
-                        <span class="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse"></span>
-                        Live
-                      </span>
-                    {:else if status === 'upcoming'}
-                      <span class="flex items-center gap-1 text-[11px] text-cyan-400 bg-cyan-400/10 px-2.5 py-0.5 rounded-full font-semibold border border-cyan-400/20">
-                        <span class="h-1.5 w-1.5 rounded-full bg-cyan-400"></span>
-                        Upcoming
-                      </span>
-                    {:else}
-                      <span class="flex items-center gap-1 text-[11px] text-ink-500 bg-white/5 px-2.5 py-0.5 rounded-full font-semibold border border-white/5">
-                        <span class="h-1.5 w-1.5 rounded-full bg-ink-500"></span>
-                        Archived
-                      </span>
-                    {/if}
-                  {/each}
                 </div>
-              </div>
-
-              <div class="shrink-0">
                 <Button
                   id="open-event-{event.slug}"
                   onclick={() => goto(`/event/${event.slug}`)}
-                  class="gap-2 whitespace-nowrap"
+                  class="card-view-btn gap-1.5 text-xs px-3 py-1.5 h-auto"
                 >
                   View
-                  <ArrowRight size={15} />
+                  <ArrowRight size={13} />
                 </Button>
               </div>
             </div>
-          </div>
-        {/each}
+          {/each}
+        </div>
       {:else}
         <!-- Empty state -->
-        <div
-          class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed"
-        >
-          <div
-            class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20"
-          >
+        <div class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed">
+          <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20">
             <Sparkles class="text-amber-300" size={22} />
           </div>
           <h2 class="text-xl font-bold text-white mb-2">No events found</h2>
@@ -347,12 +335,11 @@
             {#if statusFilter !== 'all'}
               There are no {statusFilter} events matching this filter.
             {:else}
-              Create your first event and share the link with attendees. The AI
-              takes it from there.
+              Create your first event and share the link with attendees. The AI takes it from there.
             {/if}
           </p>
           {#if statusFilter === 'all'}
-            <Button onclick={() => goto("/events/create")} class="gap-2">
+            <Button onclick={() => goto('/events/create')} class="gap-2">
               <Plus size={16} />
               Create your first event
             </Button>
@@ -362,3 +349,32 @@
     </div>
   </main>
 </PageShell>
+
+<style>
+  .events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .event-card { display: flex; flex-direction: column; overflow: hidden; border-color: rgba(255,255,255,.08); }
+  .card-accent { height: 3px; flex-shrink: 0; }
+  .accent-live     { background: linear-gradient(90deg, rgba(251,113,133,.9) 0%, rgba(251,113,133,.15) 100%); }
+  .accent-upcoming { background: linear-gradient(90deg, rgba(34,211,238,.8)  0%, rgba(34,211,238,.1)   100%); }
+  .accent-archived { background: linear-gradient(90deg, rgba(100,116,139,.4) 0%, transparent           100%); }
+  .card-body { flex: 1; padding: 1rem 1.1rem 0.75rem; }
+  .card-title { font-size: .9375rem; font-weight: 700; color: #f1f5f9; line-height: 1.35; margin-bottom: .45rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-desc  { font-size: .775rem; color: rgba(148,163,184,.72); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .7rem 1.1rem .9rem; border-top: 1px solid rgba(255,255,255,.05); margin-top: auto; }
+  .card-meta { display: flex; flex-direction: column; gap: .28rem; min-width: 0; overflow: hidden; }
+  .meta-date { display: flex; align-items: center; gap: .3rem; font-size: .64rem; color: rgba(100,116,139,.8); white-space: nowrap; }
+  .copy-btn { display: flex; align-items: center; gap: .3rem; font-size: .62rem; font-family: monospace; color: rgba(148,163,184,.55); background: transparent; border: none; cursor: pointer; padding: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; transition: color 150ms; }
+  .copy-btn:hover { color: #fde68a; }
+  .status-badge { display: inline-flex; align-items: center; gap: .3rem; font-size: .64rem; font-weight: 700; padding: .18rem .5rem; border-radius: 9999px; border: 1px solid; }
+  .status-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .status-live     { color: #fca5a5; background: rgba(251,113,133,.1);       border-color: rgba(251,113,133,.25); }
+  .status-upcoming { color: #67e8f9; background: rgba(34,211,238,.08);        border-color: rgba(34,211,238,.2); }
+  .status-archived { color: rgba(100,116,139,.9); background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); }
+  .joined-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.2); padding: .18rem .48rem; border-radius: 9999px; }
+  .event-card-skeleton { display: flex; flex-direction: column; }
+  .skeleton-header { height: 3px; background: rgba(255,255,255,.06); }
+</style>

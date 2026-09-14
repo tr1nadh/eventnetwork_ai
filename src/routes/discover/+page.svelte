@@ -129,98 +129,92 @@
       </form>
     </div>
 
-    <!-- Events list -->
-    <div class="space-y-4 animate-slide-up-delay-1">
+    <!-- Events grid -->
+    <div class="animate-slide-up-delay-1">
       {#if $navigating}
-        <!-- Skeleton Loaders -->
-        {#each Array(3) as _}
-          <div
-            class="glass rounded-2xl p-6 border border-white/8 animate-pulse"
-          >
-            <div
-              class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
-            >
-              <div class="space-y-4 w-full max-w-md">
-                <div class="space-y-2.5">
-                  <div class="h-7 w-2/3 rounded-lg bg-white/10"></div>
-                  <div class="h-4 w-full rounded-lg bg-white/5"></div>
-                  <div class="h-4 w-4/5 rounded-lg bg-white/5"></div>
-                </div>
-                <div class="flex items-center gap-3 pt-1">
-                  <div class="h-8 w-32 rounded-lg bg-white/10"></div>
-                  <div class="h-4 w-24 rounded-lg bg-white/5"></div>
-                </div>
+        <!-- Skeleton card grid -->
+        <div class="events-grid">
+          {#each Array(6) as _}
+            <div class="glass rounded-2xl border border-white/8 animate-pulse event-card-skeleton">
+              <div class="skeleton-header"></div>
+              <div class="p-5 space-y-3">
+                <div class="h-5 w-3/4 rounded-lg bg-white/10"></div>
+                <div class="h-3.5 w-full rounded-lg bg-white/5"></div>
+                <div class="h-3.5 w-4/5 rounded-lg bg-white/5"></div>
               </div>
-              <div class="shrink-0 mt-2 sm:mt-0">
-                <div class="h-10 w-32 rounded-lg bg-white/10"></div>
+              <div class="p-5 pt-0 flex items-center justify-between">
+                <div class="h-6 w-24 rounded-full bg-white/8"></div>
+                <div class="h-8 w-20 rounded-lg bg-white/10"></div>
               </div>
             </div>
-          </div>
-        {/each}
+          {/each}
+        </div>
       {:else if data.events.length}
-        {#each data.events as event}
-          <div
-            class="glass card-hover rounded-2xl p-6 border border-white/8"
-          >
-            <div
-              class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
-            >
-              <div class="space-y-3 min-w-0">
-                <div>
-                  <h2
-                    class="text-xl font-bold text-white flex items-center gap-2"
-                  >
-                    {event.name}
-                    {#if event.joined}
-                      <CheckCheck size={14} class="text-amber-400" />
-                      <span class="text-xs font-semibold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded">Joined</span>
-                    {/if}
-                  </h2>
-                  <p class="mt-1.5 text-sm leading-6 text-ink-400 line-clamp-2">
-                    {event.description ?? "No description added yet."}
-                  </p>
-                </div>
+        <div class="events-grid">
+          {#each data.events as event}
+            <div class="event-card glass card-hover rounded-2xl border border-amber-400/15">
+              <!-- Card top accent bar -->
+              <div class="card-accent accent-discover"></div>
 
-                <div class="flex flex-wrap items-center gap-3">
-                  <!-- Slug badge with copy -->
-                  <button
-                    id="copy-link-{event.slug}"
-                    onclick={() => copySlug(event.slug)}
-                    class="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-3 py-1.5 text-xs font-mono text-ink-300 transition hover:border-amber-400/30 hover:text-amber-200 hover:bg-amber-400/6"
-                  >
-                    {#if copiedSlug === event.slug}
-                      <CheckCheck size={13} class="text-emerald-400" />
-                      Copied!
-                    {:else}
-                      <Copy size={13} />
-                      /event/{event.slug}
-                    {/if}
-                  </button>
+              <!-- Card body -->
+              <div class="card-body">
+                <!-- Joined badge if user joined -->
+                {#if event.joined}
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="joined-badge">
+                      <CheckCheck size={10} />
+                      Joined
+                    </span>
+                  </div>
+                {/if}
 
-                  <span class="flex items-center gap-1.5 text-xs text-ink-500">
-                    <CalendarClock size={13} />
+                <!-- Title -->
+                <h2 class="card-title">{event.name}</h2>
+
+                <!-- Description -->
+                <p class="card-desc">
+                  {event.description ?? "No description added yet."}
+                </p>
+              </div>
+
+              <!-- Card footer -->
+              <div class="card-footer">
+                <div class="card-meta">
+                  <span class="meta-date">
+                    <CalendarClock size={11} />
                     {new Date(event.created_at).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
                     })}
                   </span>
+                  <button
+                    id="copy-link-{event.slug}"
+                    onclick={() => copySlug(event.slug)}
+                    class="copy-btn"
+                    title="Copy event link"
+                  >
+                    {#if copiedSlug === event.slug}
+                      <CheckCheck size={11} class="text-emerald-400" />
+                      Copied!
+                    {:else}
+                      <Copy size={11} />
+                      /{event.slug}
+                    {/if}
+                  </button>
                 </div>
-              </div>
-
-              <div class="shrink-0">
                 <Button
                   id="open-event-{event.slug}"
                   onclick={() => goto(`/event/${event.slug}`)}
-                  class="gap-2 whitespace-nowrap"
+                  class="card-view-btn gap-1.5 text-xs px-3 py-1.5 h-auto"
                 >
                   View
-                  <ArrowRight size={15} />
+                  <ArrowRight size={13} />
                 </Button>
               </div>
             </div>
-          </div>
-        {/each}
+          {/each}
+        </div>
       {:else}
         <!-- Empty state -->
         <div
@@ -240,3 +234,121 @@
     </div>
   </main>
 </PageShell>
+
+<style>
+  .events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .event-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .event-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(251, 191, 36, 0.35);
+    box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px -3px rgba(251, 191, 36, 0.12);
+  }
+  .card-accent {
+    height: 3px;
+    flex-shrink: 0;
+  }
+  .accent-discover {
+    background: linear-gradient(90deg, rgba(251, 191, 36, 0.8) 0%, rgba(251, 191, 36, 0.1) 100%);
+  }
+  .card-body {
+    flex: 1;
+    padding: 1.1rem 1.1rem 0.85rem;
+  }
+  .card-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.35;
+    margin-bottom: 0.45rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-desc {
+    font-size: 0.785rem;
+    color: rgba(148, 163, 184, 0.75);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 1.1rem 0.95rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: auto;
+  }
+  .card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .meta-date {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.65rem;
+    color: rgba(100, 116, 139, 0.85);
+    white-space: nowrap;
+  }
+  .copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.625rem;
+    font-family: monospace;
+    color: rgba(148, 163, 184, 0.55);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+    transition: color 150ms;
+  }
+  .copy-btn:hover {
+    color: rgba(251, 191, 36, 0.9);
+  }
+  .joined-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    padding: 0.15rem 0.45rem;
+    border-rounded: 0.375rem;
+    border-radius: 9999px;
+  }
+  .event-card-skeleton {
+    height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .skeleton-header {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+</style>
+

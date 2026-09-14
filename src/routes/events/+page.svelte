@@ -8,6 +8,7 @@
     CheckCheck,
     CalendarClock,
     Search,
+    RefreshCw,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -15,13 +16,27 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
-  import { goto } from "$app/navigation";
+  import { goto, invalidateAll } from "$app/navigation";
   import { navigating } from "$app/stores";
   import { toast } from "$lib/components/ui/sonner/index.js";
   import { myEventsStore, clearAllEventStores } from "$lib/stores/eventStore";
   import { clearAllChatStores } from "$lib/stores/chatStore";
 
   export let data;
+
+  let refreshing = false;
+
+  async function refreshEvents() {
+    refreshing = true;
+    try {
+      await invalidateAll();
+      toast.success("Events refreshed!");
+    } catch {
+      toast.error("Failed to refresh events");
+    } finally {
+      refreshing = false;
+    }
+  }
 
   $: {
     if (data.events) {
@@ -139,15 +154,28 @@
       <div>
         <h1 class="text-3xl font-black text-white">Events</h1>
       </div>
-      <Button
-        id="create-event-btn"
-        onclick={() => goto("/events/create")}
-        class="gap-2 shrink-0"
-        disabled={$navigating}
-      >
-        <Plus size={16} />
-        Create event
-      </Button>
+      <div class="flex items-center gap-2 shrink-0">
+        <Button
+          id="refresh-events-btn"
+          variant="outline"
+          onclick={refreshEvents}
+          class="gap-2 border-white/10 bg-white/5 hover:bg-white/10 text-white"
+          disabled={refreshing || $navigating}
+          title="Refresh events list"
+        >
+          <RefreshCw size={15} class={refreshing ? "animate-spin" : ""} />
+          <span class="hidden sm:inline">Refresh</span>
+        </Button>
+        <Button
+          id="create-event-btn"
+          onclick={() => goto("/events/create")}
+          class="gap-2"
+          disabled={$navigating}
+        >
+          <Plus size={16} />
+          Create event
+        </Button>
+      </div>
     </div>
 
     <!-- Filters and Search -->

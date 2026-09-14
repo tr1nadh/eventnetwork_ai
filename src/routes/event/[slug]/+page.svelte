@@ -85,15 +85,6 @@
     // Always clear the connections store on mount so we don't show stale data from another event
     connectionsStore.set([]);
 
-    try {
-      if (typeof window !== "undefined" && "Notification" in window) {
-        if (Notification.permission === "default") {
-          Notification.requestPermission().catch(console.error);
-        }
-      }
-    } catch (e) {
-      console.error("Notification error:", e);
-    }
 
     if (!data.user?.id) return;
 

@@ -2984,11 +2984,10 @@
                 </div>
 
                 <Button
-                  variant={currentEvent.is_venue_enabled !== false ? "destructive" : "default"}
                   size="sm"
                   onclick={toggleVenueEnabled}
                   disabled={togglingVenueMap}
-                  class="gap-2 text-xs shrink-0"
+                  class={`gap-2 text-xs shrink-0 text-white ${currentEvent.is_venue_enabled !== false ? 'bg-red-800 hover:bg-red-900' : 'bg-green-600 hover:bg-green-700'}`}
                 >
                   {#if togglingVenueMap}
                     <LoaderCircle size={14} class="animate-spin" />

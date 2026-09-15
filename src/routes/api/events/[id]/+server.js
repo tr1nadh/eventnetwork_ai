@@ -60,6 +60,9 @@ export async function PUT({ request, params, locals }) {
   if (body?.is_approval_required !== undefined) {
     updatePayload.is_approval_required = Boolean(body.is_approval_required);
   }
+  if (body?.is_venue_enabled !== undefined) {
+    updatePayload.is_venue_enabled = Boolean(body.is_venue_enabled);
+  }
 
   const { data: updatedEvent, error: updateError } = await admin
     .from('events')

@@ -37,6 +37,7 @@
     UserPlus,
     UserCheck,
     Clock,
+    MapPinOff,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -323,6 +324,40 @@
   let editEventLocation = "";
   let editEventGoogleMapUrl = "";
   let editEventApprovalRequired = false;
+  let editEventVenueEnabled = true;
+
+  let togglingVenueMap = false;
+
+  async function toggleVenueEnabled() {
+    if (!data.isOrganizer || togglingVenueMap) return;
+    togglingVenueMap = true;
+    const newStatus = currentEvent.is_venue_enabled === false ? true : false;
+    try {
+      const res = await fetch(`/api/events/${currentEvent.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: currentEvent.name,
+          slug: currentEvent.slug,
+          is_venue_enabled: newStatus,
+        }),
+      });
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          resData.message || resData.error || "Failed to update venue map status"
+        );
+      }
+      currentEvent = { ...currentEvent, is_venue_enabled: newStatus };
+      toast.success(
+        newStatus ? "Venue map enabled for attendees" : "Venue map disabled for attendees"
+      );
+    } catch (e) {
+      toast.error(e.message || "Failed to update venue status");
+    } finally {
+      togglingVenueMap = false;
+    }
+  }
 
   let deletingEvent = false;
   let deleteEventError = "";
@@ -337,6 +372,7 @@
     editEventLocation = currentEvent.location || "";
     editEventGoogleMapUrl = currentEvent.google_map_url || "";
     editEventApprovalRequired = Boolean(currentEvent.is_approval_required);
+    editEventVenueEnabled = currentEvent.is_venue_enabled !== false;
     editEventError = "";
     editEventModalOpen = true;
   }
@@ -367,6 +403,7 @@
           location: editEventLocation,
           google_map_url: editEventGoogleMapUrl,
           is_approval_required: editEventApprovalRequired,
+          is_venue_enabled: editEventVenueEnabled,
         }),
       });
       const resData = await res.json().catch(() => ({}));
@@ -2913,16 +2950,77 @@
           </Tabs.Content>
 
           <!-- Venue Map tab -->
-          <Tabs.Content value="venue" class="mt-4">
-            <VenueMap
-              isOrganizer={data.isOrganizer}
-              initialZones={currentEvent.venue_map}
-              currentLocation={venueLocation}
-              on:locationChange={(e) => {
-                venueLocation = e.detail;
-              }}
-              on:saveMap={handleSaveMap}
-            />
+          <Tabs.Content value="venue" class="mt-4 space-y-4">
+            {#if data.isOrganizer}
+              <div
+                class="glass rounded-2xl border border-white/8 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+              >
+                <div class="flex items-center gap-3">
+                  <div
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-emerald-400"
+                  >
+                    <MapPin size={20} />
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h3 class="text-sm font-bold text-white">Venue Map Access</h3>
+                      <Badge
+                        variant="secondary"
+                        class="text-[10px] font-bold px-2 py-0.5 {currentEvent.is_venue_enabled !== false
+                          ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                          : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}"
+                      >
+                        {currentEvent.is_venue_enabled !== false ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                    <p class="text-xs text-ink-400 mt-0.5">
+                      {currentEvent.is_venue_enabled !== false
+                        ? "Attendees can view the interactive venue map."
+                        : "Venue map is hidden for attendees. Only organizers can see and edit it."}
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  variant={currentEvent.is_venue_enabled !== false ? "destructive" : "default"}
+                  size="sm"
+                  onclick={toggleVenueEnabled}
+                  disabled={togglingVenueMap}
+                  class="gap-2 text-xs shrink-0"
+                >
+                  {#if togglingVenueMap}
+                    <LoaderCircle size={14} class="animate-spin" />
+                  {/if}
+                  {currentEvent.is_venue_enabled !== false ? "Disable Venue Map" : "Enable Venue Map"}
+                </Button>
+              </div>
+            {/if}
+
+            {#if currentEvent.is_venue_enabled !== false || data.isOrganizer}
+              <VenueMap
+                isOrganizer={data.isOrganizer}
+                initialZones={currentEvent.venue_map}
+                currentLocation={venueLocation}
+                on:locationChange={(e) => {
+                  venueLocation = e.detail;
+                }}
+                on:saveMap={handleSaveMap}
+              />
+            {:else}
+              <div
+                class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"
+              >
+                <div
+                  class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
+                >
+                  <MapPinOff size={28} class="text-ink-500" />
+                </div>
+                <h3 class="text-white font-bold text-lg mb-1">Venue Map Disabled</h3>
+                <p class="text-sm text-ink-400 max-w-md">
+                  The organizer has disabled the venue map for this event.
+                </p>
+              </div>
+            {/if}
           </Tabs.Content>
         </Tabs.Root>
       </div>
@@ -3137,16 +3235,29 @@
             ></textarea>
           </div>
 
-          <div class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4">
-            <span class="text-xs font-semibold text-white flex items-center gap-1.5">
-              <Lock size={13} class="text-amber-400" />
-              Require Host Approval
-            </span>
-            <input
-              type="checkbox"
-              bind:checked={editEventApprovalRequired}
-              class="h-4 w-4 rounded border-white/20 bg-white/10 text-amber-400 focus:ring-amber-400/30 accent-amber-400 cursor-pointer"
-            />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4">
+              <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+                <Lock size={13} class="text-amber-400" />
+                Require Host Approval
+              </span>
+              <input
+                type="checkbox"
+                bind:checked={editEventApprovalRequired}
+                class="h-4 w-4 rounded border-white/20 bg-white/10 text-amber-400 focus:ring-amber-400/30 accent-amber-400 cursor-pointer"
+              />
+            </div>
+            <div class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4">
+              <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+                <MapPin size={13} class="text-emerald-400" />
+                Enable Venue Map
+              </span>
+              <input
+                type="checkbox"
+                bind:checked={editEventVenueEnabled}
+                class="h-4 w-4 rounded border-white/20 bg-white/10 text-emerald-400 focus:ring-emerald-400/30 accent-emerald-400 cursor-pointer"
+              />
+            </div>
           </div>
 
           {#if editEventError}

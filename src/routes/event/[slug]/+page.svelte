@@ -33,6 +33,10 @@
     MoreVertical,
     Pencil,
     Trash2,
+    Search,
+    UserPlus,
+    UserCheck,
+    Clock,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -95,6 +99,7 @@
 
     if (data.isParticipant) {
       fetchAllConnections();
+      fetchAttendees();
 
       // Setup a single channel for connections realtime updates
       realtimeChannel = supabase
@@ -598,6 +603,59 @@
     ? ($connectionsStore.find((conn) => conn.id === activeChatConnectionId) ??
       null)
     : null;
+
+  // Attendees state & handlers
+  let attendeesList = [];
+  let loadingAttendees = false;
+  let attendeeSearchQuery = "";
+  let attendeeSearchTimeout = null;
+
+  async function fetchAttendees(query = attendeeSearchQuery) {
+    const eventIdOrSlug = data.event?.id || data.event?.slug || "";
+    if (!eventIdOrSlug) return;
+    loadingAttendees = true;
+    try {
+      const q = encodeURIComponent(query.trim());
+      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch attendees");
+      const { attendees } = await res.json();
+      attendeesList = attendees || [];
+    } catch (e) {
+      toast.error("Could not load attendees");
+    } finally {
+      loadingAttendees = false;
+    }
+  }
+
+  function handleAttendeeSearchInput(e) {
+    attendeeSearchQuery = e.target.value;
+    if (attendeeSearchTimeout) clearTimeout(attendeeSearchTimeout);
+    attendeeSearchTimeout = setTimeout(() => {
+      fetchAttendees(attendeeSearchQuery);
+    }, 300);
+  }
+
+  async function handleConnectAttendee(attendee) {
+    await connectUser({ user_id: attendee.user_id, is_dummy: attendee.is_dummy });
+    attendeesList = attendeesList.map((a) =>
+      a.user_id === attendee.user_id ? { ...a, connectionStatus: "sent" } : a
+    );
+  }
+
+  async function handleAcceptAttendee(attendee) {
+    if (attendee.connectionId) {
+      await updateConnection(attendee.connectionId, "accepted");
+      attendeesList = attendeesList.map((a) =>
+        a.user_id === attendee.user_id ? { ...a, connectionStatus: "connected" } : a
+      );
+    }
+  }
+
+  $: if ($activeTab === "attendees" && !attendeesList.length && !loadingAttendees) {
+    fetchAttendees();
+  }
 
   let connectionsPage = 1;
   let connectionsHasMore = false;
@@ -1515,6 +1573,20 @@
               </Tabs.Trigger>
 
               <Tabs.Trigger
+                value="attendees"
+                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
+              >
+                <Users size={16} />
+                <span class="flex items-center gap-1.5"
+                  >Attendees {#if attendeesList.length || currentEvent.attendees_count}<span
+                      class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300"
+                      >{attendeesList.length || currentEvent.attendees_count}</span
+                    >
+                  {/if}</span
+                >
+              </Tabs.Trigger>
+
+              <Tabs.Trigger
                 value="analytics"
                 class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-200 data-[state=inactive]:text-ink-500 hover:text-cyan-200"
               >
@@ -1615,6 +1687,228 @@
                   {/each}
                 </ol>
               </div>
+            </div>
+          </Tabs.Content>
+
+          <!-- Attendees Tab -->
+          <Tabs.Content value="attendees" class="mt-4">
+            <div class="space-y-6">
+              <!-- Attendees Header with Search and Refresh -->
+              <div
+                class="glass rounded-2xl border border-white/8 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+              >
+                <div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <Users size={18} class="text-indigo-400" />
+                    <h2 class="text-xl font-bold text-white">Joined Attendees</h2>
+                  </div>
+                  <p class="text-xs text-ink-400">
+                    Explore all members who have joined {currentEvent.name} and build your network.
+                  </p>
+                </div>
+
+                <div class="flex items-center gap-3 w-full sm:w-auto">
+                  <div class="relative flex-1 sm:w-64">
+                    <Search
+                      size={15}
+                      class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500"
+                    />
+                    <Input
+                      type="search"
+                      placeholder="Search by name, role, bio..."
+                      value={attendeeSearchQuery}
+                      oninput={handleAttendeeSearchInput}
+                      class="pl-9 bg-white/5 border-white/10 text-white placeholder:text-ink-500 h-9 text-xs focus:border-indigo-400/50 focus:ring-indigo-400/20"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    class="h-9 w-9 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 shrink-0"
+                    onclick={() => fetchAttendees()}
+                    disabled={loadingAttendees}
+                    title="Refresh Attendees"
+                  >
+                    <RefreshCw
+                      size={15}
+                      class={loadingAttendees ? "animate-spin" : ""}
+                    />
+                  </Button>
+                </div>
+              </div>
+
+              <!-- Attendees Grid / Skeleton / Empty state -->
+              {#if loadingAttendees && !attendeesList.length}
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {#each Array(6) as _}
+                    <div
+                      class="glass rounded-2xl border border-white/8 p-5 space-y-4 animate-pulse"
+                    >
+                      <div class="flex items-center gap-3">
+                        <div class="h-12 w-12 rounded-full bg-white/10"></div>
+                        <div class="space-y-2 flex-1">
+                          <div class="h-4 w-28 rounded bg-white/10"></div>
+                          <div class="h-3 w-20 rounded bg-white/10"></div>
+                        </div>
+                      </div>
+                      <div class="h-12 rounded bg-white/5"></div>
+                      <div class="h-9 rounded bg-white/10 w-full"></div>
+                    </div>
+                  {/each}
+                </div>
+              {:else if attendeesList.length === 0}
+                <div
+                  class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"
+                >
+                  <div
+                    class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
+                  >
+                    <Ghost size={28} class="text-ink-500" />
+                  </div>
+                  <h3 class="text-white font-bold mb-1">No attendees found</h3>
+                  <p class="text-sm text-ink-400 max-w-sm mb-4">
+                    {#if attendeeSearchQuery}
+                      No participants match "{attendeeSearchQuery}". Try a different search term.
+                    {:else}
+                      No joined attendees yet. Share this event link to get participants to join!
+                    {/if}
+                  </p>
+                  {#if attendeeSearchQuery}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onclick={() => {
+                        attendeeSearchQuery = "";
+                        fetchAttendees("");
+                      }}
+                    >
+                      Clear Search
+                    </Button>
+                  {/if}
+                </div>
+              {:else}
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {#each attendeesList as attendee (attendee.user_id)}
+                    <div
+                      class="glass card-hover rounded-2xl border border-white/8 p-5 flex flex-col justify-between space-y-4 relative overflow-hidden"
+                    >
+                      <!-- Header: Avatar + Info -->
+                      <div class="flex items-start gap-3">
+                        <div
+                          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-indigo-400/30 text-indigo-200 font-bold text-lg shadow-inner"
+                        >
+                          {attendee.name ? attendee.name.charAt(0).toUpperCase() : "A"}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-2 flex-wrap">
+                            <h3 class="text-base font-bold text-white truncate">
+                              {attendee.name}
+                            </h3>
+                            {#if attendee.is_host}
+                              <Badge
+                                variant="secondary"
+                                class="gap-1 border-amber-400/30 bg-amber-400/10 text-amber-300 text-[10px] font-bold px-2 py-0.5"
+                              >
+                                <Crown size={11} /> Host
+                              </Badge>
+                            {/if}
+                            {#if attendee.is_current_user}
+                              <Badge
+                                variant="secondary"
+                                class="border-indigo-400/30 bg-indigo-400/10 text-indigo-300 text-[10px] font-bold px-2 py-0.5"
+                              >
+                                You
+                              </Badge>
+                            {/if}
+                          </div>
+                          <p class="text-xs text-indigo-300 font-medium truncate mt-0.5">
+                            {attendee.role || "Participant"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <!-- Bio & Looking For -->
+                      <div class="space-y-2 flex-1">
+                        {#if attendee.about}
+                          <p
+                            class="text-xs text-ink-300 line-clamp-3 leading-relaxed bg-white/4 p-2.5 rounded-xl border border-white/5"
+                          >
+                            {attendee.about}
+                          </p>
+                        {/if}
+
+                        {#if attendee.looking_for}
+                          <div class="pt-1">
+                            <p
+                              class="text-[10px] uppercase tracking-wider font-semibold text-ink-500 mb-1"
+                            >
+                              Looking For
+                            </p>
+                            <p
+                              class="text-xs text-ink-300 bg-indigo-400/5 border border-indigo-400/15 p-2 rounded-lg line-clamp-2"
+                            >
+                              {attendee.looking_for}
+                            </p>
+                          </div>
+                        {/if}
+                      </div>
+
+                      <!-- Action Button -->
+                      <div class="pt-2 border-t border-white/6">
+                        {#if attendee.is_current_user}
+                          <Badge
+                            variant="outline"
+                            class="w-full justify-center py-2 text-ink-400 border-white/10 text-xs"
+                          >
+                            Your Profile
+                          </Badge>
+                        {:else if attendee.connectionStatus === "connected" || attendee.connectionStatus === "met"}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            class="w-full gap-2 border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
+                            onclick={() => {
+                              activeTab.set("connections");
+                            }}
+                          >
+                            <CheckCheck size={14} /> Connected
+                          </Button>
+                        {:else if attendee.connectionStatus === "sent"}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            class="w-full gap-2 border-amber-400/30 bg-amber-400/10 text-amber-300 opacity-90 cursor-not-allowed"
+                          >
+                            <Clock size={14} /> Request Sent
+                          </Button>
+                        {:else if attendee.connectionStatus === "received"}
+                          <Button
+                            size="sm"
+                            class="w-full gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:opacity-90 shadow-md"
+                            onclick={() => handleAcceptAttendee(attendee)}
+                          >
+                            <UserCheck size={14} /> Accept Request
+                          </Button>
+                        {:else}
+                          <Button
+                            size="sm"
+                            class="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-500 shadow-md"
+                            disabled={connectingIds.includes(attendee.user_id)}
+                            onclick={() => handleConnectAttendee(attendee)}
+                          >
+                            {#if connectingIds.includes(attendee.user_id)}
+                              <LoaderCircle size={14} class="animate-spin" /> Connecting…
+                            {:else}
+                              <UserPlus size={14} /> Connect
+                            {/if}
+                          </Button>
+                        {/if}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
             </div>
           </Tabs.Content>
 

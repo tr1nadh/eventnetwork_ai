@@ -118,10 +118,7 @@ Rules:
 					],
 
 					temperature: 0,
-					max_tokens: 300,
-
-					// Prevent reasoning output (supported on Qwen 3.7+)
-					reasoning_effort: 'none'
+					max_tokens: 300
 				}),
 				signal: controller.signal
 			});

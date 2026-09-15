@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { createChatCompletion } from '$lib/llm/fireworks';
+import { FIREWORKS_MODEL } from '$env/static/private';
 import { generateEmbedding } from '$lib/embeddings';
 import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
 /**
@@ -137,13 +138,12 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
   let profiles;
   try {
     const llmRes = await createChatCompletion({
-      model: 'accounts/fireworks/models/qwen3p7-plus',
+      model: FIREWORKS_MODEL || 'accounts/fireworks/models/qwen2p5-7b-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.8,
-      reasoning_effort: 'none',
       response_format: { type: 'json_object' }
     });
 

@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createChatCompletion } from '$lib/llm/fireworks';
+import { FIREWORKS_MODEL } from '$env/static/private';
 import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
 
 /**
@@ -121,14 +122,13 @@ Generate the Meeting Prep JSON now.`;
 
   try {
     const llmRes = await createChatCompletion({
-      model: 'accounts/fireworks/models/qwen3p7-plus',
+      model: FIREWORKS_MODEL || 'accounts/fireworks/models/qwen2p5-7b-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.7,
-      max_tokens: 500,
-      reasoning_effort: 'none'
+      max_tokens: 500
     });
 
     let content = llmRes.choices?.[0]?.message?.content?.trim();

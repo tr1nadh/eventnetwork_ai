@@ -10,6 +10,9 @@
     Search,
     Compass,
     Crown,
+    Globe,
+    MapPin,
+    Lock,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -28,6 +31,17 @@
   const supabase = createSupabaseBrowserClient();
   let signingOut = false;
   let copiedSlug = null;
+
+  function formatEventDateRange(start, end) {
+    if (!start) return "";
+    const startDate = new Date(start);
+    const dateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const startTimeStr = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (!end) return `${dateStr}, ${startTimeStr}`;
+    const endDate = new Date(end);
+    const endTimeStr = endDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return `${dateStr} • ${startTimeStr} - ${endTimeStr}`;
+  }
 
   $: searchQuery = data.q || "";
 
@@ -159,22 +173,39 @@
 
               <!-- Card body -->
               <div class="card-body">
-                <!-- Role badge if hosting or joined -->
-                {#if event.created_by === data.user?.id}
-                  <div class="flex items-center gap-2 mb-3">
+                <!-- Badges header -->
+                <div class="flex flex-wrap items-center gap-1.5 mb-3">
+                  {#if event.event_format}
+                    <span class="format-badge">
+                      {#if event.event_format === 'online'}
+                        <Globe size={10} class="text-cyan-400" /> Online
+                      {:else if event.event_format === 'hybrid'}
+                        <Globe size={10} class="text-amber-400" /> Hybrid
+                      {:else}
+                        <MapPin size={10} class="text-amber-400" /> Offline
+                      {/if}
+                    </span>
+                  {/if}
+
+                  {#if event.created_by === data.user?.id}
                     <span class="hosting-badge">
                       <Crown size={10} class="text-amber-300" />
                       Hosting
                     </span>
-                  </div>
-                {:else if event.joined}
-                  <div class="flex items-center gap-2 mb-3">
+                  {:else if event.joined}
                     <span class="joined-badge">
                       <CheckCheck size={10} class="text-emerald-400" />
                       Joined
                     </span>
-                  </div>
-                {/if}
+                  {/if}
+
+                  {#if event.is_approval_required}
+                    <span class="approval-badge" title="Approval required by host">
+                      <Lock size={10} class="text-amber-300" />
+                      Approval
+                    </span>
+                  {/if}
+                </div>
 
                 <!-- Title -->
                 <h2 class="card-title">{event.name}</h2>
@@ -183,6 +214,13 @@
                 <p class="card-desc">
                   {event.description ?? "No description added yet."}
                 </p>
+
+                {#if event.location}
+                  <p class="mt-2 text-[11px] text-ink-400 flex items-center gap-1 truncate">
+                    <MapPin size={11} class="text-amber-400 shrink-0" />
+                    <span class="truncate">{event.location}</span>
+                  </p>
+                {/if}
               </div>
 
               <!-- Card footer -->
@@ -190,7 +228,7 @@
                 <div class="card-meta">
                   <span class="meta-date">
                     <CalendarClock size={11} />
-                    {new Date(event.created_at).toLocaleDateString("en-US", {
+                    {event.start_time ? formatEventDateRange(event.start_time, event.end_time) : new Date(event.created_at).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -356,6 +394,31 @@
     color: #34d399;
     background: rgba(52, 211, 153, 0.12);
     border: 1px solid rgba(52, 211, 153, 0.3);
+    padding: 0.18rem 0.48rem;
+    border-radius: 9999px;
+  }
+  .format-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.18rem 0.48rem;
+    border-radius: 9999px;
+    text-transform: capitalize;
+  }
+  .approval-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #fde68a;
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.2);
     padding: 0.18rem 0.48rem;
     border-radius: 9999px;
   }

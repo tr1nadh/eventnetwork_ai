@@ -18,6 +18,9 @@
     CheckCircle2,
     CheckCheck,
     Crown,
+    Globe,
+    CalendarClock,
+    Lock,
     RefreshCcw,
     Brain,
     UserCircle2,
@@ -280,6 +283,23 @@
   let aiGenerating = false;
   let aiGenerationError = "";
 
+  function formatEventDateRange(start, end) {
+    if (!start) return "";
+    const startDate = new Date(start);
+    const dateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const startTimeStr = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (!end) return `${dateStr}, ${startTimeStr}`;
+    const endDate = new Date(end);
+    const endTimeStr = endDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return `${dateStr} • ${startTimeStr} - ${endTimeStr}`;
+  }
+
+  function formatDatetimeLocal(date) {
+    if (!date || isNaN(date.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
   let editProfileOpen = false;
 
   let currentEvent = data.event;
@@ -292,6 +312,12 @@
   let editEventName = "";
   let editEventSlug = "";
   let editEventDescription = "";
+  let editEventStartTime = "";
+  let editEventEndTime = "";
+  let editEventFormat = "offline";
+  let editEventLocation = "";
+  let editEventGoogleMapUrl = "";
+  let editEventApprovalRequired = false;
 
   let deletingEvent = false;
   let deleteEventError = "";
@@ -300,6 +326,12 @@
     editEventName = currentEvent.name || "";
     editEventSlug = currentEvent.slug || "";
     editEventDescription = currentEvent.description || "";
+    editEventStartTime = currentEvent.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : "";
+    editEventEndTime = currentEvent.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : "";
+    editEventFormat = currentEvent.event_format || "offline";
+    editEventLocation = currentEvent.location || "";
+    editEventGoogleMapUrl = currentEvent.google_map_url || "";
+    editEventApprovalRequired = Boolean(currentEvent.is_approval_required);
     editEventError = "";
     editEventModalOpen = true;
   }
@@ -324,6 +356,12 @@
           name: editEventName,
           slug: editEventSlug,
           description: editEventDescription,
+          start_time: editEventStartTime ? new Date(editEventStartTime).toISOString() : undefined,
+          end_time: editEventEndTime ? new Date(editEventEndTime).toISOString() : undefined,
+          event_format: editEventFormat,
+          location: editEventLocation,
+          google_map_url: editEventGoogleMapUrl,
+          is_approval_required: editEventApprovalRequired,
         }),
       });
       const resData = await res.json().catch(() => ({}));
@@ -1366,23 +1404,50 @@
             {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
-                {#if data.isOrganizer}
-                  <Badge
-                    variant="secondary"
-                    class="gap-1.5 border-amber-400/30 bg-amber-400/10 text-amber-300 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
-                  >
-                    <Crown size={14} class="text-amber-400" />
-                    Hosting
-                  </Badge>
-                {:else if data.isParticipant}
-                  <Badge
-                    variant="secondary"
-                    class="gap-1.5 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
-                  >
-                    <CheckCheck size={14} class="text-emerald-400" />
-                    Joined
-                  </Badge>
-                {/if}
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                  {#if data.isOrganizer}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-amber-400/30 bg-amber-400/10 text-amber-300 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
+                    >
+                      <Crown size={14} class="text-amber-400" />
+                      Hosting
+                    </Badge>
+                  {:else if data.isParticipant}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
+                    >
+                      <CheckCheck size={14} class="text-emerald-400" />
+                      Joined
+                    </Badge>
+                  {/if}
+
+                  {#if currentEvent.event_format}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-white/10 bg-white/5 text-ink-300 text-xs font-semibold capitalize px-3 py-1.5"
+                    >
+                      {#if currentEvent.event_format === 'online'}
+                        <Globe size={14} class="text-cyan-400" /> Online
+                      {:else if currentEvent.event_format === 'hybrid'}
+                        <Globe size={14} class="text-amber-400" /> Hybrid
+                      {:else}
+                        <MapPin size={14} class="text-amber-400" /> Offline
+                      {/if}
+                    </Badge>
+                  {/if}
+
+                  {#if currentEvent.is_approval_required}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-amber-400/20 bg-amber-400/8 text-amber-200 text-xs font-semibold px-3 py-1.5"
+                    >
+                      <Lock size={14} class="text-amber-400" /> Approval Required
+                    </Badge>
+                  {/if}
+                </div>
+
                 <h1
                   class="text-4xl sm:text-5xl font-black tracking-tight text-white"
                 >
@@ -1393,6 +1458,36 @@
                 >
                   {currentEvent.description}
                 </p>
+
+                <!-- Location, Date & Attendees metadata row -->
+                <div class="flex flex-wrap items-center justify-center gap-3 text-xs text-ink-400 pt-2">
+                  {#if currentEvent.start_time}
+                    <span class="flex items-center gap-1.5 bg-white/4 px-3 py-1.5 rounded-lg border border-white/6">
+                      <CalendarClock size={14} class="text-amber-400" />
+                      {formatEventDateRange(currentEvent.start_time, currentEvent.end_time)}
+                    </span>
+                  {/if}
+
+                  {#if currentEvent.location}
+                    <span class="flex items-center gap-1.5 bg-white/4 px-3 py-1.5 rounded-lg border border-white/6">
+                      <MapPin size={14} class="text-amber-400" />
+                      {#if currentEvent.google_map_url}
+                        <a href={currentEvent.google_map_url} target="_blank" rel="noopener noreferrer" class="hover:underline text-amber-300 font-medium flex items-center gap-1">
+                          {currentEvent.location} ↗
+                        </a>
+                      {:else}
+                        <span>{currentEvent.location}</span>
+                      {/if}
+                    </span>
+                  {/if}
+
+                  {#if currentEvent.attendees_count > 0}
+                    <span class="flex items-center gap-1.5 bg-white/4 px-3 py-1.5 rounded-lg border border-white/6">
+                      <Users size={14} class="text-cyan-400" />
+                      {currentEvent.attendees_count} attendee{currentEvent.attendees_count === 1 ? '' : 's'}
+                    </span>
+                  {/if}
+                </div>
               </div>
             </div>
           </div>
@@ -2613,16 +2708,16 @@
     <!-- Edit Event Modal -->
     <Dialog.Root bind:open={editEventModalOpen}>
       <Dialog.Content
-        class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
+        class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto"
       >
         <Dialog.Header>
           <Dialog.Title class="text-xl font-bold">Edit Event</Dialog.Title>
         </Dialog.Header>
         <div class="grid gap-4 py-4">
-          <div class="space-y-2">
+          <div class="space-y-1.5">
             <Label
               for="edit-name"
-              class="text-xs uppercase tracking-widest text-ink-400"
+              class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
               >Event Name *</Label
             >
             <Input
@@ -2631,31 +2726,135 @@
               class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
             />
           </div>
-          <div class="space-y-2">
+
+          <div class="space-y-1.5">
+            <Label class="text-xs uppercase tracking-widest text-ink-400 font-semibold">
+              Event Format
+            </Label>
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg border text-xs font-semibold transition {editEventFormat === 'offline' ? 'bg-amber-400/15 border-amber-400/40 text-amber-300' : 'bg-white/4 border-white/8 text-ink-400 hover:text-white'}"
+                onclick={() => editEventFormat = 'offline'}
+              >
+                <MapPin size={13} /> Offline
+              </button>
+              <button
+                type="button"
+                class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg border text-xs font-semibold transition {editEventFormat === 'online' ? 'bg-amber-400/15 border-amber-400/40 text-amber-300' : 'bg-white/4 border-white/8 text-ink-400 hover:text-white'}"
+                onclick={() => editEventFormat = 'online'}
+              >
+                <Globe size={13} /> Online
+              </button>
+              <button
+                type="button"
+                class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg border text-xs font-semibold transition {editEventFormat === 'hybrid' ? 'bg-amber-400/15 border-amber-400/40 text-amber-300' : 'bg-white/4 border-white/8 text-ink-400 hover:text-white'}"
+                onclick={() => editEventFormat = 'hybrid'}
+              >
+                <Globe size={13} /> Hybrid
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <Label
+                for="edit-start-time"
+                class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
+                >Start Time</Label
+              >
+              <Input
+                id="edit-start-time"
+                type="datetime-local"
+                bind:value={editEventStartTime}
+                class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20 color-scheme-dark"
+              />
+            </div>
+            <div class="space-y-1.5">
+              <Label
+                for="edit-end-time"
+                class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
+                >End Time</Label
+              >
+              <Input
+                id="edit-end-time"
+                type="datetime-local"
+                bind:value={editEventEndTime}
+                class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20 color-scheme-dark"
+              />
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <Label
+              for="edit-location"
+              class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
+              >{editEventFormat === 'online' ? 'Meeting Link' : 'Location / Venue Address'}</Label
+            >
+            <Input
+              id="edit-location"
+              bind:value={editEventLocation}
+              placeholder={editEventFormat === 'online' ? 'https://meet.google.com/xyz' : 'Venue address'}
+              class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+            />
+          </div>
+
+          {#if editEventFormat !== 'online'}
+            <div class="space-y-1.5">
+              <Label
+                for="edit-map-url"
+                class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
+                >Google Map Link</Label
+              >
+              <Input
+                id="edit-map-url"
+                type="url"
+                bind:value={editEventGoogleMapUrl}
+                placeholder="https://maps.app.goo.gl/..."
+                class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20 font-mono text-xs"
+              />
+            </div>
+          {/if}
+
+          <div class="space-y-1.5">
             <Label
               for="edit-slug"
-              class="text-xs uppercase tracking-widest text-ink-400"
+              class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
               >Event ID (Slug) *</Label
             >
             <Input
               id="edit-slug"
               bind:value={editEventSlug}
-              class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+              class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20 font-mono"
             />
           </div>
-          <div class="space-y-2">
+
+          <div class="space-y-1.5">
             <Label
               for="edit-desc"
-              class="text-xs uppercase tracking-widest text-ink-400"
+              class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
               >Description</Label
             >
             <textarea
               id="edit-desc"
               bind:value={editEventDescription}
               rows="3"
-              class="w-full bg-white/5 border border-white/10 text-white rounded-md p-2 focus:border-amber-400/50 focus:ring-amber-400/20 outline-none"
+              class="w-full bg-white/5 border border-white/10 text-white rounded-md p-2.5 text-sm focus:border-amber-400/50 focus:ring-amber-400/20 outline-none resize-none"
             ></textarea>
           </div>
+
+          <div class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4">
+            <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <Lock size={13} class="text-amber-400" />
+              Require Host Approval
+            </span>
+            <input
+              type="checkbox"
+              bind:checked={editEventApprovalRequired}
+              class="h-4 w-4 rounded border-white/20 bg-white/10 text-amber-400 focus:ring-amber-400/30 accent-amber-400 cursor-pointer"
+            />
+          </div>
+
           {#if editEventError}
             <p class="text-red-400 text-sm">{editEventError}</p>
           {/if}

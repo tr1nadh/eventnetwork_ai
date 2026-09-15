@@ -10,6 +10,9 @@
     Search,
     RefreshCw,
     Crown,
+    Globe,
+    MapPin,
+    Lock,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -58,7 +61,26 @@
     statusFilter = "all";
   }
 
+  function formatEventDateRange(start, end) {
+    if (!start) return "";
+    const startDate = new Date(start);
+    const dateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const startTimeStr = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (!end) return `${dateStr}, ${startTimeStr}`;
+    const endDate = new Date(end);
+    const endTimeStr = endDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return `${dateStr} • ${startTimeStr} - ${endTimeStr}`;
+  }
+
   function getEventStatus(event) {
+    if (event.start_time && event.end_time) {
+      const now = new Date();
+      const start = new Date(event.start_time);
+      const end = new Date(event.end_time);
+      if (now >= start && now <= end) return "live";
+      if (now < start) return "upcoming";
+      return "archived";
+    }
     const text = `${event.name} ${event.description || ""}`.toLowerCase();
     if (text.includes("archive")) return "archived";
     if (text.includes("live")) return "live";
@@ -284,8 +306,8 @@
 
               <!-- Card body -->
               <div class="card-body">
-                <!-- Status + joined badge -->
-                <div class="flex items-center gap-2 mb-3">
+                <!-- Status + format + role badges -->
+                <div class="flex flex-wrap items-center gap-1.5 mb-3">
                   {#if status === 'live'}
                     <span class="status-badge status-live">
                       <span class="status-dot bg-rose-400 animate-pulse"></span>
@@ -302,6 +324,19 @@
                       Archived
                     </span>
                   {/if}
+
+                  {#if event.event_format}
+                    <span class="format-badge">
+                      {#if event.event_format === 'online'}
+                        <Globe size={10} class="text-cyan-400" /> Online
+                      {:else if event.event_format === 'hybrid'}
+                        <Globe size={10} class="text-amber-400" /> Hybrid
+                      {:else}
+                        <MapPin size={10} class="text-amber-400" /> Offline
+                      {/if}
+                    </span>
+                  {/if}
+
                   {#if event.created_by === data.user?.id}
                     <span class="hosting-badge">
                       <Crown size={10} class="text-amber-300" />
@@ -313,6 +348,13 @@
                       Joined
                     </span>
                   {/if}
+
+                  {#if event.is_approval_required}
+                    <span class="approval-badge" title="Approval required by host">
+                      <Lock size={10} class="text-amber-300" />
+                      Approval
+                    </span>
+                  {/if}
                 </div>
 
                 <!-- Title -->
@@ -322,6 +364,13 @@
                 <p class="card-desc">
                   {event.description ?? 'No description added yet.'}
                 </p>
+
+                {#if event.location}
+                  <p class="mt-2 text-[11px] text-ink-400 flex items-center gap-1 truncate">
+                    <MapPin size={11} class="text-amber-400 shrink-0" />
+                    <span class="truncate">{event.location}</span>
+                  </p>
+                {/if}
               </div>
 
               <!-- Card footer -->
@@ -329,7 +378,7 @@
                 <div class="card-meta">
                   <span class="meta-date">
                     <CalendarClock size={11} />
-                    {new Date(event.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {event.start_time ? formatEventDateRange(event.start_time, event.end_time) : new Date(event.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                   <button
                     id="copy-link-{event.slug}"
@@ -410,6 +459,8 @@
   .status-archived { color: rgba(100,116,139,.9); background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); }
   .hosting-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.3); padding: .18rem .48rem; border-radius: 9999px; }
   .joined-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 700; color: #34d399; background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.3); padding: .18rem .48rem; border-radius: 9999px; }
+  .format-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 600; color: #cbd5e1; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); padding: .18rem .48rem; border-radius: 9999px; text-transform: capitalize; }
+  .approval-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 600; color: #fde68a; background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.2); padding: .18rem .48rem; border-radius: 9999px; }
   .event-card-skeleton { display: flex; flex-direction: column; }
   .skeleton-header { height: 3px; background: rgba(255,255,255,.06); }
 </style>

@@ -1705,27 +1705,7 @@
                 </div>
               </div>
 
-              <div class="glass rounded-2xl border border-white/8 p-6">
-                <div class="flex items-center gap-2 mb-5">
-                  <Users size={15} class="text-cyan-300" />
-                  <p
-                    class="text-xs font-bold uppercase tracking-widest text-cyan-300"
-                  >
-                    Event flow
-                  </p>
-                </div>
-                <ol class="space-y-3">
-                  {#each ["Attendees join with Google.", "The mandatory networking profile unlocks the workspace.", "Matches are generated with explanations for each suggested intro."] as step, i}
-                    <li class="flex items-start gap-3">
-                      <span
-                        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/8 text-[10px] font-bold text-ink-500"
-                        >{i + 1}</span
-                      >
-                      <p class="text-sm text-ink-300">{step}</p>
-                    </li>
-                  {/each}
-                </ol>
-              </div>
+
             </div>
           </Tabs.Content>
 

@@ -1652,13 +1652,15 @@
                 <Target size={16} />
                 <span>Connect</span>
               </Tabs.Trigger>
-              <Tabs.Trigger
-                value="venue"
-                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
-              >
-                <MapPin size={16} />
-                <span>Venue</span>
-              </Tabs.Trigger>
+{#if currentEvent.is_venue_enabled !== false || data.isOrganizer}
+                <Tabs.Trigger
+                  value="venue"
+                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
+                >
+                  <MapPin size={16} />
+                  <span>Venue</span>
+                </Tabs.Trigger>
+{/if}
             </Tabs.List>
           </div>
 

@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { demoEvent, demoAttendees } from '$lib/demo';
@@ -6,6 +6,7 @@ import { demoEvent, demoAttendees } from '$lib/demo';
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 export async function GET({ url, cookies }) {
+  try {
   const eventParam = url.searchParams.get('event_id') || '';
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
 
@@ -44,7 +45,7 @@ export async function GET({ url, cookies }) {
   const { data: { user } } = await supabase.auth.getUser();
   const admin = createSupabaseAdminClient();
 
-  try {
+
     const isUuid = UUID_REGEX.test(eventParam);
     let eventData = null;
 
@@ -204,6 +205,6 @@ export async function GET({ url, cookies }) {
     return json({ attendees });
   } catch (err) {
     console.error('Unhandled error in GET /api/attendees:', err);
-    return json({ attendees: [] });
+    throw error(500, 'Internal Server Error');
   }
 }

@@ -1,6 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
-  import { goto, beforeNavigate } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import {
     ArrowLeft,
     ArrowRight,
@@ -262,74 +261,8 @@
   );
   $: isTimeInvalid = isStartInPast || isEndBeforeStart;
 
-  // Unsaved changes tracking
-  let initialFormSnapshot = JSON.stringify({
-    name: '',
-    description: '',
-    slug: '',
-    location: '',
-    googleMapUrl: '',
-    eventFormat: 'offline',
-    isApprovalRequired: false,
-    isVenueEnabled: true,
-  });
-
-  $: currentFormSnapshot = JSON.stringify({
-    name,
-    description,
-    slug,
-    location,
-    googleMapUrl,
-    eventFormat,
-    isApprovalRequired,
-    isVenueEnabled,
-  });
-
-  $: isDirty = name.trim().length > 0 || currentFormSnapshot !== initialFormSnapshot;
-
-  let showUnsavedModal = false;
-  let pendingNavigation = null;
   let creatingEvent = false;
   let createError = null;
-
-  onMount(() => {
-    const handleBeforeUnload = (e) => {
-      if (isDirty && !creatingEvent) {
-        e.preventDefault();
-        e.returnValue = '';
-        return '';
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  });
-
-  beforeNavigate(({ cancel, to }) => {
-    if (isDirty && !creatingEvent && !pendingNavigation) {
-      cancel();
-      pendingNavigation = to;
-      showUnsavedModal = true;
-    }
-  });
-
-  function handleDiscardAndLeave() {
-    showUnsavedModal = false;
-    const dest = pendingNavigation?.url?.pathname || '/events';
-    pendingNavigation = null;
-    initialFormSnapshot = currentFormSnapshot;
-    goto(dest);
-  }
-
-  async function handleSaveAndLeave() {
-    showUnsavedModal = false;
-    const created = await createEvent();
-    if (created && pendingNavigation?.url?.pathname) {
-      goto(pendingNavigation.url.pathname);
-    }
-    pendingNavigation = null;
-  }
 
   async function createEvent() {
     if (!name.trim()) {
@@ -372,7 +305,6 @@
         return false;
       }
 
-      initialFormSnapshot = currentFormSnapshot;
       toast.success('Event created', {
         description: 'Your new event is now available in your dashboard.',
       });
@@ -858,47 +790,6 @@
           <Button onclick={applyClockTime} class="w-full font-semibold">
             Apply Time
           </Button>
-        </div>
-      </div>
-    {/if}
-
-    <!-- Unsaved Changes Prompt Modal -->
-    {#if showUnsavedModal}
-      <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-        <div class="glass rounded-2xl border border-amber-500/30 p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl">
-          <div class="flex items-start gap-4">
-            <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-              <AlertTriangle class="text-amber-400" size={20} />
-            </div>
-            <div>
-              <h3 class="text-lg font-bold text-white">Unsaved Event Draft</h3>
-              <p class="text-xs text-ink-400 mt-1 leading-relaxed">
-                You have started creating an event. If you leave now, your draft will be lost.
-              </p>
-            </div>
-          </div>
-          <div class="flex flex-col sm:flex-row justify-end gap-2.5 pt-2 border-t border-white/10">
-            <Button
-              variant="outline"
-              class="border-white/10 text-ink-300 hover:text-white text-xs"
-              onclick={() => { showUnsavedModal = false; pendingNavigation = null; }}
-            >
-              Keep Editing
-            </Button>
-            <Button
-              variant="destructive"
-              class="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 text-xs"
-              onclick={handleDiscardAndLeave}
-            >
-              Discard & Leave
-            </Button>
-            <Button
-              class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold text-xs"
-              onclick={handleSaveAndLeave}
-            >
-              Create & Leave
-            </Button>
-          </div>
         </div>
       </div>
     {/if}

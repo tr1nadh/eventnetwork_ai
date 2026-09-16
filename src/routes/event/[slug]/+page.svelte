@@ -2918,25 +2918,24 @@
           <!-- Venue Map tab -->
           <Tabs.Content value="venue" class="mt-4 space-y-4">
             {#if data.isOrganizer}
+              {@const isEventEnded = Boolean(currentEvent?.end_time && new Date(currentEvent.end_time) < new Date())}
               <div
-                class="glass rounded-2xl border border-white/8 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                class="glass rounded-2xl border border-white/8 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
               >
                 <div class="flex items-center gap-3">
-                  <div
-                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-emerald-400"
-                  >
-                    <MapPin size={20} />
+                  <div class="p-2 rounded-xl bg-white/5 border border-white/10">
+                    <MapPin size={18} class="text-amber-400" />
                   </div>
                   <div>
                     <div class="flex items-center gap-2">
-                      <h3 class="text-sm font-bold text-white">Venue Map Access</h3>
+                      <span class="text-sm font-semibold text-white">Venue Map Status</span>
                       <Badge
                         variant="secondary"
-                        class="text-[10px] font-bold px-2 py-0.5 {currentEvent.is_venue_enabled !== false
-                          ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
-                          : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}"
+                        class={currentEvent.is_venue_enabled !== false
+                          ? "bg-emerald-400/10 text-emerald-300 border-emerald-400/20"
+                          : "bg-red-400/10 text-red-300 border-red-400/20"}
                       >
-                        {currentEvent.is_venue_enabled !== false ? "Enabled" : "Disabled"}
+                        {currentEvent.is_venue_enabled !== false ? "Active" : "Disabled"}
                       </Badge>
                     </div>
                     <p class="text-xs text-ink-400 mt-0.5">
@@ -2950,20 +2949,21 @@
                 <Button
                   size="sm"
                   onclick={toggleVenueEnabled}
-                  disabled={togglingVenueMap}
-                  class={`gap-2 text-xs shrink-0 text-white ${currentEvent.is_venue_enabled !== false ? 'bg-red-800 hover:bg-red-900' : 'bg-green-600 hover:bg-green-700'}`}
+                  disabled={togglingVenueMap || isEventEnded}
+                  class={`gap-2 text-xs shrink-0 text-white ${currentEvent.is_venue_enabled !== false ? 'bg-red-800 hover:bg-red-900' : 'bg-green-600 hover:bg-green-700'} disabled:opacity-50`}
                 >
                   {#if togglingVenueMap}
                     <LoaderCircle size={14} class="animate-spin" />
                   {/if}
-                  {currentEvent.is_venue_enabled !== false ? "Disable Venue Map" : "Enable Venue Map"}
+                  {isEventEnded ? 'Locked (Ended)' : (currentEvent.is_venue_enabled !== false ? "Disable Venue Map" : "Enable Venue Map")}
                 </Button>
               </div>
             {/if}
 
             {#if currentEvent.is_venue_enabled !== false || data.isOrganizer}
+              {@const isEventEnded = Boolean(currentEvent?.end_time && new Date(currentEvent.end_time) < new Date())}
               <VenueMap
-                isOrganizer={data.isOrganizer}
+                isOrganizer={data.isOrganizer && !isEventEnded}
                 initialZones={currentEvent.venue_map}
                 currentLocation={venueLocation}
                 on:locationChange={(e) => {

@@ -422,7 +422,7 @@
 <PageShell>
   <Sidebar {user} {signingOut} onSignOut={signOut} />
 
-  <main class="max-w-3xl mx-auto px-4 py-8 space-y-8 animate-fade-in">
+  <main class="mx-auto max-w-4xl lg:max-w-5xl px-4 sm:px-6 md:px-8 py-8 space-y-8 animate-fade-in">
 
     <!-- Header -->
     <div class="flex items-center gap-4">
@@ -465,7 +465,7 @@
     {/if}
 
     <!-- Edit Form -->
-    <div class="glass rounded-2xl border border-white/8 p-6 sm:p-8 space-y-6 {isEventEnded ? 'opacity-75 pointer-events-none' : ''}">
+    <div class="glass rounded-2xl border border-white/8 p-6 sm:p-10 space-y-8 shadow-2xl {isEventEnded ? 'opacity-75 pointer-events-none' : ''}">
 
       <div class="border-b border-white/8 pb-4 mb-2">
         <h2 class="text-base font-bold text-white">General</h2>

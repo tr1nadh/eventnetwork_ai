@@ -396,21 +396,21 @@
 <PageShell>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
 
-  <main class="mx-auto max-w-2xl px-4 pb-20 sm:px-6">
+  <main class="mx-auto max-w-4xl lg:max-w-5xl px-4 sm:px-6 md:px-8 py-8 space-y-8 animate-fade-in">
     <!-- Header -->
-    <div class="mb-8 flex items-center justify-between animate-fade-in">
+    <div class="flex items-center justify-between">
       <div>
         <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400 mb-1">
           New Event
         </p>
-        <h1 class="text-3xl font-black text-white">
+        <h1 class="text-3xl font-black text-white tracking-tight">
           Create Event
         </h1>
       </div>
       <Button
         variant="secondary"
         onclick={() => goto('/events')}
-        class="gap-2 shrink-0 border border-white/10 hover:bg-white/10"
+        class="gap-2 shrink-0 border border-white/10 hover:bg-white/10 px-4 py-2 text-sm font-semibold"
       >
         <ArrowLeft size={15} />
         Back
@@ -418,7 +418,7 @@
     </div>
 
     <!-- Create Form Card -->
-    <div class="glass rounded-2xl border border-white/8 p-6 sm:p-8 space-y-6">
+    <div class="glass rounded-2xl border border-white/8 p-6 sm:p-10 space-y-8 shadow-2xl">
 
       <div class="border-b border-white/8 pb-4 mb-2 flex items-center gap-3">
         <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-500/30">

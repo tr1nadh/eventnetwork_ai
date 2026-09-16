@@ -1471,23 +1471,14 @@
           >
             {#if data.isOrganizer}
               <div class="absolute top-4 right-4">
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-400 hover:text-white hover:bg-white/10 transition-colors"
-                    aria-label="Event options"
-                  >
-                    <MoreVertical size={16} />
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content align="end" class="w-48">
-                    <DropdownMenu.Item
-                      onclick={() => goto(`/event/${currentEvent.slug}/settings`)}
-                      class="cursor-pointer gap-2"
-                    >
-                      <Settings size={14} />
-                      Settings
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
+                <a
+                  href="/event/{currentEvent.slug}/settings"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-xl glass border border-white/10 text-ink-400 hover:text-white hover:border-indigo-400/50 hover:bg-white/10 transition-all shadow-sm"
+                  title="Event Settings"
+                  aria-label="Event Settings"
+                >
+                  <Settings size={18} class="hover:rotate-45 transition-transform duration-300" />
+                </a>
               </div>
             {/if}
             <div class="flex flex-col items-center gap-6">

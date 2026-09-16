@@ -27,8 +27,23 @@ export async function POST({ request, locals }) {
   }
 
   const now = new Date();
-  const startTime = body?.start_time ? new Date(body.start_time).toISOString() : now.toISOString();
-  const endTime = body?.end_time ? new Date(body.end_time).toISOString() : new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
+  const startTimeDate = body?.start_time ? new Date(body.start_time) : now;
+  const endTimeDate = body?.end_time ? new Date(body.end_time) : new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+  if (isNaN(startTimeDate.getTime()) || isNaN(endTimeDate.getTime())) {
+    throw error(400, 'Invalid date format.');
+  }
+
+  if (startTimeDate < new Date(now.getTime() - 5 * 60 * 1000)) {
+    throw error(400, 'Start time cannot be in the past.');
+  }
+
+  if (endTimeDate <= startTimeDate) {
+    throw error(400, 'End time must be greater than start time.');
+  }
+
+  const startTime = startTimeDate.toISOString();
+  const endTime = endTimeDate.toISOString();
   const location = body?.location?.trim() || null;
   const google_map_url = body?.google_map_url?.trim() || null;
   const event_format = ['online', 'offline', 'hybrid'].includes(body?.event_format) ? body.event_format : 'offline';

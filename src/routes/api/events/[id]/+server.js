@@ -50,8 +50,37 @@ export async function PUT({ request, params, locals }) {
   // Update
   const updatePayload = { name, description, slug };
   if (venue_map !== undefined) updatePayload.venue_map = venue_map;
-  if (body?.start_time) updatePayload.start_time = new Date(body.start_time).toISOString();
-  if (body?.end_time) updatePayload.end_time = new Date(body.end_time).toISOString();
+
+  const now = new Date();
+  let startTimeDate = null;
+  let endTimeDate = null;
+
+  if (body?.start_time) {
+    startTimeDate = new Date(body.start_time);
+    if (isNaN(startTimeDate.getTime())) {
+      throw error(400, 'Invalid start time format.');
+    }
+    // Block past start dates (5 minute buffer for clock skew)
+    if (startTimeDate < new Date(now.getTime() - 5 * 60 * 1000)) {
+      throw error(400, 'Start time cannot be in the past.');
+    }
+    updatePayload.start_time = startTimeDate.toISOString();
+  }
+
+  if (body?.end_time) {
+    endTimeDate = new Date(body.end_time);
+    if (isNaN(endTimeDate.getTime())) {
+      throw error(400, 'Invalid end time format.');
+    }
+    updatePayload.end_time = endTimeDate.toISOString();
+  }
+
+  if (startTimeDate && endTimeDate) {
+    if (endTimeDate <= startTimeDate) {
+      throw error(400, 'End time must be greater than start time.');
+    }
+  }
+
   if (body?.location !== undefined) updatePayload.location = body.location ? body.location.trim() : null;
   if (body?.google_map_url !== undefined) updatePayload.google_map_url = body.google_map_url ? body.google_map_url.trim() : null;
   if (body?.event_format && ['online', 'offline', 'hybrid'].includes(body.event_format)) {

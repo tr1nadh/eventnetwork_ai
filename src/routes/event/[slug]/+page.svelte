@@ -1554,25 +1554,12 @@
                   {currentEvent.description}
                 </p>
 
-                <!-- Location, Date & Attendees metadata row -->
+                <!-- Date & Attendees metadata row -->
                 <div class="flex flex-wrap items-center justify-center gap-3 text-xs text-ink-400 pt-2">
                   {#if currentEvent.start_time}
                     <span class="flex items-center gap-1.5 bg-white/4 px-3 py-1.5 rounded-lg border border-white/6">
                       <CalendarClock size={14} class="text-amber-400" />
                       {formatEventDateRange(currentEvent.start_time, currentEvent.end_time)}
-                    </span>
-                  {/if}
-
-                  {#if currentEvent.location}
-                    <span class="flex items-center gap-1.5 bg-white/4 px-3 py-1.5 rounded-lg border border-white/6">
-                      <MapPin size={14} class="text-amber-400" />
-                      {#if currentEvent.google_map_url}
-                        <a href={currentEvent.google_map_url} target="_blank" rel="noopener noreferrer" class="hover:underline text-amber-300 font-medium flex items-center gap-1">
-                          {currentEvent.location} ↗
-                        </a>
-                      {:else}
-                        <span>{currentEvent.location}</span>
-                      {/if}
                     </span>
                   {/if}
 
@@ -1666,45 +1653,56 @@
 
           <!-- Details tab -->
           <Tabs.Content value="details" class="mt-4">
-            <div class="grid gap-5 lg:grid-cols-2">
+            <div class="space-y-4">
+
+              <!-- Description Card -->
               <div class="glass rounded-2xl border border-white/8 p-6">
-                <div class="flex items-center gap-2 mb-5">
-                  <MapPin size={15} class="text-amber-300" />
-                  <p
-                    class="text-xs font-bold uppercase tracking-widest text-amber-300"
-                  >
-                    Event summary
-                  </p>
+                <div class="flex items-center gap-2 mb-4">
+                  <Info size={15} class="text-indigo-400" />
+                  <p class="text-xs font-bold uppercase tracking-widest text-indigo-400">About this event</p>
                 </div>
-                <p class="text-sm leading-6 text-ink-300 mb-4">
-                  {currentEvent.description}
-                </p>
-                <div class="grid gap-3 sm:grid-cols-2">
-                  <div class="glass rounded-xl p-3 border border-white/6">
-                    <p
-                      class="text-[10px] uppercase tracking-widest text-ink-500 mb-1.5"
-                    >
-                      Event ID
-                    </p>
-                    <p class="text-sm font-mono font-semibold text-white">
-                      {data.event.slug}
-                    </p>
-                  </div>
-                  <div class="glass rounded-xl p-3 border border-white/6">
-                    <p
-                      class="text-[10px] uppercase tracking-widest text-ink-500 mb-1.5"
-                    >
-                      Room status
-                    </p>
-                    <p class="text-sm font-semibold text-emerald-300">
-                      {data.isOrganizer
-                        ? "Organizer dashboard active"
-                        : "Profile complete ✓"}
-                    </p>
-                  </div>
-                </div>
+                <p class="text-sm leading-7 text-ink-300">{currentEvent.description}</p>
               </div>
 
+              <!-- Date & Time + Location row -->
+              <div class="grid gap-4 sm:grid-cols-2">
+
+                <!-- Date & Time -->
+                {#if currentEvent.start_time}
+                  <div class="glass rounded-2xl border border-white/8 p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                      <CalendarClock size={15} class="text-amber-400" />
+                      <p class="text-xs font-bold uppercase tracking-widest text-amber-400">Date &amp; Time</p>
+                    </div>
+                    <p class="text-sm font-semibold text-white">
+                      {formatEventDateRange(currentEvent.start_time, currentEvent.end_time)}
+                    </p>
+                  </div>
+                {/if}
+
+                <!-- Location — only for in-person events -->
+                {#if currentEvent.location && currentEvent.event_format !== 'online'}
+                  <div class="glass rounded-2xl border border-white/8 p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                      <MapPin size={15} class="text-amber-400" />
+                      <p class="text-xs font-bold uppercase tracking-widest text-amber-400">Location</p>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <p class="text-sm font-medium text-white leading-relaxed">{currentEvent.location}</p>
+                      <a
+                        href={currentEvent.google_map_url || `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentEvent.location)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-amber-500 hover:bg-amber-400 transition-colors px-3 py-1.5 rounded-lg"
+                      >
+                        <MapPin size={12} />
+                        Get Directions
+                      </a>
+                    </div>
+                  </div>
+                {/if}
+
+              </div>
 
             </div>
           </Tabs.Content>

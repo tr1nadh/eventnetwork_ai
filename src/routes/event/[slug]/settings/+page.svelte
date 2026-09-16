@@ -705,9 +705,16 @@
               class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
             />
           </div>
+        </div>
+      {/if}
 
-          <!-- Venue Map Enabled -->
-          <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6 mt-2">
+      <!-- Options -->
+      <div class="space-y-4 pt-2 border-t border-white/6">
+        <h3 class="text-sm font-bold text-white">Options</h3>
+
+        <!-- Enable Venue Map (offline/hybrid only) -->
+        {#if eventFormat !== 'online'}
+          <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
             <div class="flex items-start gap-3">
               <MapPin size={16} class="text-cyan-400 mt-0.5 shrink-0" />
               <div>
@@ -722,18 +729,14 @@
               class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isVenueEnabled ? 'bg-cyan-500' : 'bg-white/10'} disabled:opacity-50"
               role="switch"
               aria-checked={isVenueEnabled}
+              aria-label="Enable Venue Map"
             >
               <span
                 class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isVenueEnabled ? 'translate-x-5' : 'translate-x-0'}"
               ></span>
             </button>
           </div>
-        </div>
-      {/if}
-
-      <!-- Options -->
-      <div class="space-y-4 pt-2 border-t border-white/6">
-        <h3 class="text-sm font-bold text-white">Options</h3>
+        {/if}
 
         <!-- Approval Required -->
         <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
@@ -751,6 +754,7 @@
             class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isApprovalRequired ? 'bg-amber-500' : 'bg-white/10'} disabled:opacity-50"
             role="switch"
             aria-checked={isApprovalRequired}
+            aria-label="Approval Required"
           >
             <span
               class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isApprovalRequired ? 'translate-x-5' : 'translate-x-0'}"

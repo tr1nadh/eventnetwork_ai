@@ -1649,13 +1649,15 @@
             <div class="space-y-4">
 
               <!-- Description Card -->
-              <div class="glass rounded-2xl border border-white/8 p-6">
-                <div class="flex items-center gap-2 mb-4">
-                  <Info size={15} class="text-indigo-400" />
-                  <p class="text-xs font-bold uppercase tracking-widest text-indigo-400">About this event</p>
+              {#if currentEvent.description}
+                <div class="glass rounded-2xl border border-white/8 p-6">
+                  <div class="flex items-center gap-2 mb-4">
+                    <Info size={15} class="text-indigo-400" />
+                    <p class="text-xs font-bold uppercase tracking-widest text-indigo-400">About this event</p>
+                  </div>
+                  <p class="text-sm leading-7 text-ink-300">{currentEvent.description}</p>
                 </div>
-                <p class="text-sm leading-7 text-ink-300">{currentEvent.description}</p>
-              </div>
+              {/if}
 
               <!-- Date & Time + Location row -->
               <div class="grid gap-4 sm:grid-cols-2">

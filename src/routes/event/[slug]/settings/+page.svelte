@@ -13,6 +13,8 @@
     Lock,
     AlertTriangle,
     CheckCircle2,
+    Copy,
+    Check,
   } from '@lucide/svelte';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
   import Sidebar from '$lib/components/sidebar.svelte';
@@ -59,6 +61,37 @@
   let deleteConfirmOpen = false;
   let deleteConfirmText = '';
   let deleting = false;
+
+  let copiedSlug = false;
+  function copySlugUrl() {
+    if (typeof window === 'undefined') return;
+    const fullUrl = `${window.location.origin}/event/${slug}`;
+    navigator.clipboard.writeText(fullUrl);
+    copiedSlug = true;
+    toast.success('Event link copied to clipboard!');
+    setTimeout(() => (copiedSlug = false), 2000);
+  }
+
+  function setStartNow() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    startTime = d.toISOString().slice(0, 16);
+  }
+
+  function setStartTomorrow() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    startTime = d.toISOString().slice(0, 16);
+  }
+
+  function addDurationToEnd(hours) {
+    let base = startTime ? new Date(startTime) : new Date();
+    const end = new Date(base.getTime() + hours * 3600000);
+    end.setMinutes(end.getMinutes() - end.getTimezoneOffset());
+    endTime = end.toISOString().slice(0, 16);
+  }
 
   async function saveSettings() {
     saving = true;
@@ -192,8 +225,22 @@
           <Input
             bind:value={slug}
             placeholder="my-awesome-event"
-            class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50 font-mono"
+            class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50 font-mono flex-1"
           />
+          <button
+            type="button"
+            onclick={copySlugUrl}
+            class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-ink-300 hover:text-white transition-colors shrink-0"
+            title="Copy full event link"
+          >
+            {#if copiedSlug}
+              <Check size={14} class="text-emerald-400" />
+              <span class="text-emerald-400">Copied</span>
+            {:else}
+              <Copy size={14} />
+              <span>Copy Link</span>
+            {/if}
+          </button>
         </div>
         <p class="text-[11px] text-ink-500">Changing the slug will redirect to the new URL.</p>
       </div>
@@ -219,47 +266,64 @@
       <!-- Date & Time -->
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-2">
-          <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
-            <CalendarClock size={12} class="inline mr-1" />Start Time
-          </Label>
+          <div class="flex items-center justify-between">
+            <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+              <CalendarClock size={12} class="inline mr-1 text-indigo-400" />Start Time
+            </Label>
+            <div class="flex gap-2 text-[11px]">
+              <button type="button" onclick={setStartNow} class="text-indigo-400 hover:underline">Now</button>
+              <span class="text-white/20">•</span>
+              <button type="button" onclick={setStartTomorrow} class="text-indigo-400 hover:underline">Tomorrow 9am</button>
+            </div>
+          </div>
           <Input
             type="datetime-local"
             bind:value={startTime}
-            class="bg-white/5 border-white/10 text-white focus:border-indigo-400/50"
+            class="bg-white/5 border-white/10 text-white focus:border-indigo-400/50 [color-scheme:dark]"
           />
         </div>
         <div class="space-y-2">
-          <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
-            <CalendarClock size={12} class="inline mr-1" />End Time
-          </Label>
+          <div class="flex items-center justify-between">
+            <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+              <CalendarClock size={12} class="inline mr-1 text-indigo-400" />End Time
+            </Label>
+            <div class="flex gap-2 text-[11px]">
+              <button type="button" onclick={() => addDurationToEnd(1)} class="text-indigo-400 hover:underline">+1h</button>
+              <span class="text-white/20">•</span>
+              <button type="button" onclick={() => addDurationToEnd(2)} class="text-indigo-400 hover:underline">+2h</button>
+              <span class="text-white/20">•</span>
+              <button type="button" onclick={() => addDurationToEnd(4)} class="text-indigo-400 hover:underline">+4h</button>
+            </div>
+          </div>
           <Input
             type="datetime-local"
             bind:value={endTime}
-            class="bg-white/5 border-white/10 text-white focus:border-indigo-400/50"
+            class="bg-white/5 border-white/10 text-white focus:border-indigo-400/50 [color-scheme:dark]"
           />
         </div>
       </div>
 
-      <!-- Location (offline/hybrid only) -->
+      <!-- Location & Venue Map (offline/hybrid only) -->
       {#if eventFormat !== 'online'}
         <div class="space-y-4 pt-2 border-t border-white/6">
           <div>
-            <h3 class="text-sm font-bold text-white mb-0.5">Location</h3>
-            <p class="text-xs text-ink-500">Only shown for offline and hybrid events.</p>
+            <h3 class="text-sm font-bold text-white mb-0.5">Location & Venue</h3>
+            <p class="text-xs text-ink-500">Venue details for offline and hybrid events.</p>
           </div>
           <div class="space-y-2">
             <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
-              <MapPin size={12} class="inline mr-1" />Address
+              <MapPin size={12} class="inline mr-1 text-amber-400" />Address
             </Label>
-            <Input
+            <textarea
               bind:value={location}
+              rows="3"
               placeholder="123 Main St, City, Country"
-              class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
-            />
+              class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none"
+            ></textarea>
           </div>
           <div class="space-y-2">
             <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
-              <Globe size={12} class="inline mr-1" />Google Maps URL
+              <Globe size={12} class="inline mr-1 text-amber-400" />Google Maps URL
             </Label>
             <Input
               bind:value={googleMapUrl}
@@ -267,10 +331,32 @@
               class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
             />
           </div>
+
+          <!-- Venue Map Enabled -->
+          <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6 mt-2">
+            <div class="flex items-start gap-3">
+              <MapPin size={16} class="text-cyan-400 mt-0.5 shrink-0" />
+              <div>
+                <p class="text-sm font-semibold text-white">Enable Venue Map</p>
+                <p class="text-xs text-ink-500 mt-0.5">Show the interactive venue map tab to attendees.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onclick={() => (isVenueEnabled = !isVenueEnabled)}
+              class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isVenueEnabled ? 'bg-cyan-500' : 'bg-white/10'}"
+              role="switch"
+              aria-checked={isVenueEnabled}
+            >
+              <span
+                class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isVenueEnabled ? 'translate-x-5' : 'translate-x-0'}"
+              ></span>
+            </button>
+          </div>
         </div>
       {/if}
 
-      <!-- Toggles -->
+      <!-- Options -->
       <div class="space-y-4 pt-2 border-t border-white/6">
         <h3 class="text-sm font-bold text-white">Options</h3>
 
@@ -292,28 +378,6 @@
           >
             <span
               class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isApprovalRequired ? 'translate-x-5' : 'translate-x-0'}"
-            ></span>
-          </button>
-        </div>
-
-        <!-- Venue Map Enabled -->
-        <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
-          <div class="flex items-start gap-3">
-            <MapPin size={16} class="text-cyan-400 mt-0.5 shrink-0" />
-            <div>
-              <p class="text-sm font-semibold text-white">Venue Map</p>
-              <p class="text-xs text-ink-500 mt-0.5">Show the interactive venue map tab to attendees.</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onclick={() => (isVenueEnabled = !isVenueEnabled)}
-            class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isVenueEnabled ? 'bg-cyan-500' : 'bg-white/10'}"
-            role="switch"
-            aria-checked={isVenueEnabled}
-          >
-            <span
-              class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isVenueEnabled ? 'translate-x-5' : 'translate-x-0'}"
             ></span>
           </button>
         </div>

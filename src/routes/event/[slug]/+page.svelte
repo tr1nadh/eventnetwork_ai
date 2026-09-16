@@ -157,8 +157,8 @@
                   );
                   notification.onclick = () => {
                     window.focus();
-                    connectionFilter = "received";
-                    activeTab.set("connections");
+                    networkFilter = "received";
+                    activeTab.set("network");
                   };
                 }
               } else if (newRecord.sender_user_id === data.user.id) {
@@ -212,8 +212,8 @@
                   });
                   notification.onclick = () => {
                     window.focus();
-                    connectionFilter = "connected";
-                    activeTab.set("connections");
+                    networkFilter = "connected";
+                    activeTab.set("network");
                   };
                 }
               } else if (
@@ -604,6 +604,7 @@
   }
   let loadingConnections = false;
   let connectionFilter = "received"; // received | sent | connected | met
+  let networkFilter = "matches"; // matches | received | connected | sent | met
   let chatOpen = false;
   let venueLocation = null;
   let activeChatConnectionId = null;
@@ -693,6 +694,16 @@
 
   $: if ($activeTab === "attendees" && !attendeesList.length && !loadingAttendees) {
     fetchAttendees();
+  }
+
+  // Auto-sync connections when Network tab is selected
+  $: if ($activeTab === "network" && data.isParticipant && !loadingConnections) {
+    fetchAllConnections();
+  }
+
+  // Redirect legacy tab values to network
+  $: if ($activeTab === "matches" || $activeTab === "connections") {
+    activeTab.set("network");
   }
 
   let connectionsPage = 1;
@@ -1603,25 +1614,18 @@
               </Tabs.Trigger>
 
               <Tabs.Trigger
-                value="matches"
-                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
+                value="network"
+                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-violet-400/15 data-[state=active]:text-violet-200 data-[state=inactive]:text-ink-500 hover:text-violet-200"
               >
-                <Users size={16} />
+                <Network size={16} />
                 <span class="flex items-center gap-1.5"
-                  >Matches {#if $matchesStore.length}<span
-                      class="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300"
-                      >{$matchesStore.length}</span
-                    >
-                  {/if}</span
-                >
-              </Tabs.Trigger>
-
-              <Tabs.Trigger
-                value="connections"
-                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-purple-400/15 data-[state=active]:text-purple-200 data-[state=inactive]:text-ink-500 hover:text-purple-200"
-              >
-                <Target size={16} />
-                <span>Connect</span>
+                  >Network
+                  {#if $matchesStore.length || $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length}
+                    <span class="rounded-full bg-violet-400/20 px-1.5 py-0.5 text-[10px] font-bold text-violet-300">
+                      {$matchesStore.length + $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length}
+                    </span>
+                  {/if}
+                </span>
               </Tabs.Trigger>
 {#if Boolean(currentEvent.is_venue_enabled)}
                 <Tabs.Trigger
@@ -1871,7 +1875,8 @@
                             size="sm"
                             class="w-full gap-2 border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
                             onclick={() => {
-                              activeTab.set("connections");
+                              networkFilter = "connected";
+                              activeTab.set("network");
                             }}
                           >
                             <CheckCheck size={14} /> Connected
@@ -2273,6 +2278,667 @@
             </Dialog.Content>
           </Dialog.Root>
 
+          <!-- Network tab (unified Matches + Connections) -->
+          <Tabs.Content value="network" class="mt-4">
+            <!-- Network Header -->
+            <div class="glass rounded-2xl border border-white/8 p-4 sm:p-5 mb-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                  <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-400/10 border border-violet-400/20">
+                    <Network size={18} class="text-violet-300" />
+                  </div>
+                  <div>
+                    <h2 class="text-base font-bold text-white">Network</h2>
+                    <p class="text-xs text-ink-400">Discover matches & manage your connections</p>
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                    onclick={() => (editProfileOpen = true)}
+                  >
+                    <UserCircle2 size={14} /> Edit Profile
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                    onclick={refreshFromDb}
+                    disabled={refreshingFromDb}
+                    title="Refresh matches from database"
+                  >
+                    {#if refreshingFromDb}<LoaderCircle size={13} class="animate-spin" />{:else}<RefreshCcw size={13} />{/if}
+                    Refresh
+                  </Button>
+                  <Button
+                    size="sm"
+                    class="gap-1.5 h-8 text-xs"
+                    onclick={() => (findMatchesModalOpen = true)}
+                    disabled={refreshingMatches}
+                  >
+                    {#if refreshingMatches}<LoaderCircle size={13} class="animate-spin" />{:else}<Sparkles size={13} />{/if}
+                    {refreshingMatches ? "Finding…" : "Find Matches"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                    onclick={() => (dummyModalOpen = true)}
+                  >
+                    <Users size={13} /> Simulation
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-filter pill navigation -->
+            <div class="flex flex-wrap items-center gap-2 mb-5">
+              {#each [
+                { value: "matches", label: "✨ AI Matches", count: $matchesStore.length, color: "amber" },
+                { value: "received", label: "📥 Received", count: $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length, color: "violet" },
+                { value: "connected", label: "🤝 Connected", count: $connectionsStore.filter(c => (c.sender_user_id === data.user?.id || c.receiver_user_id === data.user?.id) && c.status === 'accepted').length, color: "emerald" },
+                { value: "sent", label: "📤 Sent", count: $connectionsStore.filter(c => c.sender_user_id === data.user?.id && c.status === 'pending').length, color: "cyan" },
+                { value: "met", label: "📍 Met", count: $connectionsStore.filter(c => (c.sender_user_id === data.user?.id || c.receiver_user_id === data.user?.id) && c.status === 'accepted' && !!c.met_at).length, color: "teal" },
+              ] as pill}
+                <button
+                  onclick={() => { networkFilter = pill.value; if (pill.value !== 'matches') connectionFilter = pill.value; }}
+                  class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border
+                    {networkFilter === pill.value
+                      ? 'bg-violet-400/20 border-violet-400/40 text-violet-200 shadow-[0_0_12px_rgba(167,139,250,0.2)]'
+                      : 'bg-white/4 border-white/8 text-ink-400 hover:text-white hover:border-white/20'}"
+                >
+                  {pill.label}
+                  {#if pill.count > 0}
+                    <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold
+                      {networkFilter === pill.value ? 'bg-violet-400/30 text-violet-100' : 'bg-white/10 text-ink-300'}"
+                    >{pill.count}</span>
+                  {/if}
+                </button>
+              {/each}
+
+              <!-- Refresh connections -->
+              <button
+                onclick={fetchAllConnections}
+                disabled={loadingConnections}
+                class="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border border-white/8 bg-white/4 text-ink-400 hover:text-white hover:border-white/20 transition-all"
+              >
+                <RefreshCw size={13} class={loadingConnections ? 'animate-spin' : ''} />
+                Sync
+              </button>
+            </div>
+
+            <!-- ── AI MATCHES view ── -->
+            {#if networkFilter === "matches"}
+              {#if refreshingMatches}
+                <AmdAiLoading
+                  message="AI is working..."
+                  detail="Finding your best networking matches."
+                  class="mb-6"
+                />
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {#each Array(3) as _}
+                    <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                  {/each}
+                </div>
+              {:else if refreshingFromDb}
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {#each Array(3) as _}
+                    <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                  {/each}
+                </div>
+              {:else if $matchesStore.length}
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {#each $matchesStore as match, i}
+                    {@const conn = $connectionsStore.find(
+                      (c) =>
+                        c.sender_user_id === match.user_id ||
+                        c.receiver_user_id === match.user_id,
+                    )}
+                    <div
+                      class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
+                    >
+                      <!-- Match strength bar -->
+                      <div
+                        class="h-0.5 bg-gradient-to-r from-amber-400 to-cyan-400"
+                        style="width: {match.matchPercentage ?? 50}%"
+                      ></div>
+
+                      <div class="flex-1 flex flex-col p-5">
+                        <Tabs.Root
+                          value="ai-insights"
+                          class="flex-1 flex flex-col"
+                        >
+                          <Tabs.List
+                            class="grid w-full grid-cols-2 mb-4 bg-white/5 border border-white/10 rounded-xl p-1"
+                          >
+                            <Tabs.Trigger
+                              value="ai-insights"
+                              class="rounded-lg text-xs font-semibold data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-300"
+                            >
+                              🤖 AI Insights
+                            </Tabs.Trigger>
+                            <Tabs.Trigger
+                              value="profile"
+                              class="rounded-lg text-xs font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                            >
+                              👤 Profile
+                            </Tabs.Trigger>
+                          </Tabs.List>
+
+                          <!-- AI Insights Tab -->
+                          <Tabs.Content
+                            value="ai-insights"
+                            class="flex-1 space-y-4 outline-none m-0"
+                          >
+                            <div
+                              class="flex items-start justify-between gap-3 mb-2"
+                            >
+                              <div>
+                                <h3 class="text-base font-bold text-white">
+                                  {match.name}
+                                </h3>
+                                <p class="mt-0.5 text-xs text-ink-400">
+                                  AI Match Analysis
+                                </p>
+                              </div>
+                              <span
+                                class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
+                              >
+                                {match.matchPercentage ?? "—"}% Match
+                              </span>
+                            </div>
+
+                            {#if match.explanation}
+                              <div
+                                class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-4"
+                              >
+                                <p
+                                  class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2"
+                                >
+                                  Why this match
+                                </p>
+                                <p class="text-sm leading-6 text-ink-300">
+                                  {match.explanation}
+                                </p>
+                              </div>
+                            {:else}
+                              <div
+                                class="rounded-xl border border-white/5 bg-white/5 p-4 text-center"
+                              >
+                                <p class="text-xs text-ink-400">
+                                  No detailed AI insights available for this
+                                  match.
+                                </p>
+                              </div>
+                            {/if}
+                          </Tabs.Content>
+
+                          <!-- Profile Tab -->
+                          <Tabs.Content
+                            value="profile"
+                            class="flex-1 space-y-4 outline-none m-0"
+                          >
+                            <div
+                              class="flex items-start justify-between gap-3 mb-2"
+                            >
+                              <div>
+                                <h3 class="text-base font-bold text-white">
+                                  {match.name}
+                                </h3>
+                                <p class="mt-0.5 text-xs text-ink-400">
+                                  {match.role}{match.company
+                                    ? ` · ${match.company}`
+                                    : ""}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div class="space-y-3">
+                              <div>
+                                <p
+                                  class="text-[10px] font-bold uppercase tracking-widest text-ink-500 mb-1"
+                                >
+                                  About Me
+                                </p>
+                                <p class="text-xs leading-5 text-ink-300">
+                                  {match.about}
+                                </p>
+                              </div>
+                            </div>
+
+                            {#if match.tags?.length}
+                              <div class="flex flex-wrap gap-1.5 pt-2">
+                                {#each match.tags.slice(0, 4) as tag}
+                                  <span
+                                    class="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] text-ink-400"
+                                  >
+                                    #{tag}
+                                  </span>
+                                {/each}
+                              </div>
+                            {/if}
+                          </Tabs.Content>
+                        </Tabs.Root>
+                        <!-- Connect Button -->
+                        <div class="pt-4 mt-auto">
+                          {#if !conn || conn.status === "cancelled"}
+                            <Button
+                              class="w-full bg-white text-black hover:bg-white/90 gap-2"
+                              disabled={connectingIds.includes(match.user_id)}
+                              onclick={() => connectUser(match)}
+                            >
+                              {#if connectingIds.includes(match.user_id)}
+                                <LoaderCircle size={16} class="animate-spin" /> Connecting...
+                              {:else}
+                                <Users size={16} /> Connect
+                              {/if}
+                            </Button>
+                          {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
+                            <Button
+                              variant="outline"
+                              class="w-full gap-2 text-ink-300 border-ink-600 hover:text-white"
+                              onclick={() =>
+                                updateConnection(conn.id, "cancelled")}
+                            >
+                              Cancel Request
+                            </Button>
+                          {:else if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
+                            <Button
+                              variant="outline"
+                              class="w-full gap-2 text-amber-300 border-amber-600/50"
+                              disabled
+                            >
+                              Pending Response
+                            </Button>
+                          {:else if conn.status === "accepted"}
+                            <Button
+                              variant="secondary"
+                              class="w-full gap-2 bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                              disabled
+                            >
+                              <CheckCircle2 size={16} /> Connected
+                            </Button>
+                          {:else if conn.status === "rejected"}
+                            <Button
+                              variant="outline"
+                              class="w-full gap-2 text-red-400 border-red-500/30"
+                              disabled
+                            >
+                              Rejected
+                            </Button>
+                          {/if}
+                        </div>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <div
+                  class="glass rounded-2xl border border-white/8 border-dashed p-12 text-center"
+                >
+                  <div
+                    class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20"
+                  >
+                    <Brain size={22} class="text-amber-300" />
+                  </div>
+                  <h3 class="text-lg font-bold text-white mb-2">
+                    No matches yet
+                  </h3>
+                  <p class="text-sm text-ink-400 max-w-xs mx-auto mb-5">
+                    Save your networking profile to generate AI-powered
+                    recommendations.
+                  </p>
+                </div>
+              {/if}
+
+            <!-- ── CONNECTIONS views (received / sent / connected / met) ── -->
+            {:else}
+              {#if loadingConnections}
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {#each Array(3) as _}
+                    <div
+                      class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
+                    ></div>
+                  {/each}
+                </div>
+              {:else if filteredConnections.length}
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {#each filteredConnections as conn (conn.id)}
+                    <div
+                      transition:slide
+                      class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
+                    >
+                      <div
+                        class="h-0.5 bg-gradient-to-r from-violet-400 to-pink-400"
+                        style="width: {conn.matchPercentage ?? 50}%"
+                      ></div>
+                      <div class="p-5 flex flex-col gap-2">
+                        <h3 class="text-base font-bold text-white">
+                          {conn.profile?.display_name || "Unknown"}
+                        </h3>
+                        <span
+                          class="rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-300"
+                          >{conn.matchPercentage ?? "—"}% Match</span
+                        >
+                        {#if conn.explanation}
+                          <div
+                            class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300"
+                          >
+                            {conn.explanation}
+                          </div>
+                        {/if}
+                        {#if conn.status === "accepted"}
+                          <div class="flex gap-2 mt-2">
+                            <Button
+                              variant="secondary"
+                              class="flex-1 gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                              onclick={() => openChatForConnection(conn)}
+                            >
+                              <MessageCircle size={16} />
+                              Chat
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              class="flex-1 gap-2 border border-amber-400/20 bg-amber-400/12 text-amber-200 hover:bg-amber-400/18"
+                              onclick={() => openMeetingPrep(conn)}
+                            >
+                              ✨ AI Meeting Prep
+                            </Button>
+                          </div>
+                        {/if}
+                        <!-- Action buttons based on status -->
+                        {#if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
+                          <div class="flex gap-2 mt-2">
+                            <Button
+                              class="flex-1"
+                              onclick={() =>
+                                updateConnection(conn.id, "accepted")}
+                              >Accept</Button
+                            >
+                            <Button
+                              variant="destructive"
+                              class="flex-1"
+                              onclick={() =>
+                                updateConnection(conn.id, "rejected")}
+                              >Reject</Button
+                            >
+                          </div>
+                        {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
+                          <Button
+                            variant="outline"
+                            class="mt-2 w-full"
+                            onclick={() => updateConnection(conn.id, "cancelled")}
+                            >Cancel Request</Button
+                          >
+                        {:else if conn.status === "accepted" && !conn.met_at}
+                          <Button
+                            variant="outline"
+                            class="mt-2 w-full"
+                            onclick={() => updateConnection(conn.id, "met")}
+                            >Mark as Met</Button
+                          >
+                        {:else if conn.status === "accepted" && conn.met_at}
+                          <span
+                            class="mt-2 text-xs text-emerald-400 font-semibold"
+                            >✓ Met</span
+                          >
+                        {/if}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+
+                {#if connectionsHasMore}
+                  <div class="mt-6 flex justify-center">
+                    <Button
+                      variant="outline"
+                      onclick={loadMoreConnections}
+                      disabled={loadingMoreConnections}
+                    >
+                      {#if loadingMoreConnections}
+                        <LoaderCircle size={16} class="animate-spin mr-2" />
+                        Loading...
+                      {:else}
+                        Load More
+                      {/if}
+                    </Button>
+                  </div>
+                {/if}
+              {:else}
+                <div
+                  in:fade
+                  class="flex flex-col items-center justify-center p-12 text-center glass rounded-2xl border border-white/5"
+                >
+                  <div
+                    class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
+                  >
+                    <Ghost size={28} class="text-ink-500" />
+                  </div>
+                  <h3 class="text-white font-bold mb-1">No connections yet</h3>
+                  <p class="text-sm text-ink-400 max-w-sm">
+                    {#if networkFilter === "received"}
+                      You have no pending incoming requests. Check back later.
+                    {:else if networkFilter === "sent"}
+                      No outgoing requests. Head to AI Matches to find people to connect with.
+                    {:else if networkFilter === "connected"}
+                      No accepted connections yet. Browse AI Matches to get started.
+                    {:else if networkFilter === "met"}
+                      No one marked as met yet. Accept connections and meet people!
+                    {/if}
+                  </p>
+                  <button
+                    class="mt-4 text-xs text-violet-400 hover:text-violet-300 underline underline-offset-2"
+                    onclick={() => { networkFilter = "matches"; }}
+                  >Browse AI Matches →</button>
+                </div>
+              {/if}
+            {/if}
+
+            <!-- Chat & Meeting Prep Modals (moved into Network tab) -->
+            <ConnectionChatModal
+              bind:open={chatOpen}
+              connection={activeChatConnection}
+              currentUserId={data.user?.id}
+            />
+            <AiMeetingPrepModal
+              bind:open={prepModalOpen}
+              connection={activePrepConnection}
+            />
+
+            <!-- Create Dummy Users confirmation modal -->
+            <Dialog.Root bind:open={dummyModalOpen}>
+              <Dialog.Content
+                class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+              >
+                <Dialog.Header>
+                  <Dialog.Title
+                    class="text-xl font-bold text-white flex items-center gap-2"
+                  >
+                    <Users size={20} class="text-cyan-400" />
+                    Create Simulation
+                  </Dialog.Title>
+                </Dialog.Header>
+                <p class="text-sm leading-6 text-ink-300 mt-2">
+                  This action will create 5 dummy participants with unique dummy
+                  email addresses. Each participant will automatically join this
+                  event and generate a realistic networking profile designed to
+                  be relevant to your profile, allowing you to test the AI
+                  matchmaking experience.
+                </p>
+                <div
+                  class="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 flex items-start gap-3"
+                >
+                  <div class="mt-0.5 rounded-full bg-cyan-400/10 p-1">
+                    <Sparkles size={14} class="text-cyan-300" />
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold text-cyan-100">
+                      Uses 1 AI credit
+                    </p>
+                    <p class="mt-1 text-xs text-ink-400">
+                      Generating the 5 realistic participant profiles consumes a
+                      single AI credit.
+                    </p>
+                  </div>
+                </div>
+                {#if creatingDummy}
+                  <AmdAiLoading
+                    message="AI is working..."
+                    detail="Generating realistic simulation profiles."
+                    class="mt-4"
+                  />
+                {/if}
+                <div class="flex justify-end gap-3 mt-6">
+                  <Button
+                    variant="outline"
+                    class="border-white/10 text-white hover:bg-white/10"
+                    onclick={() => (dummyModalOpen = false)}
+                    disabled={creatingDummy}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    class="gap-2"
+                    onclick={createDummyUsers}
+                    disabled={creatingDummy}
+                  >
+                    {#if creatingDummy}
+                      <LoaderCircle size={15} class="animate-spin" />
+                      Creating…
+                    {:else}
+                      Continue
+                    {/if}
+                  </Button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Root>
+
+            <!-- Find Matches Modal -->
+            <Dialog.Root bind:open={findMatchesModalOpen}>
+              <Dialog.Content
+                class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+              >
+                <Dialog.Header>
+                  <Dialog.Title
+                    class="text-xl font-bold text-white flex items-center gap-2"
+                  >
+                    <Sparkles size={20} class="text-amber-400" />
+                    AI Matchmaking
+                  </Dialog.Title>
+                </Dialog.Header>
+                <div class="space-y-4 mt-2">
+                  <p class="text-sm leading-6 text-ink-300">
+                    Our AI analyzes your networking profile—what you do, who you
+                    want to meet, and your expectations—and compares it against
+                    every other participant in the event to find the most
+                    synergetic connections.
+                  </p>
+                  <ul class="space-y-3">
+                    <li
+                      class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                    >
+                      <span class="text-amber-400 mt-0.5">•</span>
+                      <span class="text-sm text-ink-200 leading-relaxed"
+                        >Generates a compatibility score for each attendee.</span
+                      >
+                    </li>
+                    <li
+                      class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                    >
+                      <span class="text-amber-400 mt-0.5">•</span>
+                      <span class="text-sm text-ink-200 leading-relaxed"
+                        >Provides a detailed explanation of exactly why you
+                        should connect with them.</span
+                      >
+                    </li>
+                  </ul>
+                  <div
+                    class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 flex items-start gap-3"
+                  >
+                    <div class="mt-0.5 rounded-full bg-amber-400/10 p-1">
+                      <Sparkles size={14} class="text-amber-300" />
+                    </div>
+                    <div>
+                      <p class="text-sm font-semibold text-amber-100">
+                        Uses 1 AI credit
+                      </p>
+                      <p class="mt-1 text-xs text-ink-400">
+                        Running the matchmaking algorithm against the attendee
+                        list consumes a single AI credit.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                  <Button
+                    variant="outline"
+                    class="border-white/10 text-white hover:bg-white/10"
+                    onclick={() => (findMatchesModalOpen = false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    class="gap-2 bg-amber-500 text-black hover:bg-amber-600 font-bold"
+                    onclick={() => {
+                      findMatchesModalOpen = false;
+                      fetchMatches();
+                    }}
+                  >
+                    <Sparkles size={15} />
+                    Find My Matches
+                  </Button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Root>
+
+            <!-- Dummy user connect confirmation modal -->
+            <Dialog.Root bind:open={dummyConnectModalOpen}>
+              <Dialog.Content
+                class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
+              >
+                <Dialog.Header>
+                  <Dialog.Title
+                    class="text-xl font-bold text-white flex items-center gap-2"
+                  >
+                    <span class="text-amber-400">⚠</span> Dummy User
+                  </Dialog.Title>
+                </Dialog.Header>
+                <p class="text-sm leading-6 text-ink-300 mt-2">
+                  This is a dummy user created for testing. The connection request
+                  will be automatically accepted.
+                </p>
+                <div class="flex gap-3 mt-4">
+                  <Button
+                    variant="outline"
+                    class="flex-1 border-white/10 text-white hover:bg-white/10"
+                    onclick={() => {
+                      dummyConnectModalOpen = false;
+                      pendingDummyUserId = null;
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    class="flex-1"
+                    onclick={async () => {
+                      dummyConnectModalOpen = false;
+                      if (pendingDummyUserId) {
+                        await doConnect(pendingDummyUserId);
+                        pendingDummyUserId = null;
+                      }
+                    }}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Root>
+          </Tabs.Content>
+
+          <!-- [OLD matches tab placeholder — keep for reference; content moved above] -->
           <!-- Matches tab -->
           <Tabs.Content value="matches" class="mt-4">
             <div
@@ -2899,20 +3565,10 @@
                 </div>
                 <h3 class="text-white font-bold mb-1">No connections yet</h3>
                 <p class="text-sm text-ink-400 max-w-sm">
-                  We couldn't find any connections matching this filter. Go to
-                  the Matches tab to find new people to connect with.
+                  We couldn't find any connections matching this filter.
                 </p>
               </div>
             {/if}
-            <ConnectionChatModal
-              bind:open={chatOpen}
-              connection={activeChatConnection}
-              currentUserId={data.user?.id}
-            />
-            <AiMeetingPrepModal
-              bind:open={prepModalOpen}
-              connection={activePrepConnection}
-            />
           </Tabs.Content>
 
           <!-- Venue Map tab -->

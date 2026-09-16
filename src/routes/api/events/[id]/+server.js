@@ -20,10 +20,10 @@ export async function PUT({ request, params, locals }) {
 
   const admin = createSupabaseAdminClient();
 
-  // Validate ownership
+  // Validate ownership and fetch existing event schedule
   const { data: existingEvent, error: lookupError } = await admin
     .from('events')
-    .select('created_by')
+    .select('created_by, start_time, end_time')
     .eq('id', eventId)
     .single();
 
@@ -33,6 +33,23 @@ export async function PUT({ request, params, locals }) {
 
   if (existingEvent.created_by !== locals.user.id) {
     throw error(403, 'Forbidden. Only the organizer can edit this event.');
+  }
+
+  const now = new Date();
+
+  // 1. Ended Events: Lock settings completely
+  if (existingEvent.end_time && new Date(existingEvent.end_time) < now) {
+    throw error(400, 'This event has ended. Settings are locked and cannot be modified.');
+  }
+
+  // 2. Running / Live Events: Lock start_time modifications
+  const isLive = existingEvent.start_time && new Date(existingEvent.start_time) <= now;
+  if (isLive && body?.start_time) {
+    const requestedStart = new Date(body.start_time).toISOString();
+    const existingStart = new Date(existingEvent.start_time).toISOString();
+    if (requestedStart !== existingStart) {
+      throw error(400, 'Start time cannot be changed once the event has started.');
+    }
   }
 
   // Ensure slug is unique if changed
@@ -51,7 +68,6 @@ export async function PUT({ request, params, locals }) {
   const updatePayload = { name, description, slug };
   if (venue_map !== undefined) updatePayload.venue_map = venue_map;
 
-  const now = new Date();
   let startTimeDate = null;
   let endTimeDate = null;
 
@@ -60,8 +76,8 @@ export async function PUT({ request, params, locals }) {
     if (isNaN(startTimeDate.getTime())) {
       throw error(400, 'Invalid start time format.');
     }
-    // Block past start dates (5 minute buffer for clock skew)
-    if (startTimeDate < new Date(now.getTime() - 5 * 60 * 1000)) {
+    // Block past start dates for upcoming events (5 minute buffer for clock skew)
+    if (!isLive && startTimeDate < new Date(now.getTime() - 5 * 60 * 1000)) {
       throw error(400, 'Start time cannot be in the past.');
     }
     updatePayload.start_time = startTimeDate.toISOString();

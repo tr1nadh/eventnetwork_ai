@@ -236,7 +236,14 @@
   }
 
   // --- Strict Validation Flags ---
-  $: isStartInPast = Boolean(startDate && startDate < todayStr);
+  const now = new Date();
+  const eventStart = event.start_time ? new Date(event.start_time) : null;
+  const eventEnd = event.end_time ? new Date(event.end_time) : null;
+
+  $: isEventLive = Boolean(eventStart && eventStart <= now && (!eventEnd || new Date(eventEnd) >= now));
+  $: isEventEnded = Boolean(eventEnd && new Date(eventEnd) < now);
+
+  $: isStartInPast = Boolean(!isEventLive && !isEventEnded && startDate && startDate < todayStr);
   $: isEndBeforeStart = Boolean(
     (endDate && startDate && endDate < startDate) ||
     (startDate && endDate && startDate === endDate && startTimeVal && endTimeVal && endTimeVal <= startTimeVal)
@@ -434,8 +441,31 @@
       </div>
     </div>
 
+    <!-- Live or Ended Event Status Banner -->
+    {#if isEventEnded}
+      <div class="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-red-300 text-xs">
+        <AlertTriangle size={18} class="shrink-0 text-red-400 mt-0.5" />
+        <div>
+          <p class="font-bold text-sm text-red-400">📁 Event Ended — Read-Only Mode</p>
+          <p class="text-ink-400 mt-0.5 leading-relaxed">
+            This event has ended. Settings are locked to preserve historical attendee records. You can still delete the event below if needed.
+          </p>
+        </div>
+      </div>
+    {:else if isEventLive}
+      <div class="flex items-start gap-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-indigo-300 text-xs">
+        <Clock size={18} class="shrink-0 text-indigo-400 mt-0.5" />
+        <div>
+          <p class="font-bold text-sm text-indigo-300">🔴 Event is Currently Live</p>
+          <p class="text-ink-400 mt-0.5 leading-relaxed">
+            Start time is locked while the event is live, but you can update location, end time, venue map, and details.
+          </p>
+        </div>
+      </div>
+    {/if}
+
     <!-- Edit Form -->
-    <div class="glass rounded-2xl border border-white/8 p-6 sm:p-8 space-y-6">
+    <div class="glass rounded-2xl border border-white/8 p-6 sm:p-8 space-y-6 {isEventEnded ? 'opacity-75 pointer-events-none' : ''}">
 
       <div class="border-b border-white/8 pb-4 mb-2">
         <h2 class="text-base font-bold text-white">General</h2>
@@ -447,6 +477,7 @@
         <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event Name</Label>
         <Input
           bind:value={name}
+          disabled={isEventEnded}
           placeholder="My Awesome Event"
           class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
         />
@@ -457,9 +488,10 @@
         <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Description</Label>
         <textarea
           bind:value={description}
+          disabled={isEventEnded}
           rows="4"
           placeholder="What is this event about?"
-          class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none"
+          class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
         ></textarea>
       </div>
 
@@ -470,6 +502,7 @@
           <span class="text-xs text-ink-500 shrink-0">/event/</span>
           <Input
             bind:value={slug}
+            disabled={isEventEnded}
             placeholder="my-awesome-event"
             class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50 font-mono flex-1"
           />
@@ -498,10 +531,11 @@
           {#each ['online', 'offline', 'hybrid'] as fmt}
             <button
               type="button"
+              disabled={isEventEnded}
               onclick={() => (eventFormat = fmt)}
               class="py-2.5 rounded-xl border text-sm font-semibold capitalize transition-all {eventFormat === fmt
                 ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-300'
-                : 'bg-white/4 border-white/10 text-ink-400 hover:text-white hover:border-white/20'}"
+                : 'bg-white/4 border-white/10 text-ink-400 hover:text-white hover:border-white/20'} disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {fmt}
             </button>
@@ -518,15 +552,20 @@
 
         <div class="grid gap-4 sm:grid-cols-2">
           <!-- Start Date & Time -->
-          <div class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3">
+          <div class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3 {isEventLive || isEventEnded ? 'opacity-60' : ''}">
             <div class="flex items-center justify-between">
               <Label class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
                 <CalendarClock size={14} /> Start Schedule
+                {#if isEventLive}
+                  <span class="text-[10px] text-amber-400 font-bold ml-1">(Locked - Live)</span>
+                {/if}
               </Label>
-              <div class="flex gap-1.5 text-[11px]">
-                <button type="button" onclick={() => setStartDateQuick('today')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Today</button>
-                <button type="button" onclick={() => setStartDateQuick('tomorrow')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Tomorrow</button>
-              </div>
+              {#if !isEventLive && !isEventEnded}
+                <div class="flex gap-1.5 text-[11px]">
+                  <button type="button" onclick={() => setStartDateQuick('today')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Today</button>
+                  <button type="button" onclick={() => setStartDateQuick('tomorrow')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Tomorrow</button>
+                </div>
+              {/if}
             </div>
 
             <!-- Custom Date Button -->
@@ -534,14 +573,17 @@
               <span class="text-[11px] text-ink-500 block mb-1">Start Date</span>
               <button
                 type="button"
+                disabled={isEventLive || isEventEnded}
                 onclick={() => openCalendar('start')}
-                class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors"
+                class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
               >
                 <span class="flex items-center gap-2">
                   <Calendar size={15} class="text-indigo-400" />
                   {formatDateHuman(startDate)}
                 </span>
-                <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
+                {#if !isEventLive && !isEventEnded}
+                  <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
+                {/if}
               </button>
             </div>
 
@@ -550,14 +592,17 @@
               <span class="text-[11px] text-ink-500 block mb-1">Start Time</span>
               <button
                 type="button"
+                disabled={isEventLive || isEventEnded}
                 onclick={() => openClock('start')}
-                class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors"
+                class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
               >
                 <span class="flex items-center gap-2">
                   <Clock size={15} class="text-indigo-400" />
                   {formatTime12h(startTimeVal)}
                 </span>
-                <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
+                {#if !isEventLive && !isEventEnded}
+                  <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
+                {/if}
               </button>
             </div>
           </div>
@@ -568,10 +613,12 @@
               <Label class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
                 <CalendarClock size={14} /> End Schedule
               </Label>
-              <div class="flex gap-1.5 text-[11px]">
-                <button type="button" onclick={() => setEndDateQuick('sameday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Same Day</button>
-                <button type="button" onclick={() => setEndDateQuick('nextday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Next Day</button>
-              </div>
+              {#if !isEventEnded}
+                <div class="flex gap-1.5 text-[11px]">
+                  <button type="button" onclick={() => setEndDateQuick('sameday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Same Day</button>
+                  <button type="button" onclick={() => setEndDateQuick('nextday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Next Day</button>
+                </div>
+              {/if}
             </div>
 
             <!-- Custom Date Button -->
@@ -579,14 +626,17 @@
               <span class="text-[11px] text-ink-500 block mb-1">End Date</span>
               <button
                 type="button"
+                disabled={isEventEnded}
                 onclick={() => openCalendar('end')}
-                class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors"
+                class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
               >
                 <span class="flex items-center gap-2">
                   <Calendar size={15} class="text-indigo-400" />
                   {formatDateHuman(endDate)}
                 </span>
-                <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
+                {#if !isEventEnded}
+                  <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
+                {/if}
               </button>
             </div>
 
@@ -595,14 +645,17 @@
               <span class="text-[11px] text-ink-500 block mb-1">End Time</span>
               <button
                 type="button"
+                disabled={isEventEnded}
                 onclick={() => openClock('end')}
-                class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors"
+                class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
               >
                 <span class="flex items-center gap-2">
                   <Clock size={15} class="text-indigo-400" />
                   {formatTime12h(endTimeVal)}
                 </span>
-                <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
+                {#if !isEventEnded}
+                  <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
+                {/if}
               </button>
             </div>
           </div>
@@ -635,9 +688,10 @@
             </Label>
             <textarea
               bind:value={location}
+              disabled={isEventEnded}
               rows="3"
               placeholder="123 Main St, City, Country"
-              class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none"
+              class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
             ></textarea>
           </div>
           <div class="space-y-2">
@@ -646,6 +700,7 @@
             </Label>
             <Input
               bind:value={googleMapUrl}
+              disabled={isEventEnded}
               placeholder="https://maps.google.com/..."
               class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
             />
@@ -662,8 +717,9 @@
             </div>
             <button
               type="button"
+              disabled={isEventEnded}
               onclick={() => (isVenueEnabled = !isVenueEnabled)}
-              class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isVenueEnabled ? 'bg-cyan-500' : 'bg-white/10'}"
+              class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isVenueEnabled ? 'bg-cyan-500' : 'bg-white/10'} disabled:opacity-50"
               role="switch"
               aria-checked={isVenueEnabled}
             >
@@ -690,8 +746,9 @@
           </div>
           <button
             type="button"
+            disabled={isEventEnded}
             onclick={() => (isApprovalRequired = !isApprovalRequired)}
-            class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isApprovalRequired ? 'bg-amber-500' : 'bg-white/10'}"
+            class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isApprovalRequired ? 'bg-amber-500' : 'bg-white/10'} disabled:opacity-50"
             role="switch"
             aria-checked={isApprovalRequired}
           >
@@ -721,7 +778,7 @@
       <!-- Save Button -->
       <Button
         onclick={saveSettings}
-        disabled={saving || isTimeInvalid}
+        disabled={saving || isTimeInvalid || isEventEnded}
         class="w-full gap-2 h-11 text-sm font-semibold"
       >
         {#if saving}
@@ -729,7 +786,7 @@
           Saving…
         {:else}
           <Save size={15} />
-          Save Changes
+          {isEventEnded ? 'Settings Locked (Event Ended)' : 'Save Changes'}
         {/if}
       </Button>
 

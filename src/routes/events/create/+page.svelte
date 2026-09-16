@@ -70,6 +70,7 @@
   let googleMapUrl = '';
   let isApprovalRequired = false;
   let isVenueEnabled = false;
+  let isNetworkEnabled = false;
 
   let startDate = getFormattedDateStr(defaultStartObj);
   let startTimeVal = `${String(defaultStartObj.getHours()).padStart(2, '0')}:${String(defaultStartObj.getMinutes()).padStart(2, '0')}`;
@@ -289,6 +290,7 @@
           google_map_url: googleMapUrl.trim() || null,
           is_approval_required: isApprovalRequired,
           is_venue_enabled: isVenueEnabled,
+          is_network_enabled: isNetworkEnabled,
         }),
       });
 
@@ -576,6 +578,29 @@
       <!-- Options -->
       <div class="space-y-4 pt-2 border-t border-white/6">
         <h3 class="text-sm font-bold text-white">Options</h3>
+
+        <!-- Enable Networking -->
+        <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+          <div class="flex items-start gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-violet-400 mt-0.5 shrink-0"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-4h14v4"/><path d="M12 12V8"/></svg>
+            <div>
+              <p class="text-sm font-semibold text-white">Enable Networking</p>
+              <p class="text-xs text-ink-500 mt-0.5">Show the Network tab with AI matches and connections.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onclick={() => (isNetworkEnabled = !isNetworkEnabled)}
+            class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isNetworkEnabled ? 'bg-violet-500' : 'bg-white/10'}"
+            role="switch"
+            aria-checked={isNetworkEnabled}
+            aria-label="Enable Networking"
+          >
+            <span
+              class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isNetworkEnabled ? 'translate-x-5' : 'translate-x-0'}"
+            ></span>
+          </button>
+        </div>
 
         <!-- Enable Venue Map (offline/hybrid only) -->
         {#if eventFormat !== 'online'}

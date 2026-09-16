@@ -701,8 +701,8 @@
     fetchAllConnections();
   }
 
-  // Redirect legacy tab values to network
-  $: if ($activeTab === "matches" || $activeTab === "connections") {
+  // Redirect legacy tab values to network (only when networking is enabled)
+  $: if (($activeTab === "matches" || $activeTab === "connections") && Boolean(currentEvent.is_network_enabled)) {
     activeTab.set("network");
   }
 
@@ -1613,6 +1613,7 @@
                 <span>Analytics</span>
               </Tabs.Trigger>
 
+{#if Boolean(currentEvent.is_network_enabled)}
               <Tabs.Trigger
                 value="network"
                 class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-violet-400/15 data-[state=active]:text-violet-200 data-[state=inactive]:text-ink-500 hover:text-violet-200"
@@ -1627,6 +1628,7 @@
                   {/if}
                 </span>
               </Tabs.Trigger>
+{/if}
 {#if Boolean(currentEvent.is_venue_enabled)}
                 <Tabs.Trigger
                   value="venue"
@@ -2278,6 +2280,7 @@
             </Dialog.Content>
           </Dialog.Root>
 
+{#if Boolean(currentEvent.is_network_enabled)}
           <!-- Network tab (unified Matches + Connections) -->
           <Tabs.Content value="network" class="mt-4">
             <!-- Network Header -->
@@ -2937,6 +2940,7 @@
               </Dialog.Content>
             </Dialog.Root>
           </Tabs.Content>
+{/if}
 
           <!-- [OLD matches tab placeholder — keep for reference; content moved above] -->
           <!-- Matches tab -->

@@ -49,6 +49,7 @@ export async function POST({ request, locals }) {
   const event_format = ['online', 'offline', 'hybrid'].includes(body?.event_format) ? body.event_format : 'offline';
   const is_approval_required = Boolean(body?.is_approval_required);
   const is_venue_enabled = body?.is_venue_enabled !== undefined ? Boolean(body.is_venue_enabled) : true;
+  const is_network_enabled = Boolean(body?.is_network_enabled);
 
   const admin = createSupabaseAdminClient();
 
@@ -79,7 +80,8 @@ export async function POST({ request, locals }) {
       google_map_url,
       event_format,
       is_approval_required,
-      is_venue_enabled
+      is_venue_enabled,
+      is_network_enabled
     })
     .select(SELECT_FIELDS)
     .single();

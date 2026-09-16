@@ -108,6 +108,9 @@ export async function PUT({ request, params, locals }) {
   if (body?.is_venue_enabled !== undefined) {
     updatePayload.is_venue_enabled = Boolean(body.is_venue_enabled);
   }
+  if (body?.is_network_enabled !== undefined) {
+    updatePayload.is_network_enabled = Boolean(body.is_network_enabled);
+  }
 
   const { data: updatedEvent, error: updateError } = await admin
     .from('events')

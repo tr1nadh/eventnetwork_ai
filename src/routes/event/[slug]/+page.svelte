@@ -38,6 +38,7 @@
     UserCheck,
     Clock,
     MapPinOff,
+    Settings,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -1479,19 +1480,11 @@
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="end" class="w-48">
                     <DropdownMenu.Item
-                      onclick={openEditModal}
+                      onclick={() => goto(`/event/${currentEvent.slug}/settings`)}
                       class="cursor-pointer gap-2"
                     >
-                      <Pencil size={14} />
-                      Edit Event
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Separator />
-                    <DropdownMenu.Item
-                      onclick={() => (deleteEventModalOpen = true)}
-                      class="cursor-pointer gap-2 text-red-400 focus:text-red-400"
-                    >
-                      <Trash2 size={14} />
-                      Delete Event
+                      <Settings size={14} />
+                      Settings
                     </DropdownMenu.Item>
                   </DropdownMenu.Content>
                 </DropdownMenu.Root>

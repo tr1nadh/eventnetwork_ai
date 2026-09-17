@@ -55,6 +55,7 @@
   import ConnectionToast from "$lib/components/connection-toast.svelte";
   import VenueMap from "$lib/components/venue-map.svelte";
   import AICreditsExhausted from "$lib/components/AICreditsExhausted.svelte";
+  import PillScroller from "$lib/components/pill-scroller.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
@@ -5223,16 +5224,15 @@
                       placeholder="e.g. Fireside Chat, Workshop..."
                       class="bg-white/5 border-white/10 text-sm text-white placeholder:text-ink-500 focus:border-amber-400/50 h-10 w-full"
                     />
-                    <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span class="text-xs text-ink-500 font-medium">Suggestions:</span>
+                    <PillScroller label="Suggestions:" class="pt-1">
                       {#each categorySuggestions as sug}
                         <button
                           type="button"
                           onclick={() => (timelineCategory = sug)}
-                          class="text-xs px-2.5 py-0.5 rounded-full border transition-all {timelineCategory?.toLowerCase().trim() === sug.toLowerCase().trim() ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-semibold' : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
+                          class="text-xs px-2.5 py-0.5 rounded-full border transition-all whitespace-nowrap shrink-0 cursor-pointer {timelineCategory?.toLowerCase().trim() === sug.toLowerCase().trim() ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-semibold' : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
                         >{sug}</button>
                       {/each}
-                    </div>
+                    </PillScroller>
                   </div>
 
                   <!-- Location / Stage -->
@@ -5244,16 +5244,15 @@
                       class="bg-white/5 border-white/10 text-sm text-white placeholder:text-ink-500 focus:border-amber-400/50 h-10 w-full"
                     />
                     {#if mapZoneSuggestions.length > 0}
-                      <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                        <span class="text-xs text-ink-500 font-medium">Map Zones:</span>
+                      <PillScroller label="Map Zones:" class="pt-1">
                         {#each mapZoneSuggestions as z}
                           <button
                             type="button"
                             onclick={() => (timelineLocation = z.name)}
-                            class="text-xs px-2.5 py-0.5 rounded-full border transition-all {timelineLocation?.toLowerCase().trim() === z.name.toLowerCase().trim() ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-semibold' : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
+                            class="text-xs px-2.5 py-0.5 rounded-full border transition-all whitespace-nowrap shrink-0 cursor-pointer {timelineLocation?.toLowerCase().trim() === z.name.toLowerCase().trim() ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-semibold' : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
                           >📍 {z.name}</button>
                         {/each}
-                      </div>
+                      </PillScroller>
                     {/if}
                   </div>
                 </div>
@@ -5297,16 +5296,15 @@
 
                   <!-- Quick Duration Shortcuts -->
                   <div class="pt-3 border-t border-white/8">
-                    <span class="text-xs text-ink-400 font-medium block mb-2">Quick Duration:</span>
-                    <div class="flex flex-wrap gap-1.5">
+                    <PillScroller label="Quick Duration:">
                       {#each durationShortcuts as dur}
                         <button
                           type="button"
                           onclick={() => applyDurationShortcut(dur.minutes)}
-                          class="text-xs px-2.5 py-1 rounded-lg border bg-white/5 hover:bg-amber-400/15 hover:text-amber-300 hover:border-amber-400/30 text-ink-300 border-white/10 transition-colors font-mono"
+                          class="text-xs px-2.5 py-1 rounded-lg border bg-white/5 hover:bg-amber-400/15 hover:text-amber-300 hover:border-amber-400/30 text-ink-300 border-white/10 transition-colors font-mono whitespace-nowrap shrink-0 cursor-pointer"
                         >+{dur.label}</button>
                       {/each}
-                    </div>
+                    </PillScroller>
                   </div>
                 </div>
 

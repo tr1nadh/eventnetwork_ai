@@ -2,6 +2,7 @@
   import { MapPin, Coffee, Mic, Users, MonitorPlay, Pencil, Plus, Trash2, Save, X, CalendarClock, Clock } from '@lucide/svelte';
   import { createEventDispatcher } from 'svelte';
   import { slide } from 'svelte/transition';
+  import PillScroller from '$lib/components/pill-scroller.svelte';
   
   const dispatch = createEventDispatcher();
   
@@ -443,17 +444,18 @@
             
             <!-- Timeline locations not yet added to Venue Map -->
             {#if unaddedLocations.length > 0}
-              <div class="flex flex-wrap items-center gap-1.5 pt-2">
-                <span class="text-[10px] text-amber-400/90 font-medium">Unadded Timeline Locations:</span>
-                {#each unaddedLocations as loc}
-                  <button
-                    type="button"
-                    onclick={() => (editForm.name = loc)}
-                    class="text-[10px] px-2 py-0.5 rounded-full border transition-all bg-amber-400/10 border-amber-400/30 text-amber-300 hover:bg-amber-400/20"
-                  >
-                    + {loc}
-                  </button>
-                {/each}
+              <div class="pt-2">
+                <PillScroller label="Unadded Timeline Locations:">
+                  {#each unaddedLocations as loc}
+                    <button
+                      type="button"
+                      onclick={() => (editForm.name = loc)}
+                      class="text-[10px] px-2 py-0.5 rounded-full border transition-all bg-amber-400/10 border-amber-400/30 text-amber-300 hover:bg-amber-400/20 whitespace-nowrap shrink-0 cursor-pointer"
+                    >
+                      + {loc}
+                    </button>
+                  {/each}
+                </PillScroller>
               </div>
             {/if}
           </div>

@@ -553,13 +553,29 @@
     return `${startDateStr}, ${startTimeStr} – ${endDateStr}, ${endTimeStr}`;
   }
 
+  const categorySuggestions = [
+    'Keynote',
+    'Workshop',
+    'Panel',
+    'Networking',
+    'Break',
+    'Q&A',
+    'Hackathon',
+    'Demo',
+    'General'
+  ];
+
   function getCategoryColor(cat) {
-    switch ((cat || '').toLowerCase()) {
+    const cleaned = (cat || '').toLowerCase().trim();
+    switch (cleaned) {
       case 'keynote': return { bg: 'bg-amber-400/15', text: 'text-amber-300', border: 'border-amber-400/30', dot: 'bg-amber-400' };
       case 'workshop': return { bg: 'bg-cyan-400/15', text: 'text-cyan-300', border: 'border-cyan-400/30', dot: 'bg-cyan-400' };
-      case 'panel': return { bg: 'bg-indigo-400/15', text: 'text-indigo-300', border: 'border-indigo-400/30', dot: 'bg-indigo-400' };
+      case 'panel': case 'panel discussion': return { bg: 'bg-indigo-400/15', text: 'text-indigo-300', border: 'border-indigo-400/30', dot: 'bg-indigo-400' };
       case 'networking': return { bg: 'bg-emerald-400/15', text: 'text-emerald-300', border: 'border-emerald-400/30', dot: 'bg-emerald-400' };
-      case 'break': return { bg: 'bg-slate-400/15', text: 'text-slate-300', border: 'border-slate-400/30', dot: 'bg-slate-400' };
+      case 'break': case 'refreshments': return { bg: 'bg-slate-400/15', text: 'text-slate-300', border: 'border-slate-400/30', dot: 'bg-slate-400' };
+      case 'hackathon': return { bg: 'bg-rose-400/15', text: 'text-rose-300', border: 'border-rose-400/30', dot: 'bg-rose-400' };
+      case 'q&a': case 'qa': return { bg: 'bg-teal-400/15', text: 'text-teal-300', border: 'border-teal-400/30', dot: 'bg-teal-400' };
+      case 'demo': case 'demo day': return { bg: 'bg-fuchsia-400/15', text: 'text-fuchsia-300', border: 'border-fuchsia-400/30', dot: 'bg-fuchsia-400' };
       default: return { bg: 'bg-violet-400/15', text: 'text-violet-300', border: 'border-violet-400/30', dot: 'bg-violet-400' };
     }
   }
@@ -5052,110 +5068,124 @@
 
         <!-- Create / Edit Timeline Session Modal -->
         {#if timelineModalOpen}
-          <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
-            <div class="glass rounded-3xl border border-white/10 p-6 sm:p-8 max-w-lg w-full space-y-5 shadow-2xl bg-neutral-950/95 my-8">
-              <div class="flex items-center justify-between border-b border-white/10 pb-4">
-                <div class="flex items-center gap-2">
-                  <CalendarClock size={20} class="text-amber-400" />
-                  <h3 class="text-lg font-bold text-white">
-                    {editingTimelineItem ? 'Edit Schedule Session' : 'Add Schedule Session'}
-                  </h3>
+          <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+            <div class="glass rounded-3xl border border-white/10 p-6 sm:p-8 max-w-xl w-full max-h-[88vh] flex flex-col shadow-2xl bg-neutral-950/95">
+              <!-- Fixed Header -->
+              <div class="flex items-center justify-between border-b border-white/10 pb-5 shrink-0">
+                <div class="flex items-center gap-2.5">
+                  <div class="h-9 w-9 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400">
+                    <CalendarClock size={20} />
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-bold text-white leading-tight">
+                      {editingTimelineItem ? 'Edit Schedule Session' : 'Add Schedule Session'}
+                    </h3>
+                    <p class="text-[11px] text-ink-400">Configure timing, location, speaker, and session details</p>
+                  </div>
                 </div>
-                <button type="button" onclick={() => (timelineModalOpen = false)} class="text-ink-400 hover:text-white p-1 rounded-lg">
+                <button type="button" onclick={() => (timelineModalOpen = false)} class="text-ink-400 hover:text-white p-1.5 rounded-xl hover:bg-white/5 transition-colors">
                   <X size={18} />
                 </button>
               </div>
 
               {#if timelineError}
-                <div class="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                <div class="flex items-center gap-2.5 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mt-4 shrink-0">
                   <AlertTriangle size={15} class="shrink-0" />
                   {timelineError}
                 </div>
               {/if}
 
-              <div class="space-y-4 text-left">
+              <!-- Inner Scrollable Form Content -->
+              <div class="flex-1 overflow-y-auto py-5 px-1 sm:px-2 space-y-5 text-left scrollbar-thin">
                 <!-- Title -->
-                <div class="space-y-1.5">
+                <div class="space-y-2">
                   <Label class="text-xs font-semibold text-white">Session Title *</Label>
                   <Input
                     bind:value={timelineTitle}
                     placeholder="e.g., Keynote: The Future of AI in Networking"
-                    class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50"
+                    class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50 h-10"
                   />
                 </div>
 
                 <!-- Category & Location -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="space-y-2 sm:col-span-2">
                     <Label class="text-xs font-semibold text-white">Category</Label>
-                    <select
+                    <Input
                       bind:value={timelineCategory}
-                      class="w-full h-10 rounded-md bg-white/5 border border-white/10 px-3 text-xs text-white focus:outline-none focus:border-amber-400/50"
-                    >
-                      <option value="general" class="bg-slate-900">General</option>
-                      <option value="keynote" class="bg-slate-900">Keynote</option>
-                      <option value="workshop" class="bg-slate-900">Workshop</option>
-                      <option value="panel" class="bg-slate-900">Panel Discussion</option>
-                      <option value="networking" class="bg-slate-900">Networking</option>
-                      <option value="break" class="bg-slate-900">Break / Refreshments</option>
-                    </select>
+                      placeholder="Type custom category (e.g. Fireside Chat, Hackathon, Demo Day)..."
+                      class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600 focus:border-amber-400/50 h-10"
+                    />
+                    <!-- Category Suggestions -->
+                    <div class="flex flex-wrap items-center gap-1.5 pt-1.5">
+                      <span class="text-[11px] text-ink-500 font-medium mr-1">Suggestions:</span>
+                      {#each categorySuggestions as sug}
+                        <button
+                          type="button"
+                          onclick={() => (timelineCategory = sug)}
+                          class="text-[11px] px-2.5 py-1 rounded-full border transition-all {timelineCategory?.toLowerCase().trim() === sug.toLowerCase().trim() ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-bold shadow-[0_0_10px_rgba(251,191,36,0.2)]' : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
+                        >
+                          {sug}
+                        </button>
+                      {/each}
+                    </div>
                   </div>
 
-                  <div class="space-y-1.5">
+                  <div class="space-y-2 sm:col-span-2">
                     <Label class="text-xs font-semibold text-white">Location / Stage</Label>
                     <Input
                       bind:value={timelineLocation}
-                      placeholder="e.g., Main Stage, Hall A"
-                      class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50"
+                      placeholder="e.g., Main Stage, Hall A, Room 302"
+                      class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50 h-10"
                     />
                   </div>
                 </div>
 
                 <!-- Date & Time Row -->
-                <div class="space-y-2 p-3.5 bg-white/4 rounded-2xl border border-white/6">
+                <div class="space-y-3 p-4 bg-white/4 rounded-2xl border border-white/6">
                   <span class="text-xs font-bold uppercase tracking-wider text-amber-400 block">Session Timing</span>
                   
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="space-y-1">
-                      <span class="text-[11px] text-ink-400">Start Date & Time</span>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                      <span class="text-[11px] text-ink-400 font-medium">Start Date & Time</span>
                       <div class="flex gap-2">
-                        <Input type="date" bind:value={timelineStartDate} class="bg-white/5 border-white/10 text-xs text-white" />
-                        <Input type="time" bind:value={timelineStartTimeVal} class="bg-white/5 border-white/10 text-xs text-white" />
+                        <Input type="date" bind:value={timelineStartDate} class="bg-white/5 border-white/10 text-xs text-white h-9" />
+                        <Input type="time" bind:value={timelineStartTimeVal} class="bg-white/5 border-white/10 text-xs text-white h-9" />
                       </div>
                     </div>
 
-                    <div class="space-y-1">
-                      <span class="text-[11px] text-ink-400">End Date & Time</span>
+                    <div class="space-y-1.5">
+                      <span class="text-[11px] text-ink-400 font-medium">End Date & Time</span>
                       <div class="flex gap-2">
-                        <Input type="date" bind:value={timelineEndDate} class="bg-white/5 border-white/10 text-xs text-white" />
-                        <Input type="time" bind:value={timelineEndTimeVal} class="bg-white/5 border-white/10 text-xs text-white" />
+                        <Input type="date" bind:value={timelineEndDate} class="bg-white/5 border-white/10 text-xs text-white h-9" />
+                        <Input type="time" bind:value={timelineEndTimeVal} class="bg-white/5 border-white/10 text-xs text-white h-9" />
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <!-- Description -->
-                <div class="space-y-1.5">
+                <div class="space-y-2">
                   <Label class="text-xs font-semibold text-white">Description</Label>
                   <textarea
                     bind:value={timelineDescription}
                     rows="3"
                     placeholder="Provide details about what will happen in this session..."
-                    class="w-full rounded-md bg-white/5 border border-white/10 p-3 text-xs text-white placeholder:text-ink-600 focus:outline-none focus:border-amber-400/50 resize-none"
+                    class="w-full rounded-xl bg-white/5 border border-white/10 p-3.5 text-xs text-white placeholder:text-ink-600 focus:outline-none focus:border-amber-400/50 resize-none leading-relaxed"
                   ></textarea>
                 </div>
 
                 <!-- Speaker Details -->
-                <div class="space-y-3 pt-2 border-t border-white/8">
+                <div class="space-y-4 pt-3 border-t border-white/8">
                   <span class="text-xs font-bold uppercase tracking-wider text-indigo-400 block">Speaker Information (Optional)</span>
                   
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="space-y-1.5">
                       <Label class="text-xs text-ink-300">Speaker Name</Label>
                       <Input
                         bind:value={timelineSpeakerName}
                         placeholder="e.g., Dr. Sarah Connor"
-                        class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600"
+                        class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600 h-9"
                       />
                     </div>
 
@@ -5164,7 +5194,7 @@
                       <Input
                         bind:value={timelineSpeakerRole}
                         placeholder="e.g., VP of Engineering, OpenTech"
-                        class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600"
+                        class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600 h-9"
                       />
                     </div>
                   </div>
@@ -5174,18 +5204,18 @@
                     <Input
                       bind:value={timelineSpeakerAvatarUrl}
                       placeholder="https://..."
-                      class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600"
+                      class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600 h-9"
                     />
                   </div>
                 </div>
               </div>
 
-              <!-- Action Buttons -->
-              <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+              <!-- Fixed Footer Action Buttons -->
+              <div class="flex items-center justify-end gap-3 pt-5 border-t border-white/10 shrink-0 mt-1">
                 <Button
                   variant="ghost"
                   onclick={() => (timelineModalOpen = false)}
-                  class="text-ink-400 hover:text-white text-xs"
+                  class="text-ink-400 hover:text-white text-xs h-10 px-4"
                 >
                   Cancel
                 </Button>
@@ -5193,7 +5223,7 @@
                 <Button
                   onclick={saveTimelineItem}
                   disabled={savingTimelineItem}
-                  class="gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-5 text-xs rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.3)]"
+                  class="gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-6 h-10 text-xs rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all"
                 >
                   {#if savingTimelineItem}
                     <LoaderCircle size={14} class="animate-spin" />

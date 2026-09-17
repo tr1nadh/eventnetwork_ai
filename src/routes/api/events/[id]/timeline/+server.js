@@ -65,13 +65,19 @@ export async function POST({ request, params, locals }) {
 
   const startTimeDate = new Date(body.start_time);
   const endTimeDate = new Date(body.end_time);
+  const now = new Date();
 
   if (isNaN(startTimeDate.getTime()) || isNaN(endTimeDate.getTime())) {
     throw error(400, 'Invalid start or end time date format.');
   }
 
+  // Block past start times (5 minute grace buffer for clock skew / form fill time)
+  if (startTimeDate < new Date(now.getTime() - 5 * 60 * 1000)) {
+    throw error(400, 'Session start time cannot be in the past.');
+  }
+
   if (endTimeDate <= startTimeDate) {
-    throw error(400, 'End time must be after start time.');
+    throw error(400, 'Session end time must be after start time.');
   }
 
   const payload = {
@@ -143,9 +149,15 @@ export async function PUT({ request, params, locals }) {
 
   if (sort_order !== undefined) updatePayload.sort_order = sort_order;
 
+  const now = new Date();
+
   if (body?.start_time) {
     const startTimeDate = new Date(body.start_time);
     if (isNaN(startTimeDate.getTime())) throw error(400, 'Invalid start time format.');
+    // Block past start times (5 minute grace buffer)
+    if (startTimeDate < new Date(now.getTime() - 5 * 60 * 1000)) {
+      throw error(400, 'Session start time cannot be in the past.');
+    }
     updatePayload.start_time = startTimeDate.toISOString();
   }
 
@@ -157,7 +169,7 @@ export async function PUT({ request, params, locals }) {
 
   if (updatePayload.start_time && updatePayload.end_time) {
     if (new Date(updatePayload.end_time) <= new Date(updatePayload.start_time)) {
-      throw error(400, 'End time must be after start time.');
+      throw error(400, 'Session end time must be after start time.');
     }
   }
 

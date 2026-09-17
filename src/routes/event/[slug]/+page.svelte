@@ -446,6 +446,39 @@
     timelineModalOpen = true;
   }
 
+  const durationShortcuts = [
+    { label: '5m', minutes: 5 },
+    { label: '10m', minutes: 10 },
+    { label: '15m', minutes: 15 },
+    { label: '30m', minutes: 30 },
+    { label: '45m', minutes: 45 },
+    { label: '1h', minutes: 60 },
+    { label: '1.5h', minutes: 90 },
+    { label: '2h', minutes: 120 },
+    { label: '3h', minutes: 180 }
+  ];
+
+  function applyDurationShortcut(minutes) {
+    if (!timelineStartDate || !timelineStartTimeVal) return;
+    const startDt = new Date(`${timelineStartDate}T${timelineStartTimeVal}`);
+    if (isNaN(startDt.getTime())) return;
+
+    const endDt = new Date(startDt.getTime() + minutes * 60 * 1000);
+    timelineEndDate = getFormattedDateStr(endDt);
+    const endH = String(endDt.getHours()).padStart(2, '0');
+    const endM = String(endDt.getMinutes()).padStart(2, '0');
+    timelineEndTimeVal = `${endH}:${endM}`;
+  }
+
+  function setTimelineStartToNow() {
+    const now = new Date();
+    timelineStartDate = getFormattedDateStr(now);
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    timelineStartTimeVal = `${h}:${m}`;
+    applyDurationShortcut(30);
+  }
+
   async function saveTimelineItem() {
     timelineError = "";
     if (!timelineTitle.trim()) {
@@ -457,13 +490,28 @@
       return;
     }
 
-    const startISO = new Date(`${timelineStartDate}T${timelineStartTimeVal}`).toISOString();
-    const endISO = new Date(`${timelineEndDate}T${timelineEndTimeVal}`).toISOString();
+    const startDt = new Date(`${timelineStartDate}T${timelineStartTimeVal}`);
+    const endDt = new Date(`${timelineEndDate}T${timelineEndTimeVal}`);
+    const now = new Date();
 
-    if (new Date(endISO) <= new Date(startISO)) {
-      timelineError = "End time must be after start time.";
+    if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) {
+      timelineError = "Invalid start or end date/time format.";
       return;
     }
+
+    // Strict validation: block past start times (5 min grace buffer for clock skew)
+    if (startDt < new Date(now.getTime() - 5 * 60 * 1000)) {
+      timelineError = "Session start time cannot be in the past.";
+      return;
+    }
+
+    if (endDt <= startDt) {
+      timelineError = "Session end time must be after start time.";
+      return;
+    }
+
+    const startISO = startDt.toISOString();
+    const endISO = endDt.toISOString();
 
     savingTimelineItem = true;
     try {
@@ -5216,13 +5264,22 @@
 
                 <!-- Date & Time Row -->
                 <div class="space-y-3 p-4 bg-white/4 rounded-2xl border border-white/6">
-                  <span class="text-xs font-bold uppercase tracking-wider text-amber-400 block">Session Timing</span>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400 block">Session Timing</span>
+                    <button
+                      type="button"
+                      onclick={setTimelineStartToNow}
+                      class="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/20 transition-colors"
+                    >
+                      ⚡ Set Start to Now
+                    </button>
+                  </div>
                   
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="space-y-1.5">
                       <span class="text-[11px] text-ink-400 font-medium">Start Date & Time</span>
                       <div class="flex gap-2">
-                        <Input type="date" bind:value={timelineStartDate} class="bg-white/5 border-white/10 text-xs text-white h-9" />
+                        <Input type="date" min={todayStr} bind:value={timelineStartDate} class="bg-white/5 border-white/10 text-xs text-white h-9" />
                         <Input type="time" bind:value={timelineStartTimeVal} class="bg-white/5 border-white/10 text-xs text-white h-9" />
                       </div>
                     </div>
@@ -5230,9 +5287,25 @@
                     <div class="space-y-1.5">
                       <span class="text-[11px] text-ink-400 font-medium">End Date & Time</span>
                       <div class="flex gap-2">
-                        <Input type="date" bind:value={timelineEndDate} class="bg-white/5 border-white/10 text-xs text-white h-9" />
+                        <Input type="date" min={timelineStartDate || todayStr} bind:value={timelineEndDate} class="bg-white/5 border-white/10 text-xs text-white h-9" />
                         <Input type="time" bind:value={timelineEndTimeVal} class="bg-white/5 border-white/10 text-xs text-white h-9" />
                       </div>
+                    </div>
+                  </div>
+
+                  <!-- Quick Duration Shortcuts -->
+                  <div class="pt-2 border-t border-white/6">
+                    <span class="text-[11px] text-ink-400 font-medium block mb-1.5">Quick Duration Shortcuts:</span>
+                    <div class="flex flex-wrap gap-1.5">
+                      {#each durationShortcuts as dur}
+                        <button
+                          type="button"
+                          onclick={() => applyDurationShortcut(dur.minutes)}
+                          class="text-[11px] px-2.5 py-1 rounded-lg border bg-white/5 hover:bg-amber-400/15 hover:text-amber-300 hover:border-amber-400/30 text-ink-300 border-white/10 transition-colors font-mono font-medium"
+                        >
+                          +{dur.label}
+                        </button>
+                      {/each}
                     </div>
                   </div>
                 </div>

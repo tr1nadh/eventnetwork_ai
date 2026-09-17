@@ -71,30 +71,39 @@ export async function PUT({ request, params, locals }) {
   let startTimeDate = null;
   let endTimeDate = null;
 
-  if (body?.start_time) {
-    startTimeDate = new Date(body.start_time);
-    if (isNaN(startTimeDate.getTime())) {
-      throw error(400, 'Invalid start time format.');
+  if (body?.start_time !== undefined) {
+    if (body.start_time === null) {
+      updatePayload.start_time = null;
+    } else {
+      startTimeDate = new Date(body.start_time);
+      if (isNaN(startTimeDate.getTime())) {
+        throw error(400, 'Invalid start time format.');
+      }
+      // Block past start dates for upcoming events (5 minute buffer for clock skew)
+      if (!isLive && startTimeDate < new Date(now.getTime() - 5 * 60 * 1000)) {
+        throw error(400, 'Start time cannot be in the past.');
+      }
+      updatePayload.start_time = startTimeDate.toISOString();
     }
-    // Block past start dates for upcoming events (5 minute buffer for clock skew)
-    if (!isLive && startTimeDate < new Date(now.getTime() - 5 * 60 * 1000)) {
-      throw error(400, 'Start time cannot be in the past.');
-    }
-    updatePayload.start_time = startTimeDate.toISOString();
   }
 
-  if (body?.end_time) {
-    endTimeDate = new Date(body.end_time);
-    if (isNaN(endTimeDate.getTime())) {
-      throw error(400, 'Invalid end time format.');
+  if (body?.end_time !== undefined) {
+    if (body.end_time === null) {
+      updatePayload.end_time = null;
+    } else {
+      endTimeDate = new Date(body.end_time);
+      if (isNaN(endTimeDate.getTime())) {
+        throw error(400, 'Invalid end time format.');
+      }
+      updatePayload.end_time = endTimeDate.toISOString();
     }
-    updatePayload.end_time = endTimeDate.toISOString();
   }
 
-  if (startTimeDate && endTimeDate) {
-    if (endTimeDate <= startTimeDate) {
-      throw error(400, 'End time must be greater than start time.');
-    }
+  const effectiveStart = startTimeDate || (existingEvent.start_time ? new Date(existingEvent.start_time) : null);
+  const effectiveEnd = endTimeDate || (existingEvent.end_time ? new Date(existingEvent.end_time) : null);
+
+  if (effectiveStart && effectiveEnd && effectiveEnd <= effectiveStart) {
+    throw error(400, 'End time must be greater than start time.');
   }
 
   if (body?.location !== undefined) updatePayload.location = body.location ? body.location.trim() : null;

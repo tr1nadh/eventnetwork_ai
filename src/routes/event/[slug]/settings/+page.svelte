@@ -54,8 +54,16 @@
   let location = event.location ?? '';
   let googleMapUrl = event.google_map_url ?? '';
   let eventFormat = event.event_format ?? 'offline';
-  let startTime = event.start_time ? event.start_time.slice(0, 16) : '';
-  let endTime = event.end_time ? event.end_time.slice(0, 16) : '';
+  function formatDatetimeLocal(dateInput) {
+    if (!dateInput) return '';
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  let startTime = formatDatetimeLocal(event.start_time);
+  let endTime = formatDatetimeLocal(event.end_time);
   let isApprovalRequired = event.is_approval_required ?? false;
   let isVenueEnabled = event.is_venue_enabled ?? true;
   let isNetworkEnabled = event.is_network_enabled ?? false;
@@ -364,8 +372,8 @@
           location,
           google_map_url: googleMapUrl,
           event_format: eventFormat,
-          start_time: startTime || null,
-          end_time: endTime || null,
+          start_time: startTime ? new Date(startTime).toISOString() : null,
+          end_time: endTime ? new Date(endTime).toISOString() : null,
           is_approval_required: isApprovalRequired,
           is_venue_enabled: isVenueEnabled,
           is_network_enabled: isNetworkEnabled,
@@ -375,8 +383,14 @@
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        saveError = json?.message ?? 'Failed to save changes.';
+        saveError = json?.message ?? json?.error ?? 'Failed to save changes.';
+        toast.error(saveError);
         return;
+      }
+
+      if (json?.event) {
+        event.start_time = json.event.start_time;
+        event.end_time = json.event.end_time;
       }
 
       saveSuccess = true;

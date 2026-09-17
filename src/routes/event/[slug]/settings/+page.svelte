@@ -48,12 +48,12 @@
   }
 
   // Form state — pre-filled with existing data
-  let name = event.name ?? '';
-  let description = event.description ?? '';
-  let slug = event.slug ?? '';
-  let location = event.location ?? '';
-  let googleMapUrl = event.google_map_url ?? '';
-  let eventFormat = event.event_format ?? 'offline';
+  let name = event?.name ?? '';
+  let description = event?.description ?? '';
+  let slug = event?.slug ?? '';
+  let location = event?.location ?? '';
+  let googleMapUrl = event?.google_map_url ?? '';
+  let eventFormat = event?.event_format ?? 'offline';
   function formatDatetimeLocal(dateInput) {
     if (!dateInput) return '';
     const date = new Date(dateInput);
@@ -62,11 +62,11 @@
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
-  let startTime = formatDatetimeLocal(event.start_time);
-  let endTime = formatDatetimeLocal(event.end_time);
-  let isApprovalRequired = event.is_approval_required ?? false;
-  let isVenueEnabled = event.is_venue_enabled ?? true;
-  let isNetworkEnabled = event.is_network_enabled ?? false;
+  let startTime = formatDatetimeLocal(event?.start_time);
+  let endTime = formatDatetimeLocal(event?.end_time);
+  let isApprovalRequired = event?.is_approval_required ?? false;
+  let isVenueEnabled = event?.is_venue_enabled ?? true;
+  let isNetworkEnabled = event?.is_network_enabled ?? false;
 
   // Split start & end time into Date and Time components for custom UX
   let startDate = startTime ? startTime.split('T')[0] : '';
@@ -246,8 +246,8 @@
 
   // --- Strict Validation Flags ---
   const now = new Date();
-  const eventStart = event.start_time ? new Date(event.start_time) : null;
-  const eventEnd = event.end_time ? new Date(event.end_time) : null;
+  const eventStart = event?.start_time ? new Date(event.start_time) : null;
+  const eventEnd = event?.end_time ? new Date(event.end_time) : null;
 
   $: isEventLive = Boolean(eventStart && eventStart <= now && (!eventEnd || new Date(eventEnd) >= now));
   $: isEventEnded = Boolean(eventEnd && new Date(eventEnd) < now);

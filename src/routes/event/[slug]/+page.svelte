@@ -377,6 +377,193 @@
   let deletingEvent = false;
   let deleteEventError = "";
 
+  // --- Event Timeline State & Handlers ---
+  let timelineItems = data.timeline || [];
+  $: if (data.timeline) {
+    timelineItems = data.timeline;
+  }
+
+  let timelineModalOpen = false;
+  let editingTimelineItem = null;
+  let timelineTitle = "";
+  let timelineDescription = "";
+  let timelineLocation = "";
+  let timelineCategory = "general";
+  let timelineStartDate = "";
+  let timelineStartTimeVal = "09:00";
+  let timelineEndDate = "";
+  let timelineEndTimeVal = "10:00";
+  let timelineSpeakerName = "";
+  let timelineSpeakerRole = "";
+  let timelineSpeakerAvatarUrl = "";
+  let savingTimelineItem = false;
+  let timelineError = "";
+  let deletingTimelineItemId = null;
+
+  function openCreateTimelineModal() {
+    editingTimelineItem = null;
+    timelineTitle = "";
+    timelineDescription = "";
+    timelineLocation = "";
+    timelineCategory = "general";
+    
+    const eventStart = currentEvent?.start_time ? new Date(currentEvent.start_time) : new Date();
+    const eventStartStr = getFormattedDateStr(eventStart);
+    timelineStartDate = eventStartStr;
+    timelineStartTimeVal = "09:00";
+    timelineEndDate = eventStartStr;
+    timelineEndTimeVal = "10:00";
+    
+    timelineSpeakerName = "";
+    timelineSpeakerRole = "";
+    timelineSpeakerAvatarUrl = "";
+    timelineError = "";
+    timelineModalOpen = true;
+  }
+
+  function openEditTimelineModal(item) {
+    editingTimelineItem = item;
+    timelineTitle = item.title || "";
+    timelineDescription = item.description || "";
+    timelineLocation = item.location || "";
+    timelineCategory = item.category || "general";
+    
+    if (item.start_time) {
+      const dt = new Date(item.start_time);
+      timelineStartDate = getFormattedDateStr(dt);
+      timelineStartTimeVal = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+    }
+    if (item.end_time) {
+      const dt = new Date(item.end_time);
+      timelineEndDate = getFormattedDateStr(dt);
+      timelineEndTimeVal = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+    }
+    
+    timelineSpeakerName = item.speaker_name || "";
+    timelineSpeakerRole = item.speaker_role || "";
+    timelineSpeakerAvatarUrl = item.speaker_avatar_url || "";
+    timelineError = "";
+    timelineModalOpen = true;
+  }
+
+  async function saveTimelineItem() {
+    timelineError = "";
+    if (!timelineTitle.trim()) {
+      timelineError = "Title is required.";
+      return;
+    }
+    if (!timelineStartDate || !timelineStartTimeVal || !timelineEndDate || !timelineEndTimeVal) {
+      timelineError = "Start and End times are required.";
+      return;
+    }
+
+    const startISO = new Date(`${timelineStartDate}T${timelineStartTimeVal}`).toISOString();
+    const endISO = new Date(`${timelineEndDate}T${timelineEndTimeVal}`).toISOString();
+
+    if (new Date(endISO) <= new Date(startISO)) {
+      timelineError = "End time must be after start time.";
+      return;
+    }
+
+    savingTimelineItem = true;
+    try {
+      const isEdit = Boolean(editingTimelineItem);
+      const url = `/api/events/${currentEvent.id}/timeline`;
+      const method = isEdit ? 'PUT' : 'POST';
+      const bodyPayload = {
+        title: timelineTitle,
+        description: timelineDescription,
+        location: timelineLocation,
+        category: timelineCategory,
+        start_time: startISO,
+        end_time: endISO,
+        speaker_name: timelineSpeakerName,
+        speaker_role: timelineSpeakerRole,
+        speaker_avatar_url: timelineSpeakerAvatarUrl
+      };
+
+      if (isEdit) {
+        bodyPayload.id = editingTimelineItem.id;
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload)
+      });
+
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(resData.message || resData.error || 'Failed to save timeline item.');
+      }
+
+      if (isEdit) {
+        timelineItems = timelineItems.map(it => it.id === resData.item.id ? resData.item : it);
+        toast.success("Schedule session updated!");
+      } else {
+        timelineItems = [...timelineItems, resData.item];
+        toast.success("Schedule session added!");
+      }
+
+      timelineItems.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      timelineModalOpen = false;
+    } catch (err) {
+      timelineError = err.message;
+    } finally {
+      savingTimelineItem = false;
+    }
+  }
+
+  async function deleteTimelineItem(id) {
+    if (deletingTimelineItemId) return;
+    deletingTimelineItemId = id;
+    try {
+      const res = await fetch(`/api/events/${currentEvent.id}/timeline?id=${id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) {
+        const resData = await res.json().catch(() => ({}));
+        throw new Error(resData.message || 'Failed to delete timeline item.');
+      }
+      timelineItems = timelineItems.filter(it => it.id !== id);
+      toast.success("Session removed from timeline.");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      deletingTimelineItemId = null;
+    }
+  }
+
+  function formatTimelineTimeRange(start, end) {
+    if (!start) return "";
+    const startDate = new Date(start);
+    const startTimeStr = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (!end) return startTimeStr;
+    const endDate = new Date(end);
+    const endTimeStr = endDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    
+    const sameDay = startDate.getFullYear() === endDate.getFullYear() &&
+                    startDate.getMonth() === endDate.getMonth() &&
+                    startDate.getDate() === endDate.getDate();
+    if (sameDay) {
+      return `${startTimeStr} - ${endTimeStr}`;
+    }
+    const startDateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const endDateStr = endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return `${startDateStr}, ${startTimeStr} – ${endDateStr}, ${endTimeStr}`;
+  }
+
+  function getCategoryColor(cat) {
+    switch ((cat || '').toLowerCase()) {
+      case 'keynote': return { bg: 'bg-amber-400/15', text: 'text-amber-300', border: 'border-amber-400/30', dot: 'bg-amber-400' };
+      case 'workshop': return { bg: 'bg-cyan-400/15', text: 'text-cyan-300', border: 'border-cyan-400/30', dot: 'bg-cyan-400' };
+      case 'panel': return { bg: 'bg-indigo-400/15', text: 'text-indigo-300', border: 'border-indigo-400/30', dot: 'bg-indigo-400' };
+      case 'networking': return { bg: 'bg-emerald-400/15', text: 'text-emerald-300', border: 'border-emerald-400/30', dot: 'bg-emerald-400' };
+      case 'break': return { bg: 'bg-slate-400/15', text: 'text-slate-300', border: 'border-slate-400/30', dot: 'bg-slate-400' };
+      default: return { bg: 'bg-violet-400/15', text: 'text-violet-300', border: 'border-violet-400/30', dot: 'bg-violet-400' };
+    }
+  }
+
   // --- Event Settings Tab State & Handlers ---
   let settingsName = currentEvent?.name ?? '';
   let settingsDescription = currentEvent?.description ?? '';
@@ -1977,6 +2164,14 @@
                 </Tabs.Trigger>
 
                 <Tabs.Trigger
+                  value="timeline"
+                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
+                >
+                  <CalendarClock size={16} />
+                  <span>Timeline</span>
+                </Tabs.Trigger>
+
+                <Tabs.Trigger
                   value="settings"
                   class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
                 >
@@ -2076,6 +2271,89 @@
                   </div>
                 {/if}
 
+              </div>
+
+              <!-- Event Schedule & Timeline -->
+              <div class="glass rounded-2xl border border-white/8 p-6 space-y-6">
+                <div class="flex items-center justify-between border-b border-white/8 pb-4">
+                  <div class="flex items-center gap-2">
+                    <CalendarClock size={18} class="text-amber-400" />
+                    <h3 class="text-lg font-bold text-white">Event Schedule &amp; Agenda</h3>
+                  </div>
+                  <Badge variant="secondary" class="border-white/10 bg-white/5 text-ink-300 text-xs">
+                    {timelineItems.length} session{timelineItems.length === 1 ? '' : 's'}
+                  </Badge>
+                </div>
+
+                {#if timelineItems.length === 0}
+                  <div class="text-center py-8 text-ink-400 space-y-2">
+                    <CalendarClock size={32} class="mx-auto text-ink-600 opacity-60" />
+                    <p class="text-sm font-medium text-ink-300">No schedule items published yet.</p>
+                    <p class="text-xs text-ink-500">Check back soon for the official event agenda and speaker details.</p>
+                  </div>
+                {:else}
+                  <div class="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-white/10">
+                    {#each timelineItems as item (item.id)}
+                      {@const style = getCategoryColor(item.category)}
+                      <div class="relative group">
+                        <!-- Node Dot -->
+                        <div class="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-slate-950 {style.dot} shadow-[0_0_8px_rgba(251,191,36,0.3)] transition-transform group-hover:scale-125"></div>
+
+                        <div class="glass rounded-xl border border-white/6 p-4 sm:p-5 space-y-3 hover:border-white/15 transition-all">
+                          <!-- Time & Category Row -->
+                          <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-lg">
+                              <Clock size={13} />
+                              {formatTimelineTimeRange(item.start_time, item.end_time)}
+                            </span>
+
+                            <span class="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border {style.bg} {style.text} {style.border}">
+                              {item.category || 'General'}
+                            </span>
+                          </div>
+
+                          <!-- Title -->
+                          <h4 class="text-base font-bold text-white leading-snug">{item.title}</h4>
+
+                          <!-- Description -->
+                          {#if item.description}
+                            <p class="text-xs leading-relaxed text-ink-300">{item.description}</p>
+                          {/if}
+
+                          <!-- Speaker & Location Footer -->
+                          {#if item.speaker_name || item.location}
+                            <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/6 text-xs text-ink-400">
+                              {#if item.speaker_name}
+                                <div class="flex items-center gap-2">
+                                  {#if item.speaker_avatar_url}
+                                    <img src={item.speaker_avatar_url} alt={item.speaker_name} class="h-6 w-6 rounded-full object-cover border border-white/20" />
+                                  {:else}
+                                    <div class="h-6 w-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white">
+                                      {item.speaker_name.charAt(0).toUpperCase()}
+                                    </div>
+                                  {/if}
+                                  <div>
+                                    <span class="font-semibold text-white">{item.speaker_name}</span>
+                                    {#if item.speaker_role}
+                                      <span class="text-ink-500 text-[11px]"> • {item.speaker_role}</span>
+                                    {/if}
+                                  </div>
+                                </div>
+                              {/if}
+
+                              {#if item.location}
+                                <span class="inline-flex items-center gap-1 text-ink-300 bg-white/4 px-2.5 py-1 rounded-md border border-white/6">
+                                  <MapPin size={12} class="text-amber-400" />
+                                  {item.location}
+                                </span>
+                              {/if}
+                            </div>
+                          {/if}
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
               </div>
 
             </div>
@@ -4654,8 +4932,280 @@
                 {/if}
               </div>
             </Tabs.Content>
+
+            <!-- Host Timeline Tab -->
+            <Tabs.Content value="timeline" class="mt-4 space-y-6">
+              <!-- Header Card -->
+              <div class="glass rounded-2xl border border-white/8 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <CalendarClock size={20} class="text-amber-400" />
+                    <h2 class="text-xl font-bold text-white">Event Timeline &amp; Schedule</h2>
+                  </div>
+                  <p class="text-xs text-ink-400">
+                    Manage sessions, keynote talks, workshops, and agenda for your event attendees.
+                  </p>
+                </div>
+
+                <Button
+                  onclick={openCreateTimelineModal}
+                  class="gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2 text-xs rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all"
+                >
+                  <Plus size={16} />
+                  Add Session
+                </Button>
+              </div>
+
+              <!-- Sessions List -->
+              {#if timelineItems.length === 0}
+                <div class="glass rounded-2xl border border-white/8 p-12 text-center space-y-4">
+                  <div class="mx-auto h-12 w-12 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400">
+                    <CalendarClock size={24} />
+                  </div>
+                  <div>
+                    <h3 class="text-base font-bold text-white mb-1">No Schedule Sessions Yet</h3>
+                    <p class="text-xs text-ink-400 max-w-sm mx-auto">
+                      Add keynote talks, breakouts, panel discussions, and breaks so attendees can view the official agenda.
+                    </p>
+                  </div>
+                  <Button
+                    onclick={openCreateTimelineModal}
+                    variant="outline"
+                    class="gap-2 border-amber-400/30 text-amber-300 hover:bg-amber-400/10"
+                  >
+                    <Plus size={14} />
+                    Add First Session
+                  </Button>
+                </div>
+              {:else}
+                <div class="space-y-4">
+                  {#each timelineItems as item (item.id)}
+                    {@const style = getCategoryColor(item.category)}
+                    <div class="glass rounded-2xl border border-white/8 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-white/15 transition-all">
+                      <div class="space-y-2 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <span class="inline-flex items-center gap-1 text-xs font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 rounded-md">
+                            <Clock size={12} />
+                            {formatTimelineTimeRange(item.start_time, item.end_time)}
+                          </span>
+                          <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border {style.bg} {style.text} {style.border}">
+                            {item.category || 'General'}
+                          </span>
+                          {#if item.location}
+                            <span class="inline-flex items-center gap-1 text-xs text-ink-300 bg-white/4 px-2 py-0.5 rounded-md border border-white/6">
+                              <MapPin size={12} class="text-amber-400" />
+                              {item.location}
+                            </span>
+                          {/if}
+                        </div>
+
+                        <h4 class="text-base font-bold text-white">{item.title}</h4>
+
+                        {#if item.description}
+                          <p class="text-xs text-ink-300 line-clamp-2">{item.description}</p>
+                        {/if}
+
+                        {#if item.speaker_name}
+                          <div class="flex items-center gap-2 pt-1 text-xs text-ink-400">
+                            <UserCircle2 size={14} class="text-indigo-400" />
+                            <span class="font-medium text-white">{item.speaker_name}</span>
+                            {#if item.speaker_role}
+                              <span class="text-ink-500">({item.speaker_role})</span>
+                            {/if}
+                          </div>
+                        {/if}
+                      </div>
+
+                      <div class="flex items-center gap-2 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-white/6">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onclick={() => openEditTimelineModal(item)}
+                          class="gap-1 text-xs border-white/10 text-white hover:bg-white/10"
+                        >
+                          <Pencil size={13} />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={deletingTimelineItemId === item.id}
+                          onclick={() => deleteTimelineItem(item.id)}
+                          class="gap-1 text-xs border-red-500/20 text-red-400 hover:bg-red-500/10"
+                        >
+                          {#if deletingTimelineItemId === item.id}
+                            <LoaderCircle size={13} class="animate-spin" />
+                          {:else}
+                            <Trash2 size={13} />
+                          {/if}
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </Tabs.Content>
           {/if}
         </Tabs.Root>
+        {/if}
+
+        <!-- Create / Edit Timeline Session Modal -->
+        {#if timelineModalOpen}
+          <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+            <div class="glass rounded-3xl border border-white/10 p-6 sm:p-8 max-w-lg w-full space-y-5 shadow-2xl bg-neutral-950/95 my-8">
+              <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                <div class="flex items-center gap-2">
+                  <CalendarClock size={20} class="text-amber-400" />
+                  <h3 class="text-lg font-bold text-white">
+                    {editingTimelineItem ? 'Edit Schedule Session' : 'Add Schedule Session'}
+                  </h3>
+                </div>
+                <button type="button" onclick={() => (timelineModalOpen = false)} class="text-ink-400 hover:text-white p-1 rounded-lg">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {#if timelineError}
+                <div class="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                  <AlertTriangle size={15} class="shrink-0" />
+                  {timelineError}
+                </div>
+              {/if}
+
+              <div class="space-y-4 text-left">
+                <!-- Title -->
+                <div class="space-y-1.5">
+                  <Label class="text-xs font-semibold text-white">Session Title *</Label>
+                  <Input
+                    bind:value={timelineTitle}
+                    placeholder="e.g., Keynote: The Future of AI in Networking"
+                    class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50"
+                  />
+                </div>
+
+                <!-- Category & Location -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div class="space-y-1.5">
+                    <Label class="text-xs font-semibold text-white">Category</Label>
+                    <select
+                      bind:value={timelineCategory}
+                      class="w-full h-10 rounded-md bg-white/5 border border-white/10 px-3 text-xs text-white focus:outline-none focus:border-amber-400/50"
+                    >
+                      <option value="general" class="bg-slate-900">General</option>
+                      <option value="keynote" class="bg-slate-900">Keynote</option>
+                      <option value="workshop" class="bg-slate-900">Workshop</option>
+                      <option value="panel" class="bg-slate-900">Panel Discussion</option>
+                      <option value="networking" class="bg-slate-900">Networking</option>
+                      <option value="break" class="bg-slate-900">Break / Refreshments</option>
+                    </select>
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <Label class="text-xs font-semibold text-white">Location / Stage</Label>
+                    <Input
+                      bind:value={timelineLocation}
+                      placeholder="e.g., Main Stage, Hall A"
+                      class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50"
+                    />
+                  </div>
+                </div>
+
+                <!-- Date & Time Row -->
+                <div class="space-y-2 p-3.5 bg-white/4 rounded-2xl border border-white/6">
+                  <span class="text-xs font-bold uppercase tracking-wider text-amber-400 block">Session Timing</span>
+                  
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                      <span class="text-[11px] text-ink-400">Start Date & Time</span>
+                      <div class="flex gap-2">
+                        <Input type="date" bind:value={timelineStartDate} class="bg-white/5 border-white/10 text-xs text-white" />
+                        <Input type="time" bind:value={timelineStartTimeVal} class="bg-white/5 border-white/10 text-xs text-white" />
+                      </div>
+                    </div>
+
+                    <div class="space-y-1">
+                      <span class="text-[11px] text-ink-400">End Date & Time</span>
+                      <div class="flex gap-2">
+                        <Input type="date" bind:value={timelineEndDate} class="bg-white/5 border-white/10 text-xs text-white" />
+                        <Input type="time" bind:value={timelineEndTimeVal} class="bg-white/5 border-white/10 text-xs text-white" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Description -->
+                <div class="space-y-1.5">
+                  <Label class="text-xs font-semibold text-white">Description</Label>
+                  <textarea
+                    bind:value={timelineDescription}
+                    rows="3"
+                    placeholder="Provide details about what will happen in this session..."
+                    class="w-full rounded-md bg-white/5 border border-white/10 p-3 text-xs text-white placeholder:text-ink-600 focus:outline-none focus:border-amber-400/50 resize-none"
+                  ></textarea>
+                </div>
+
+                <!-- Speaker Details -->
+                <div class="space-y-3 pt-2 border-t border-white/8">
+                  <span class="text-xs font-bold uppercase tracking-wider text-indigo-400 block">Speaker Information (Optional)</span>
+                  
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                      <Label class="text-xs text-ink-300">Speaker Name</Label>
+                      <Input
+                        bind:value={timelineSpeakerName}
+                        placeholder="e.g., Dr. Sarah Connor"
+                        class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600"
+                      />
+                    </div>
+
+                    <div class="space-y-1.5">
+                      <Label class="text-xs text-ink-300">Speaker Title / Role</Label>
+                      <Input
+                        bind:value={timelineSpeakerRole}
+                        placeholder="e.g., VP of Engineering, OpenTech"
+                        class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <Label class="text-xs text-ink-300">Speaker Avatar URL</Label>
+                    <Input
+                      bind:value={timelineSpeakerAvatarUrl}
+                      placeholder="https://..."
+                      class="bg-white/5 border-white/10 text-white text-xs placeholder:text-ink-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <Button
+                  variant="ghost"
+                  onclick={() => (timelineModalOpen = false)}
+                  class="text-ink-400 hover:text-white text-xs"
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  onclick={saveTimelineItem}
+                  disabled={savingTimelineItem}
+                  class="gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-5 text-xs rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.3)]"
+                >
+                  {#if savingTimelineItem}
+                    <LoaderCircle size={14} class="animate-spin" />
+                    Saving…
+                  {:else}
+                    <Save size={14} />
+                    {editingTimelineItem ? 'Update Session' : 'Save Session'}
+                  {/if}
+                </Button>
+              </div>
+            </div>
+          </div>
         {/if}
 
         <!-- Settings Date Calendar Popover Modal -->

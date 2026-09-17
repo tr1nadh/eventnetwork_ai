@@ -172,6 +172,7 @@ export const load = async ({ params, locals }) => {
         updated_at: new Date().toISOString()
       },
       suggestedMatches: [],
+      timeline: [],
       user: locals.user,
       isOrganizer: false,
       isParticipant: false,
@@ -267,9 +268,18 @@ export const load = async ({ params, locals }) => {
     }
   }
 
+  // Fetch timeline items for event
+  const { data: timelineData } = await admin
+    .from('event_timeline')
+    .select('*')
+    .eq('event_id', data.id)
+    .order('start_time', { ascending: true })
+    .order('sort_order', { ascending: true });
+
   return {
     event: data,
     suggestedMatches,
+    timeline: timelineData ?? [],
     user: locals.user,
     isOrganizer,
     isParticipant,

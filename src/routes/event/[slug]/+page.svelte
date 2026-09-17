@@ -1831,7 +1831,7 @@
                           <Crown size={15} class="text-amber-400 shrink-0" />
                           <div class="flex flex-col text-left">
                             <span>Host View</span>
-                            <span class="text-[10px] font-normal text-ink-400">Analytics, Attendees, Overview, Settings</span>
+                            <span class="text-[10px] font-normal text-ink-400">Analytics, Attendees, Settings</span>
                           </div>
                         </DropdownMenu.Item>
 
@@ -1845,7 +1845,7 @@
                           <Eye size={15} class="text-cyan-400 shrink-0" />
                           <div class="flex flex-col text-left">
                             <span>Attendee View</span>
-                            <span class="text-[10px] font-normal text-ink-400">Overview, Network, Attendees, Venue</span>
+                            <span class="text-[10px] font-normal text-ink-400">Overview, Network, Venue</span>
                           </div>
                         </DropdownMenu.Item>
                       </DropdownMenu.Content>
@@ -1955,14 +1955,6 @@
                 </Tabs.Trigger>
 
                 <Tabs.Trigger
-                  value="details"
-                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
-                >
-                  <Info size={16} />
-                  <span>Overview</span>
-                </Tabs.Trigger>
-
-                <Tabs.Trigger
                   value="settings"
                   class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
                 >
@@ -1977,20 +1969,6 @@
                 >
                   <Info size={16} />
                   <span>Overview</span>
-                </Tabs.Trigger>
-
-                <Tabs.Trigger
-                  value="attendees"
-                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
-                >
-                  <Users size={16} />
-                  <span class="flex items-center gap-1.5"
-                    >Attendees {#if attendeesList.length || currentEvent.attendees_count}<span
-                        class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300"
-                        >{attendeesList.length || currentEvent.attendees_count}</span
-                      >
-                    {/if}</span
-                  >
                 </Tabs.Trigger>
 
                 {#if Boolean(currentEvent.is_network_enabled)}

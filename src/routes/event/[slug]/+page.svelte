@@ -401,6 +401,16 @@
   let timelineError = "";
   let deletingTimelineItemId = null;
 
+  function getNextFiveMinuteSlot(baseDate = new Date()) {
+    const d = new Date(baseDate);
+    const ms = 1000 * 60 * 5;
+    const rounded = new Date(Math.ceil(d.getTime() / ms) * ms);
+    if (rounded.getTime() <= d.getTime()) {
+      rounded.setMinutes(rounded.getMinutes() + 5);
+    }
+    return rounded;
+  }
+
   function openCreateTimelineModal() {
     editingTimelineItem = null;
     timelineTitle = "";
@@ -408,12 +418,19 @@
     timelineLocation = "";
     timelineCategory = "general";
     
-    const eventStart = currentEvent?.start_time ? new Date(currentEvent.start_time) : new Date();
-    const eventStartStr = getFormattedDateStr(eventStart);
-    timelineStartDate = eventStartStr;
-    timelineStartTimeVal = "09:00";
-    timelineEndDate = eventStartStr;
-    timelineEndTimeVal = "10:00";
+    const now = new Date();
+    const nextSlot = getNextFiveMinuteSlot(now);
+
+    timelineStartDate = getFormattedDateStr(nextSlot);
+    const h = String(nextSlot.getHours()).padStart(2, '0');
+    const m = String(nextSlot.getMinutes()).padStart(2, '0');
+    timelineStartTimeVal = `${h}:${m}`;
+    
+    const defaultEnd = new Date(nextSlot.getTime() + 30 * 60 * 1000);
+    timelineEndDate = getFormattedDateStr(defaultEnd);
+    const endH = String(defaultEnd.getHours()).padStart(2, '0');
+    const endM = String(defaultEnd.getMinutes()).padStart(2, '0');
+    timelineEndTimeVal = `${endH}:${endM}`;
     
     timelineSpeakerName = "";
     timelineSpeakerRole = "";
@@ -473,12 +490,62 @@
 
   function setTimelineStartToNow() {
     const now = new Date();
-    timelineStartDate = getFormattedDateStr(now);
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
+    const nextSlot = getNextFiveMinuteSlot(now);
+    timelineStartDate = getFormattedDateStr(nextSlot);
+    const h = String(nextSlot.getHours()).padStart(2, '0');
+    const m = String(nextSlot.getMinutes()).padStart(2, '0');
     timelineStartTimeVal = `${h}:${m}`;
     applyDurationShortcut(30);
   }
+
+  $: minAllowedStartTime = (() => {
+    const now = new Date();
+    const today = getFormattedDateStr(now);
+    if (timelineStartDate === today) {
+      const nextSlot = getNextFiveMinuteSlot(now);
+      const h = String(nextSlot.getHours()).padStart(2, '0');
+      const m = String(nextSlot.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    }
+    return undefined;
+  })();
+
+  $: minAllowedEndTime = (() => {
+    if (timelineStartDate && timelineEndDate && timelineStartDate === timelineEndDate && timelineStartTimeVal) {
+      return timelineStartTimeVal;
+    }
+    return undefined;
+  })();
+
+  $: calculatedDurationText = (() => {
+    if (!timelineStartDate || !timelineStartTimeVal || !timelineEndDate || !timelineEndTimeVal) return null;
+    const startDt = new Date(`${timelineStartDate}T${timelineStartTimeVal}`);
+    const endDt = new Date(`${timelineEndDate}T${timelineEndTimeVal}`);
+    if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) return null;
+    const diffMins = Math.round((endDt.getTime() - startDt.getTime()) / (1000 * 60));
+    if (diffMins <= 0) return "Invalid duration";
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    if (hours === 0) return `${mins} mins`;
+    if (mins === 0) return `${hours} hr${hours > 1 ? 's' : ''}`;
+    return `${hours}h ${mins}m`;
+  })();
+
+  $: isStartTimeInPast = (() => {
+    if (!timelineStartDate || !timelineStartTimeVal) return false;
+    const startDt = new Date(`${timelineStartDate}T${timelineStartTimeVal}`);
+    if (isNaN(startDt.getTime())) return false;
+    const now = new Date();
+    return startDt < new Date(now.getTime() - 60 * 1000);
+  })();
+
+  $: isEndTimeBeforeStart = (() => {
+    if (!timelineStartDate || !timelineStartTimeVal || !timelineEndDate || !timelineEndTimeVal) return false;
+    const startDt = new Date(`${timelineStartDate}T${timelineStartTimeVal}`);
+    const endDt = new Date(`${timelineEndDate}T${timelineEndTimeVal}`);
+    if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) return false;
+    return endDt <= startDt;
+  })();
 
   async function saveTimelineItem() {
     timelineError = "";
@@ -500,8 +567,8 @@
       return;
     }
 
-    // Strict validation: block past start times (5 min grace buffer for clock skew)
-    if (startDt < new Date(now.getTime() - 5 * 60 * 1000)) {
+    // Strict validation: block past start times
+    if (startDt < new Date(now.getTime() - 60 * 1000)) {
       timelineError = "Session start time cannot be in the past.";
       return;
     }
@@ -586,20 +653,56 @@
   function formatTimelineTimeRange(start, end) {
     if (!start) return "";
     const startDate = new Date(start);
+    if (isNaN(startDate.getTime())) return "";
+
     const startTimeStr = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     if (!end) return startTimeStr;
+
     const endDate = new Date(end);
+    if (isNaN(endDate.getTime())) return startTimeStr;
+
     const endTimeStr = endDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    
-    const sameDay = startDate.getFullYear() === endDate.getFullYear() &&
-                    startDate.getMonth() === endDate.getMonth() &&
-                    startDate.getDate() === endDate.getDate();
-    if (sameDay) {
-      return `${startTimeStr} - ${endTimeStr}`;
+
+    const diffMins = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60)));
+    let durStr = "";
+    if (diffMins > 0) {
+      if (diffMins < 60) {
+        durStr = `${diffMins}m`;
+      } else {
+        const hrs = Math.floor(diffMins / 60);
+        const remainingMins = diffMins % 60;
+        durStr = remainingMins ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
+      }
     }
-    const startDateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const endDateStr = endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return `${startDateStr}, ${startTimeStr} – ${endDateStr}, ${endTimeStr}`;
+
+    const now = new Date();
+    const todayStr = getFormattedDateStr(now);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = getFormattedDateStr(tomorrow);
+
+    const startDateStr = getFormattedDateStr(startDate);
+    const endDateStr = getFormattedDateStr(endDate);
+
+    const formatDayLabel = (dt, dStr) => {
+      if (dStr === todayStr) return "Today";
+      if (dStr === tomorrowStr) return "Tomorrow";
+      return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    };
+
+    const startLabel = formatDayLabel(startDate, startDateStr);
+    const endLabel = formatDayLabel(endDate, endDateStr);
+
+    const durSuffix = durStr ? ` (${durStr})` : "";
+
+    if (startDateStr === endDateStr) {
+      if (startDateStr === todayStr) {
+        return `Today, ${startTimeStr} – ${endTimeStr}${durSuffix}`;
+      }
+      return `${startLabel}, ${startTimeStr} – ${endTimeStr}${durSuffix}`;
+    }
+
+    return `${startLabel}, ${startTimeStr} – ${endLabel}, ${endTimeStr}${durSuffix}`;
   }
 
   const categorySuggestions = [
@@ -5266,31 +5369,75 @@
                 </div>
 
                 <!-- Session Timing -->
-                <div class="space-y-4 p-4 sm:p-5 bg-white/[0.03] rounded-xl border border-white/8">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Session Timing</span>
+                <div class="space-y-4 p-4 sm:p-5 bg-white/[0.03] rounded-xl border border-white/10">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Session Timing</span>
+                      {#if calculatedDurationText}
+                        <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-amber-400/15 border border-amber-400/30 text-amber-300">
+                          ⏱️ {calculatedDurationText}
+                        </span>
+                      {/if}
+                    </div>
                     <button
                       type="button"
                       onclick={setTimelineStartToNow}
-                      class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/20 transition-colors"
-                    >⚡ Set Start to Now</button>
+                      class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/20 transition-colors shrink-0 cursor-pointer"
+                    >⚡ Next Available Slot</button>
                   </div>
 
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Start Date & Time -->
                     <div class="space-y-1.5">
-                      <span class="text-xs text-ink-300 font-medium block">Start Date & Time</span>
+                      <label class="text-xs text-ink-300 font-medium flex items-center justify-between">
+                        <span>Start Date & Time</span>
+                        <span class="text-[10px] text-ink-400 font-mono">5m interval</span>
+                      </label>
                       <div class="grid grid-cols-2 gap-2">
-                        <Input type="date" min={todayStr} bind:value={timelineStartDate} class="bg-white/5 border-white/10 text-xs text-white h-10 w-full" />
-                        <Input type="time" bind:value={timelineStartTimeVal} class="bg-white/5 border-white/10 text-xs text-white h-10 w-full" />
+                        <Input
+                          type="date"
+                          min={todayStr}
+                          bind:value={timelineStartDate}
+                          class="bg-white/5 border-white/10 text-xs text-white h-10 w-full focus:border-amber-400/50"
+                        />
+                        <Input
+                          type="time"
+                          step="300"
+                          min={minAllowedStartTime}
+                          bind:value={timelineStartTimeVal}
+                          class="bg-white/5 border-white/10 text-xs text-white h-10 w-full focus:border-amber-400/50 {isStartTimeInPast ? 'border-red-500/60 bg-red-500/10 text-red-300' : ''}"
+                        />
                       </div>
+                      {#if isStartTimeInPast}
+                        <p class="text-[11px] text-red-400 flex items-center gap-1 font-medium pt-0.5">
+                          ⚠️ Start time cannot be in the past.
+                        </p>
+                      {/if}
                     </div>
 
+                    <!-- End Date & Time -->
                     <div class="space-y-1.5">
-                      <span class="text-xs text-ink-300 font-medium block">End Date & Time</span>
+                      <label class="text-xs text-ink-300 font-medium block">End Date & Time</label>
                       <div class="grid grid-cols-2 gap-2">
-                        <Input type="date" min={timelineStartDate || todayStr} bind:value={timelineEndDate} class="bg-white/5 border-white/10 text-xs text-white h-10 w-full" />
-                        <Input type="time" bind:value={timelineEndTimeVal} class="bg-white/5 border-white/10 text-xs text-white h-10 w-full" />
+                        <Input
+                          type="date"
+                          min={timelineStartDate || todayStr}
+                          bind:value={timelineEndDate}
+                          class="bg-white/5 border-white/10 text-xs text-white h-10 w-full focus:border-amber-400/50"
+                        />
+                        <Input
+                          type="time"
+                          step="300"
+                          min={minAllowedEndTime}
+                          bind:value={timelineEndTimeVal}
+                          class="bg-white/5 border-white/10 text-xs text-white h-10 w-full focus:border-amber-400/50 {isEndTimeBeforeStart ? 'border-red-500/60 bg-red-500/10 text-red-300' : ''}"
+                        />
                       </div>
+                      {#if isEndTimeBeforeStart}
+                        <p class="text-[11px] text-red-400 flex items-center gap-1 font-medium pt-0.5">
+                          ⚠️ End time must be after start time.
+                        </p>
+                      {/if}
                     </div>
                   </div>
 
@@ -5366,8 +5513,8 @@
 
                 <Button
                   onclick={saveTimelineItem}
-                  disabled={savingTimelineItem}
-                  class="gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-5 h-10 text-sm rounded-xl shadow-[0_0_14px_rgba(251,191,36,0.25)] transition-all"
+                  disabled={savingTimelineItem || isStartTimeInPast || isEndTimeBeforeStart}
+                  class="gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-5 h-10 text-sm rounded-xl shadow-[0_0_14px_rgba(251,191,36,0.25)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {#if savingTimelineItem}
                     <LoaderCircle size={15} class="animate-spin" />

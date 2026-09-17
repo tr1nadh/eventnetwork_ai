@@ -24,6 +24,7 @@
     RefreshCcw,
     Brain,
     UserCircle2,
+    Eye,
     Target,
     RefreshCw,
     Info,
@@ -38,7 +39,13 @@
     UserCheck,
     Clock,
     MapPinOff,
+    ChevronDown,
     Settings,
+    Save,
+    AlertTriangle,
+    Copy,
+    Check,
+    Calendar,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -363,6 +370,310 @@
   let deletingEvent = false;
   let deleteEventError = "";
 
+  // --- Event Settings Tab State & Handlers ---
+  let settingsName = currentEvent?.name ?? '';
+  let settingsDescription = currentEvent?.description ?? '';
+  let settingsSlug = currentEvent?.slug ?? '';
+  let settingsLocation = currentEvent?.location ?? '';
+  let settingsGoogleMapUrl = currentEvent?.google_map_url ?? '';
+  let settingsEventFormat = currentEvent?.event_format ?? 'offline';
+
+  let settingsStartTime = currentEvent?.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : '';
+  let settingsEndTime = currentEvent?.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
+  let settingsIsApprovalRequired = Boolean(currentEvent?.is_approval_required);
+  let settingsIsVenueEnabled = currentEvent?.is_venue_enabled !== false;
+  let settingsIsNetworkEnabled = Boolean(currentEvent?.is_network_enabled);
+
+  $: if (currentEvent) {
+    settingsName = currentEvent.name ?? '';
+    settingsDescription = currentEvent.description ?? '';
+    settingsSlug = currentEvent.slug ?? '';
+    settingsLocation = currentEvent.location ?? '';
+    settingsGoogleMapUrl = currentEvent.google_map_url ?? '';
+    settingsEventFormat = currentEvent.event_format ?? 'offline';
+    settingsStartTime = currentEvent.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : '';
+    settingsEndTime = currentEvent.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
+    settingsIsApprovalRequired = Boolean(currentEvent.is_approval_required);
+    settingsIsVenueEnabled = currentEvent.is_venue_enabled !== false;
+    settingsIsNetworkEnabled = Boolean(currentEvent.is_network_enabled);
+  }
+
+  let settingsStartDate = settingsStartTime ? settingsStartTime.split('T')[0] : '';
+  let settingsStartTimeVal = settingsStartTime ? settingsStartTime.split('T')[1]?.slice(0, 5) : '09:00';
+  let settingsEndDate = settingsEndTime ? settingsEndTime.split('T')[0] : '';
+  let settingsEndTimeVal = settingsEndTime ? settingsEndTime.split('T')[1]?.slice(0, 5) : '17:00';
+
+  $: if (settingsStartDate && settingsStartTimeVal) {
+    settingsStartTime = `${settingsStartDate}T${settingsStartTimeVal}`;
+  } else if (!settingsStartDate) {
+    settingsStartTime = '';
+  }
+
+  $: if (settingsEndDate && settingsEndTimeVal) {
+    settingsEndTime = `${settingsEndDate}T${settingsEndTimeVal}`;
+  } else if (!settingsEndDate) {
+    settingsEndTime = '';
+  }
+
+  function getFormattedDateStr(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  const todayStr = getFormattedDateStr(new Date());
+
+  function setStartDateQuick(type) {
+    const d = new Date();
+    if (type === 'tomorrow') d.setDate(d.getDate() + 1);
+    else if (type === 'nextweek') d.setDate(d.getDate() + 7);
+    settingsStartDate = getFormattedDateStr(d);
+    if (!settingsEndDate || settingsEndDate < settingsStartDate) {
+      settingsEndDate = settingsStartDate;
+    }
+  }
+
+  function setEndDateQuick(type) {
+    if (!settingsStartDate) setStartDateQuick('today');
+    const d = new Date(settingsStartDate ? new Date(settingsStartDate) : new Date());
+    if (type === 'sameday') {
+      settingsEndDate = settingsStartDate;
+    } else if (type === 'nextday') {
+      d.setDate(d.getDate() + 1);
+      settingsEndDate = getFormattedDateStr(d);
+    }
+  }
+
+  function formatTime12h(timeStr) {
+    if (!timeStr) return '12:00 PM';
+    const [h, m] = timeStr.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const displayH = h % 12 || 12;
+    const displayHStr = String(displayH).padStart(2, '0');
+    const displayMStr = String(m || 0).padStart(2, '0');
+    return `${displayHStr}:${displayMStr} ${period}`;
+  }
+
+  function formatDateHuman(dateStr) {
+    if (!dateStr) return 'Select Date';
+    const parts = dateStr.split('-').map(Number);
+    if (parts.length < 3) return dateStr;
+    const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+    return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  let activeDatePicker = null;
+  let viewMonth = new Date().getMonth();
+  let viewYear = new Date().getFullYear();
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  function openCalendar(target) {
+    activeDatePicker = target;
+    const targetDateStr = target === 'start' ? settingsStartDate : settingsEndDate;
+    if (targetDateStr && targetDateStr.includes('-')) {
+      const parts = targetDateStr.split('-').map(Number);
+      viewYear = parts[0];
+      viewMonth = parts[1] - 1;
+    } else {
+      viewMonth = new Date().getMonth();
+      viewYear = new Date().getFullYear();
+    }
+  }
+
+  function getCalendarGrid(year, month) {
+    const numDays = new Date(year, month + 1, 0).getDate();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const grid = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      grid.push(null);
+    }
+    for (let d = 1; d <= numDays; d++) {
+      const monthStr = String(month + 1).padStart(2, '0');
+      const dayStr = String(d).padStart(2, '0');
+      grid.push({ day: d, dateStr: `${year}-${monthStr}-${dayStr}` });
+    }
+    return grid;
+  }
+
+  function prevMonth() {
+    if (viewMonth === 0) {
+      viewMonth = 11;
+      viewYear--;
+    } else {
+      viewMonth--;
+    }
+  }
+
+  function nextMonth() {
+    if (viewMonth === 11) {
+      viewMonth = 0;
+      viewYear++;
+    } else {
+      viewMonth++;
+    }
+  }
+
+  function selectCalendarDate(dateStr) {
+    if (activeDatePicker === 'start') {
+      settingsStartDate = dateStr;
+      if (!settingsEndDate || settingsEndDate < settingsStartDate) {
+        settingsEndDate = settingsStartDate;
+      }
+    } else if (activeDatePicker === 'end') {
+      settingsEndDate = dateStr;
+    }
+    activeDatePicker = null;
+  }
+
+  let activeTimePicker = null;
+  let clockHour = 9;
+  let clockMinute = 0;
+  let clockPeriod = 'AM';
+
+  function openClock(target) {
+    activeTimePicker = target;
+    const timeVal = target === 'start' ? settingsStartTimeVal : settingsEndTimeVal;
+    if (timeVal) {
+      const [h24, m] = timeVal.split(':').map(Number);
+      clockPeriod = h24 >= 12 ? 'PM' : 'AM';
+      clockHour = h24 % 12 || 12;
+      clockMinute = m || 0;
+    } else {
+      clockHour = 9;
+      clockMinute = 0;
+      clockPeriod = 'AM';
+    }
+  }
+
+  function applyClockTime() {
+    let h24 = clockHour % 12;
+    if (clockPeriod === 'PM') h24 += 12;
+    const hStr = String(h24).padStart(2, '0');
+    const mStr = String(clockMinute).padStart(2, '0');
+    const newTimeVal = `${hStr}:${mStr}`;
+
+    if (activeTimePicker === 'start') {
+      settingsStartTimeVal = newTimeVal;
+      if (settingsStartDate === settingsEndDate && settingsEndTimeVal <= settingsStartTimeVal) {
+        const nextH24 = (h24 + 1) % 24;
+        settingsEndTimeVal = `${String(nextH24).padStart(2, '0')}:${mStr}`;
+      }
+    } else if (activeTimePicker === 'end') {
+      settingsEndTimeVal = newTimeVal;
+    }
+    activeTimePicker = null;
+  }
+
+  $: now = new Date();
+  $: eventStart = currentEvent?.start_time ? new Date(currentEvent.start_time) : null;
+  $: eventEnd = currentEvent?.end_time ? new Date(currentEvent.end_time) : null;
+  $: isEventLive = Boolean(eventStart && eventStart <= now && (!eventEnd || new Date(eventEnd) >= now));
+  $: isEventEnded = Boolean(eventEnd && new Date(eventEnd) < now);
+
+  $: isStartInPast = Boolean(!isEventLive && !isEventEnded && settingsStartDate && settingsStartDate < todayStr);
+  $: isEndBeforeStart = Boolean(
+    (settingsEndDate && settingsStartDate && settingsEndDate < settingsStartDate) ||
+    (settingsStartDate && settingsEndDate && settingsStartDate === settingsEndDate && settingsStartTimeVal && settingsEndTimeVal && settingsEndTimeVal <= settingsStartTimeVal)
+  );
+  $: isTimeInvalid = isStartInPast || isEndBeforeStart;
+
+  let savingTabSettings = false;
+  let saveTabSettingsError = '';
+  let saveTabSettingsSuccess = false;
+
+  let settingsDeleteConfirmOpen = false;
+  let settingsDeleteConfirmText = '';
+  let settingsDeleting = false;
+
+  let copiedSlug = false;
+  function copySlugUrl() {
+    if (typeof window === 'undefined') return;
+    const fullUrl = `${window.location.origin}/event/${settingsSlug}`;
+    navigator.clipboard.writeText(fullUrl);
+    copiedSlug = true;
+    toast.success('Event link copied to clipboard!');
+    setTimeout(() => (copiedSlug = false), 2000);
+  }
+
+  async function saveTabSettings() {
+    savingTabSettings = true;
+    saveTabSettingsError = '';
+    saveTabSettingsSuccess = false;
+
+    try {
+      const res = await fetch(`/api/events/${currentEvent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: settingsName,
+          description: settingsDescription,
+          slug: settingsSlug,
+          location: settingsLocation,
+          google_map_url: settingsGoogleMapUrl,
+          event_format: settingsEventFormat,
+          start_time: settingsStartTime ? new Date(settingsStartTime).toISOString() : null,
+          end_time: settingsEndTime ? new Date(settingsEndTime).toISOString() : null,
+          is_approval_required: settingsIsApprovalRequired,
+          is_venue_enabled: settingsIsVenueEnabled,
+          is_network_enabled: settingsIsNetworkEnabled,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        saveTabSettingsError = json?.message ?? json?.error ?? 'Failed to save changes.';
+        toast.error(saveTabSettingsError);
+        return;
+      }
+
+      if (json?.event) {
+        currentEvent = json.event;
+      }
+
+      saveTabSettingsSuccess = true;
+      toast.success('Event settings updated successfully.');
+
+      if (settingsSlug !== data.event.slug) {
+        goto(`/event/${settingsSlug}`, { replaceState: true });
+      }
+    } catch (e) {
+      saveTabSettingsError = e.message ?? 'Something went wrong.';
+      toast.error(saveTabSettingsError);
+    } finally {
+      savingTabSettings = false;
+    }
+  }
+
+  async function deleteEventInSettings() {
+    settingsDeleting = true;
+    try {
+      const res = await fetch(`/api/events/${currentEvent.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error(json?.message ?? 'Failed to delete event.');
+        return;
+      }
+
+      toast.success('Event deleted.');
+      await goto('/events');
+    } catch (e) {
+      toast.error('Something went wrong.');
+    } finally {
+      settingsDeleting = false;
+    }
+  }
+
   function openEditModal() {
     editEventName = currentEvent.name || "";
     editEventSlug = currentEvent.slug || "";
@@ -481,6 +792,11 @@
   let stage = data.isOrganizer || data.isParticipant
     ? "workspace"
     : "preview";
+
+  let ownerViewMode = data.isOrganizer ? "organizer" : "attendee";
+  if (data.isOrganizer) {
+    activeTab.set("analytics");
+  }
 
   // Initialize matches store with server data
   matchesStore.set(data.suggestedMatches ?? []);
@@ -1482,29 +1798,58 @@
           <div
             class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10 relative"
           >
-            {#if data.isOrganizer}
-              <div class="absolute top-4 right-4">
-                <a
-                  href="/event/{currentEvent.slug}/settings"
-                  class="inline-flex h-9 w-9 items-center justify-center rounded-xl glass border border-white/10 text-ink-400 hover:text-white hover:border-indigo-400/50 hover:bg-white/10 transition-all shadow-sm"
-                  title="Event Settings"
-                  aria-label="Event Settings"
-                >
-                  <Settings size={18} class="hover:rotate-45 transition-transform duration-300" />
-                </a>
-              </div>
-            {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
                 <div class="flex flex-wrap items-center justify-center gap-2">
                   {#if data.isOrganizer}
-                    <Badge
-                      variant="secondary"
-                      class="gap-1.5 border-amber-400/30 bg-amber-400/10 text-amber-300 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
-                    >
-                      <Crown size={14} class="text-amber-400" />
-                      Hosting
-                    </Badge>
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger
+                        class="inline-flex items-center gap-2 rounded-xl bg-white/6 px-3.5 py-1.5 border border-white/10 text-xs font-bold shadow-lg transition-all hover:bg-white/10 hover:border-amber-400/40 focus-visible:outline-none"
+                      >
+                        {#if ownerViewMode === 'organizer'}
+                          <Crown size={14} class="text-amber-400" />
+                          <span class="text-amber-300">Host View (Owner Tabs)</span>
+                        {:else}
+                          <Eye size={14} class="text-cyan-400" />
+                          <span class="text-cyan-300">Attendee View (Attendee Tabs)</span>
+                        {/if}
+                        <ChevronDown size={14} class="text-ink-400 ml-1" />
+                      </DropdownMenu.Trigger>
+
+                      <DropdownMenu.Content class="w-60 mt-2 glass border border-white/10 shadow-2xl p-1 z-50">
+                        <DropdownMenu.Label class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5">
+                          View Mode
+                        </DropdownMenu.Label>
+                        <DropdownMenu.Separator class="my-1 border-white/10" />
+                        <DropdownMenu.Item
+                          class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'organizer' ? 'bg-amber-400/15 text-amber-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          onSelect={() => {
+                            ownerViewMode = 'organizer';
+                            activeTab.set('analytics');
+                          }}
+                        >
+                          <Crown size={15} class="text-amber-400 shrink-0" />
+                          <div class="flex flex-col text-left">
+                            <span>Host View</span>
+                            <span class="text-[10px] font-normal text-ink-400">Analytics, Attendees, Overview, Settings</span>
+                          </div>
+                        </DropdownMenu.Item>
+
+                        <DropdownMenu.Item
+                          class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'attendee' ? 'bg-cyan-400/15 text-cyan-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          onSelect={() => {
+                            ownerViewMode = 'attendee';
+                            activeTab.set('details');
+                          }}
+                        >
+                          <Eye size={15} class="text-cyan-400 shrink-0" />
+                          <div class="flex flex-col text-left">
+                            <span>Attendee View</span>
+                            <span class="text-[10px] font-normal text-ink-400">Overview, Network, Attendees, Venue</span>
+                          </div>
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Root>
                   {:else if data.isParticipant}
                     <Badge
                       variant="secondary"
@@ -1580,66 +1925,101 @@
         >
           <!-- Scrollable tabs wrapper -->
           <div
-            class="overflow-x-auto overflow-y-hidden scrollbar-hide rounded-xl"
+            class="flex items-center justify-between gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide rounded-xl"
           >
             <Tabs.List
               class="glass rounded-xl flex min-w-max divide-x divide-white/10"
             >
-              <Tabs.Trigger
-                value="details"
-                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
-              >
-                <Info size={16} />
-                <span>Overview</span>
-              </Tabs.Trigger>
-
-              <Tabs.Trigger
-                value="attendees"
-                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
-              >
-                <Users size={16} />
-                <span class="flex items-center gap-1.5"
-                  >Attendees {#if attendeesList.length || currentEvent.attendees_count}<span
-                      class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300"
-                      >{attendeesList.length || currentEvent.attendees_count}</span
-                    >
-                  {/if}</span
-                >
-              </Tabs.Trigger>
-
-              <Tabs.Trigger
-                value="analytics"
-                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-200 data-[state=inactive]:text-ink-500 hover:text-cyan-200"
-              >
-                <BarChart3 size={16} />
-                <span>Analytics</span>
-              </Tabs.Trigger>
-
-{#if Boolean(currentEvent.is_network_enabled)}
-              <Tabs.Trigger
-                value="network"
-                class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-violet-400/15 data-[state=active]:text-violet-200 data-[state=inactive]:text-ink-500 hover:text-violet-200"
-              >
-                <Network size={16} />
-                <span class="flex items-center gap-1.5"
-                  >Network
-                  {#if $matchesStore.length || $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length}
-                    <span class="rounded-full bg-violet-400/20 px-1.5 py-0.5 text-[10px] font-bold text-violet-300">
-                      {$matchesStore.length + $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length}
-                    </span>
-                  {/if}
-                </span>
-              </Tabs.Trigger>
-{/if}
-{#if Boolean(currentEvent.is_venue_enabled)}
+              {#if data.isOrganizer && ownerViewMode === "organizer"}
+                <!-- Host Mode Tabs -->
                 <Tabs.Trigger
-                  value="venue"
-                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
+                  value="analytics"
+                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
                 >
-                  <MapPin size={16} />
-                  <span>Venue</span>
+                  <BarChart3 size={16} />
+                  <span>Analytics</span>
                 </Tabs.Trigger>
-{/if}
+
+                <Tabs.Trigger
+                  value="attendees"
+                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
+                >
+                  <Users size={16} />
+                  <span class="flex items-center gap-1.5"
+                    >Attendees {#if attendeesList.length || currentEvent.attendees_count}<span
+                        class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300"
+                        >{attendeesList.length || currentEvent.attendees_count}</span
+                      >
+                    {/if}</span
+                  >
+                </Tabs.Trigger>
+
+                <Tabs.Trigger
+                  value="details"
+                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
+                >
+                  <Info size={16} />
+                  <span>Overview</span>
+                </Tabs.Trigger>
+
+                <Tabs.Trigger
+                  value="settings"
+                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
+                >
+                  <Settings size={16} />
+                  <span>Settings</span>
+                </Tabs.Trigger>
+              {:else}
+                <!-- Attendee Mode Tabs -->
+                <Tabs.Trigger
+                  value="details"
+                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
+                >
+                  <Info size={16} />
+                  <span>Overview</span>
+                </Tabs.Trigger>
+
+                <Tabs.Trigger
+                  value="attendees"
+                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
+                >
+                  <Users size={16} />
+                  <span class="flex items-center gap-1.5"
+                    >Attendees {#if attendeesList.length || currentEvent.attendees_count}<span
+                        class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300"
+                        >{attendeesList.length || currentEvent.attendees_count}</span
+                      >
+                    {/if}</span
+                  >
+                </Tabs.Trigger>
+
+                {#if Boolean(currentEvent.is_network_enabled)}
+                  <Tabs.Trigger
+                    value="network"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-violet-400/15 data-[state=active]:text-violet-200 data-[state=inactive]:text-ink-500 hover:text-violet-200"
+                  >
+                    <Network size={16} />
+                    <span class="flex items-center gap-1.5"
+                      >Network
+                      {#if $matchesStore.length || $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length}
+                        <span class="rounded-full bg-violet-400/20 px-1.5 py-0.5 text-[10px] font-bold text-violet-300">
+                          {$matchesStore.length + $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length}
+                        </span>
+                      {/if}
+                    </span>
+                  </Tabs.Trigger>
+                {/if}
+
+                {#if Boolean(currentEvent.is_venue_enabled)}
+                  <Tabs.Trigger
+                    value="venue"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
+                  >
+                    <MapPin size={16} />
+                    <span>Venue</span>
+                  </Tabs.Trigger>
+                {/if}
+              {/if}
             </Tabs.List>
           </div>
 
@@ -3850,7 +4230,569 @@
               </div>
             {/if}
           </Tabs.Content>
+
+          <!-- Settings tab -->
+          {#if data.isOrganizer}
+            <Tabs.Content value="settings" class="mt-4 space-y-6">
+              <!-- Live or Ended Event Status Banner -->
+              {#if isEventEnded}
+                <div class="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-red-300 text-xs">
+                  <AlertTriangle size={18} class="shrink-0 text-red-400 mt-0.5" />
+                  <div>
+                    <p class="font-bold text-sm text-red-400">📁 Event Ended — Read-Only Mode</p>
+                    <p class="text-ink-400 mt-0.5 leading-relaxed">
+                      This event has ended. Settings are locked to preserve historical records. You can still delete the event below if needed.
+                    </p>
+                  </div>
+                </div>
+              {:else if isEventLive}
+                <div class="flex items-start gap-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-indigo-300 text-xs">
+                  <Clock size={18} class="shrink-0 text-indigo-400 mt-0.5" />
+                  <div>
+                    <p class="font-bold text-sm text-indigo-300">🔴 Event is Currently Live</p>
+                    <p class="text-ink-400 mt-0.5 leading-relaxed">
+                      Start time is locked while the event is live, but you can update location, end time, venue map, and details.
+                    </p>
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Edit Settings Form -->
+              <div class="glass rounded-2xl border border-white/8 p-6 sm:p-8 space-y-8 shadow-2xl {isEventEnded ? 'opacity-75 pointer-events-none' : ''}">
+                <div class="border-b border-white/8 pb-4 mb-2">
+                  <h2 class="text-base font-bold text-white">General Settings</h2>
+                  <p class="text-xs text-ink-500 mt-0.5">Basic information about your event.</p>
+                </div>
+
+                <!-- Name -->
+                <div class="space-y-2">
+                  <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event Name</Label>
+                  <Input
+                    bind:value={settingsName}
+                    disabled={isEventEnded}
+                    placeholder="My Awesome Event"
+                    class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
+                  />
+                </div>
+
+                <!-- Description -->
+                <div class="space-y-2">
+                  <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Description</Label>
+                  <textarea
+                    bind:value={settingsDescription}
+                    disabled={isEventEnded}
+                    rows="4"
+                    placeholder="What is this event about?"
+                    class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
+                  ></textarea>
+                </div>
+
+                <!-- Slug -->
+                <div class="space-y-2">
+                  <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Slug (URL ID)</Label>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-ink-500 shrink-0">/event/</span>
+                    <Input
+                      bind:value={settingsSlug}
+                      disabled={isEventEnded}
+                      placeholder="my-awesome-event"
+                      class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50 font-mono flex-1"
+                    />
+                    <button
+                      type="button"
+                      onclick={copySlugUrl}
+                      class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-ink-300 hover:text-white transition-colors shrink-0"
+                      title="Copy full event link"
+                    >
+                      {#if copiedSlug}
+                        <Check size={14} class="text-emerald-400" />
+                        <span class="text-emerald-400">Copied</span>
+                      {:else}
+                        <Copy size={14} />
+                        <span>Copy Link</span>
+                      {/if}
+                    </button>
+                  </div>
+                  <p class="text-[11px] text-ink-500">Changing the slug will redirect to the new URL.</p>
+                </div>
+
+                <!-- Format -->
+                <div class="space-y-2">
+                  <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event Format</Label>
+                  <div class="grid grid-cols-3 gap-2">
+                    {#each ['online', 'offline', 'hybrid'] as fmt}
+                      <button
+                        type="button"
+                        disabled={isEventEnded}
+                        onclick={() => (settingsEventFormat = fmt)}
+                        class="py-2.5 rounded-xl border text-sm font-semibold capitalize transition-all {settingsEventFormat === fmt
+                          ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-300'
+                          : 'bg-white/4 border-white/10 text-ink-400 hover:text-white hover:border-white/20'} disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {fmt}
+                      </button>
+                    {/each}
+                  </div>
+                </div>
+
+                <!-- Date & Time Controls -->
+                <div class="space-y-4 border-t border-white/6 pt-4">
+                  <div>
+                    <h3 class="text-sm font-bold text-white mb-0.5">Date & Time Schedule</h3>
+                    <p class="text-xs text-ink-500">Set event start and end schedule.</p>
+                  </div>
+
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <!-- Start Date & Time -->
+                    <div class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3 {isEventLive || isEventEnded ? 'opacity-60' : ''}">
+                      <div class="flex items-center justify-between">
+                        <Label class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+                          <CalendarClock size={14} /> Start Schedule
+                          {#if isEventLive}
+                            <span class="text-[10px] text-amber-400 font-bold ml-1">(Locked - Live)</span>
+                          {/if}
+                        </Label>
+                        {#if !isEventLive && !isEventEnded}
+                          <div class="flex gap-1.5 text-[11px]">
+                            <button type="button" onclick={() => setStartDateQuick('today')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Today</button>
+                            <button type="button" onclick={() => setStartDateQuick('tomorrow')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Tomorrow</button>
+                          </div>
+                        {/if}
+                      </div>
+
+                      <div>
+                        <span class="text-[11px] text-ink-500 block mb-1">Start Date</span>
+                        <button
+                          type="button"
+                          disabled={isEventLive || isEventEnded}
+                          onclick={() => openCalendar('start')}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
+                        >
+                          <span class="flex items-center gap-2">
+                            <Calendar size={15} class="text-indigo-400" />
+                            {formatDateHuman(settingsStartDate)}
+                          </span>
+                          {#if !isEventLive && !isEventEnded}
+                            <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
+                          {/if}
+                        </button>
+                      </div>
+
+                      <div>
+                        <span class="text-[11px] text-ink-500 block mb-1">Start Time</span>
+                        <button
+                          type="button"
+                          disabled={isEventLive || isEventEnded}
+                          onclick={() => openClock('start')}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
+                        >
+                          <span class="flex items-center gap-2">
+                            <Clock size={15} class="text-indigo-400" />
+                            {formatTime12h(settingsStartTimeVal)}
+                          </span>
+                          {#if !isEventLive && !isEventEnded}
+                            <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
+                          {/if}
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- End Date & Time -->
+                    <div class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3">
+                      <div class="flex items-center justify-between">
+                        <Label class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+                          <CalendarClock size={14} /> End Schedule
+                        </Label>
+                        {#if !isEventEnded}
+                          <div class="flex gap-1.5 text-[11px]">
+                            <button type="button" onclick={() => setEndDateQuick('sameday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Same Day</button>
+                            <button type="button" onclick={() => setEndDateQuick('nextday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Next Day</button>
+                          </div>
+                        {/if}
+                      </div>
+
+                      <div>
+                        <span class="text-[11px] text-ink-500 block mb-1">End Date</span>
+                        <button
+                          type="button"
+                          disabled={isEventEnded}
+                          onclick={() => openCalendar('end')}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
+                        >
+                          <span class="flex items-center gap-2">
+                            <Calendar size={15} class="text-indigo-400" />
+                            {formatDateHuman(settingsEndDate)}
+                          </span>
+                          {#if !isEventEnded}
+                            <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
+                          {/if}
+                        </button>
+                      </div>
+
+                      <div>
+                        <span class="text-[11px] text-ink-500 block mb-1">End Time</span>
+                        <button
+                          type="button"
+                          disabled={isEventEnded}
+                          onclick={() => openClock('end')}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
+                        >
+                          <span class="flex items-center gap-2">
+                            <Clock size={15} class="text-indigo-400" />
+                            {formatTime12h(settingsEndTimeVal)}
+                          </span>
+                          {#if !isEventEnded}
+                            <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
+                          {/if}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {#if isStartInPast}
+                    <div class="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
+                      <AlertTriangle size={14} class="shrink-0" />
+                      Start date cannot be in the past.
+                    </div>
+                  {:else if isEndBeforeStart}
+                    <div class="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
+                      <AlertTriangle size={14} class="shrink-0" />
+                      End time must be greater than start time.
+                    </div>
+                  {/if}
+                </div>
+
+                <!-- Location & Venue Map -->
+                {#if settingsEventFormat !== 'online'}
+                  <div class="space-y-4 pt-2 border-t border-white/6">
+                    <div>
+                      <h3 class="text-sm font-bold text-white mb-0.5">Location & Venue</h3>
+                      <p class="text-xs text-ink-500">Venue details for offline and hybrid events.</p>
+                    </div>
+                    <div class="space-y-2">
+                      <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+                        <MapPin size={12} class="inline mr-1 text-amber-400" />Address
+                      </Label>
+                      <textarea
+                        bind:value={settingsLocation}
+                        disabled={isEventEnded}
+                        rows="3"
+                        placeholder="123 Main St, City, Country"
+                        class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
+                      ></textarea>
+                    </div>
+                    <div class="space-y-2">
+                      <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+                        <Globe size={12} class="inline mr-1 text-amber-400" />Google Maps URL
+                      </Label>
+                      <Input
+                        bind:value={settingsGoogleMapUrl}
+                        disabled={isEventEnded}
+                        placeholder="https://maps.google.com/..."
+                        class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
+                      />
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Options Toggles -->
+                <div class="space-y-4 pt-2 border-t border-white/6">
+                  <h3 class="text-sm font-bold text-white">Options</h3>
+
+                  <!-- Enable Networking -->
+                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+                    <div class="flex items-start gap-3">
+                      <Network size={16} class="text-violet-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p class="text-sm font-semibold text-white">Enable Networking</p>
+                        <p class="text-xs text-ink-500 mt-0.5">Show the Network tab with AI matches and connections.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isEventEnded}
+                      onclick={() => (settingsIsNetworkEnabled = !settingsIsNetworkEnabled)}
+                      class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsNetworkEnabled ? 'bg-violet-500' : 'bg-white/10'} disabled:opacity-50"
+                      role="switch"
+                      aria-checked={settingsIsNetworkEnabled}
+                      aria-label="Enable Networking"
+                    >
+                      <span
+                        class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsNetworkEnabled ? 'translate-x-5' : 'translate-x-0'}"
+                      ></span>
+                    </button>
+                  </div>
+
+                  <!-- Enable Venue Map -->
+                  {#if settingsEventFormat !== 'online'}
+                    <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+                      <div class="flex items-start gap-3">
+                        <MapPin size={16} class="text-cyan-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p class="text-sm font-semibold text-white">Enable Venue Map</p>
+                          <p class="text-xs text-ink-500 mt-0.5">Show the interactive venue map tab to attendees.</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isEventEnded}
+                        onclick={() => (settingsIsVenueEnabled = !settingsIsVenueEnabled)}
+                        class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsVenueEnabled ? 'bg-cyan-500' : 'bg-white/10'} disabled:opacity-50"
+                        role="switch"
+                        aria-checked={settingsIsVenueEnabled}
+                        aria-label="Enable Venue Map"
+                      >
+                        <span
+                          class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsVenueEnabled ? 'translate-x-5' : 'translate-x-0'}"
+                        ></span>
+                      </button>
+                    </div>
+                  {/if}
+
+                  <!-- Approval Required -->
+                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+                    <div class="flex items-start gap-3">
+                      <Lock size={16} class="text-amber-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p class="text-sm font-semibold text-white">Approval Required</p>
+                        <p class="text-xs text-ink-500 mt-0.5">New attendees must be approved before joining.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isEventEnded}
+                      onclick={() => (settingsIsApprovalRequired = !settingsIsApprovalRequired)}
+                      class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsApprovalRequired ? 'bg-amber-500' : 'bg-white/10'} disabled:opacity-50"
+                      role="switch"
+                      aria-checked={settingsIsApprovalRequired}
+                      aria-label="Approval Required"
+                    >
+                      <span
+                        class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsApprovalRequired ? 'translate-x-5' : 'translate-x-0'}"
+                      ></span>
+                    </button>
+                  </div>
+                </div>
+
+                {#if saveTabSettingsError}
+                  <div class="flex items-start gap-2 text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
+                    <AlertTriangle size={15} class="shrink-0 mt-0.5" />
+                    {saveTabSettingsError}
+                  </div>
+                {/if}
+
+                {#if saveTabSettingsSuccess}
+                  <div class="flex items-center gap-2 text-emerald-400 text-sm bg-emerald-400/10 border border-emerald-400/20 rounded-xl px-4 py-3">
+                    <CheckCircle2 size={15} class="shrink-0" />
+                    Settings saved successfully.
+                  </div>
+                {/if}
+
+                <Button
+                  onclick={saveTabSettings}
+                  disabled={savingTabSettings || isTimeInvalid || isEventEnded}
+                  class="w-full gap-2 h-11 text-sm font-semibold"
+                >
+                  {#if savingTabSettings}
+                    <LoaderCircle size={15} class="animate-spin" />
+                    Saving…
+                  {:else}
+                    <Save size={15} />
+                    {isEventEnded ? 'Settings Locked (Event Ended)' : 'Save Changes'}
+                  {/if}
+                </Button>
+              </div>
+
+              <!-- Danger Zone Card -->
+              <div class="glass rounded-2xl border border-red-500/20 p-6 sm:p-8">
+                <h2 class="text-base font-bold text-red-400 mb-1">Danger Zone</h2>
+                <p class="text-xs text-ink-500 mb-6">Permanently delete this event and all associated data. This cannot be undone.</p>
+
+                {#if !settingsDeleteConfirmOpen}
+                  <Button
+                    variant="destructive"
+                    class="gap-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30"
+                    onclick={() => (settingsDeleteConfirmOpen = true)}
+                  >
+                    <Trash2 size={14} />
+                    Delete Event
+                  </Button>
+                {:else}
+                  <div class="space-y-4">
+                    <p class="text-sm text-ink-300">
+                      Type <span class="font-mono font-bold text-red-400">{currentEvent.slug}</span> to confirm deletion:
+                    </p>
+                    <Input
+                      bind:value={settingsDeleteConfirmText}
+                      placeholder={currentEvent.slug}
+                      class="bg-white/5 border-red-500/30 text-white placeholder:text-ink-600 focus:border-red-400/50 font-mono max-w-md"
+                    />
+                    <div class="flex gap-3">
+                      <Button
+                        variant="destructive"
+                        class="gap-2 bg-red-600 hover:bg-red-700 text-white"
+                        disabled={settingsDeleteConfirmText !== currentEvent.slug || settingsDeleting}
+                        onclick={deleteEventInSettings}
+                      >
+                        {#if settingsDeleting}
+                          <LoaderCircle size={14} class="animate-spin" />
+                          Deleting…
+                        {:else}
+                          <Trash2 size={14} />
+                          Confirm Delete
+                        {/if}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        class="text-ink-400 hover:text-white"
+                        onclick={() => { settingsDeleteConfirmOpen = false; settingsDeleteConfirmText = ''; }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </Tabs.Content>
+          {/if}
         </Tabs.Root>
+
+        <!-- Settings Date Calendar Popover Modal -->
+        {#if activeDatePicker}
+          <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-4 shadow-2xl bg-neutral-950/95">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                  {activeDatePicker === 'start' ? 'Select Start Date' : 'Select End Date'}
+                </h3>
+                <button type="button" onclick={() => (activeDatePicker = null)} class="text-ink-400 hover:text-white">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div class="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
+                <button type="button" onclick={prevMonth} class="text-ink-400 hover:text-white p-1">
+                  <ArrowLeft size={16} />
+                </button>
+                <span class="text-sm font-semibold text-white">
+                  {MONTH_NAMES[viewMonth]} {viewYear}
+                </span>
+                <button type="button" onclick={nextMonth} class="text-ink-400 hover:text-white p-1">
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+
+              <div class="grid grid-cols-7 gap-1 text-center">
+                {#each ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as dayHead}
+                  <span class="text-[11px] font-bold text-ink-500 py-1">{dayHead}</span>
+                {/each}
+
+                {#each getCalendarGrid(viewYear, viewMonth) as item}
+                  {#if !item}
+                    <div></div>
+                  {:else}
+                    {@const minAllowed = activeDatePicker === 'start' ? todayStr : (settingsStartDate || todayStr)}
+                    {@const isDisabled = item.dateStr < minAllowed}
+                    {@const isSelected = item.dateStr === (activeDatePicker === 'start' ? settingsStartDate : settingsEndDate)}
+                    <button
+                      type="button"
+                      disabled={isDisabled}
+                      onclick={() => selectCalendarDate(item.dateStr)}
+                      class="h-9 w-9 mx-auto rounded-xl text-xs font-semibold flex items-center justify-center transition-all {isSelected
+                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
+                        : isDisabled
+                        ? 'text-white/20 cursor-not-allowed opacity-30'
+                        : 'text-ink-300 hover:bg-white/10 hover:text-white'}"
+                    >
+                      {item.day}
+                    </button>
+                  {/if}
+                {/each}
+              </div>
+
+              <div class="text-[11px] text-ink-500 text-center pt-1 border-t border-white/6">
+                Dates prior to {activeDatePicker === 'start' ? 'today' : 'start date'} are blocked.
+              </div>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Settings Clock Time Picker Popover Modal -->
+        {#if activeTimePicker}
+          <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-5 shadow-2xl bg-neutral-950/95">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Clock size={16} class="text-indigo-400" />
+                  {activeTimePicker === 'start' ? 'Set Start Time' : 'Set End Time'}
+                </h3>
+                <button type="button" onclick={() => (activeTimePicker = null)} class="text-ink-400 hover:text-white">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div class="flex items-center justify-center gap-3 bg-white/5 rounded-2xl p-4 border border-white/8">
+                <div class="text-3xl font-black font-mono text-white tracking-wider">
+                  {String(clockHour).padStart(2, '0')}:{String(clockMinute).padStart(2, '0')}
+                </div>
+                <div class="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onclick={() => (clockPeriod = 'AM')}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'AM' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                  >
+                    AM
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => (clockPeriod = 'PM')}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'PM' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                  >
+                    PM
+                  </button>
+                </div>
+              </div>
+
+              <div class="space-y-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Hour</span>
+                <div class="grid grid-cols-6 gap-1.5">
+                  {#each [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as h}
+                    <button
+                      type="button"
+                      onclick={() => (clockHour = h)}
+                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockHour === h
+                        ? 'bg-indigo-500/30 border border-indigo-400/50 text-indigo-300 font-bold'
+                        : 'bg-white/4 border border-white/6 text-ink-300 hover:bg-white/10 hover:text-white'}"
+                    >
+                      {h}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+
+              <div class="space-y-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Minute</span>
+                <div class="grid grid-cols-4 gap-2">
+                  {#each [0, 15, 30, 45] as m}
+                    <button
+                      type="button"
+                      onclick={() => (clockMinute = m)}
+                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockMinute === m
+                        ? 'bg-indigo-500/30 border border-indigo-400/50 text-indigo-300 font-bold'
+                        : 'bg-white/4 border border-white/6 text-ink-300 hover:bg-white/10 hover:text-white'}"
+                    >
+                      :{String(m).padStart(2, '0')}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+
+              <Button onclick={applyClockTime} class="w-full font-semibold">
+                Apply Time
+              </Button>
+            </div>
+          </div>
+        {/if}
       </div>
     {/if}
 

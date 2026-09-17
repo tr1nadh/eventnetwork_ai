@@ -9,7 +9,7 @@ function slugify(input) {
     .replace(/^-+|-+$/g, '');
 }
 
-const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_format, attendees_count, is_approval_required, is_venue_enabled';
+const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_format, attendees_count, is_approval_required, is_venue_enabled, is_network_enabled';
 
 export async function POST({ request, locals }) {
   if (!locals.user) {

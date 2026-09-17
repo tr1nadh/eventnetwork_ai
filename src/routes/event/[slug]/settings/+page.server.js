@@ -9,7 +9,7 @@ export const load = async ({ params, locals }) => {
   const admin = createSupabaseAdminClient();
   const { data, error: loadError } = await admin
     .from('events')
-    .select('id, name, description, slug, created_by, start_time, end_time, location, google_map_url, event_format, is_approval_required, is_venue_enabled')
+    .select('id, name, description, slug, created_by, start_time, end_time, location, google_map_url, event_format, is_approval_required, is_venue_enabled, is_network_enabled')
     .eq('slug', params.slug)
     .maybeSingle();
 

@@ -1931,6 +1931,7 @@
           </div>
         {/if}
 
+        {#if data.isParticipant || data.isOrganizer}
         <Tabs.Root
           value={$activeTab}
           onValueChange={(v) => {
@@ -4648,6 +4649,7 @@
             </Tabs.Content>
           {/if}
         </Tabs.Root>
+        {/if}
 
         <!-- Settings Date Calendar Popover Modal -->
         {#if activeDatePicker}

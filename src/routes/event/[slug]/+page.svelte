@@ -478,13 +478,9 @@
     }
   }
 
-  let stage = data.isOrganizer
+  let stage = data.isOrganizer || data.isParticipant
     ? "workspace"
-    : data.networkProfile
-      ? "workspace"
-      : data.isParticipant
-        ? "profile"
-        : "preview";
+    : "preview";
 
   // Initialize matches store with server data
   matchesStore.set(data.suggestedMatches ?? []);
@@ -602,6 +598,10 @@
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
   }
+  $: hasCompletedProfile = Boolean(
+    data.networkProfile ||
+    (networkingProfile?.whatTheyDo?.trim()?.length >= 10 && networkingProfile?.whoTheyWant?.trim()?.length >= 10)
+  );
   let loadingConnections = false;
   let connectionFilter = "received"; // received | sent | connected | met
   let networkFilter = "matches"; // matches | received | connected | sent | met
@@ -909,10 +909,10 @@
         );
       }
 
-      stage = "profile";
+      stage = "workspace";
       editProfileOpen = false;
       toast.success("Joined event", {
-        description: "Complete your networking profile to unlock matches.",
+        description: "Go to the Network tab to fill your profile & find AI matches.",
       });
     } catch (error) {
       toast.error("Could not join event", {
@@ -986,6 +986,7 @@
         };
       };
       if (profilePayload.profile) {
+        data.networkProfile = profilePayload.profile;
         networkingProfile = {
           ...networkingProfile,
           ...normalizeProfile(profilePayload.profile),
@@ -2283,6 +2284,78 @@
 {#if Boolean(currentEvent.is_network_enabled)}
           <!-- Network tab (unified Matches + Connections) -->
           <Tabs.Content value="network" class="mt-4">
+            {#if !hasCompletedProfile}
+              <!-- Centered Empty State for Network Profile Completion -->
+              <div class="glass rounded-3xl border border-violet-400/20 p-8 sm:p-12 text-center max-w-2xl mx-auto my-6 space-y-6 shadow-2xl">
+                <div class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-400/30 shadow-lg">
+                  <Sparkles size={32} class="text-violet-300 animate-pulse" />
+                </div>
+
+                <div class="space-y-2">
+                  <Badge variant="secondary" class="gap-1.5 border-violet-400/30 bg-violet-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-violet-200">
+                    <Brain size={13} class="text-violet-300" />
+                    AI Matchmaker
+                  </Badge>
+                  <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                    Fill your network profile to find your matches
+                  </h2>
+                  <p class="text-sm text-ink-300 max-w-md mx-auto leading-relaxed">
+                    Tell us a bit about your background and who you want to meet. The AI will match you with the most relevant attendees at this event.
+                  </p>
+                </div>
+
+                <!-- AI Magic Auto-Fill Box in Network Tab -->
+                <div class="rounded-2xl border border-white/10 bg-white/4 p-4 text-left space-y-3">
+                  <div class="flex items-center justify-between">
+                    <p class="text-xs font-bold uppercase tracking-widest text-cyan-300 flex items-center gap-1.5">
+                      <Sparkles size={14} /> ✨ Magic AI Auto-Fill
+                    </p>
+                    <span class="text-[10px] text-ink-400">Paste bio or LinkedIn blurb</span>
+                  </div>
+                  <textarea
+                    bind:value={aiProfileText}
+                    placeholder={`Hi, I'm Ravi.\n\nI'm a developer building SaaS products and AI apps.\n\nI'm attending this event to meet technical co-founders, investors, and engineers.`}
+                    class="min-h-[100px] w-full rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-5 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/20"
+                  ></textarea>
+
+                  <div class="flex flex-wrap items-center justify-center gap-3 pt-1">
+                    <Button
+                      onclick={generateAiProfile}
+                      disabled={aiGenerating || !aiProfileText.trim()}
+                      class="h-10 text-xs gap-2 px-5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white font-bold shadow-lg shadow-violet-500/20"
+                    >
+                      {#if aiGenerating}
+                        <LoaderCircle size={14} class="animate-spin" />
+                        Generating Profile…
+                      {:else}
+                        <Sparkles size={14} />
+                        Generate My Profile
+                      {/if}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onclick={() => (editProfileOpen = true)}
+                      class="h-10 text-xs gap-2 px-5 border-white/15 text-white hover:bg-white/10 font-semibold"
+                    >
+                      <UserCircle2 size={14} />
+                      Fill your network profile to find your matches
+                    </Button>
+                  </div>
+
+                  {#if aiGenerating}
+                    <AmdAiLoading
+                      message="AI is working..."
+                      detail="Building your networking profile draft from your input."
+                      class="mt-3"
+                    />
+                  {/if}
+
+                  {#if aiGenerationError}
+                    <p class="text-xs text-amber-400 font-medium pt-1 text-center">{aiGenerationError}</p>
+                  {/if}
+                </div>
+              </div>
+            {:else}
             <!-- Network Header -->
             <div class="glass rounded-2xl border border-white/8 p-4 sm:p-5 mb-5">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2939,6 +3012,7 @@
                 </div>
               </Dialog.Content>
             </Dialog.Root>
+            {/if}
           </Tabs.Content>
 {/if}
 

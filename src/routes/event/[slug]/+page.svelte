@@ -598,6 +598,7 @@
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
   }
+  let profileFillMode = "ai"; // "ai" | "manual"
   $: hasCompletedProfile = Boolean(
     data.networkProfile ||
     (networkingProfile?.whatTheyDo?.trim()?.length >= 10 && networkingProfile?.whoTheyWant?.trim()?.length >= 10)
@@ -1055,7 +1056,7 @@
         expectations: generatedProfile.aboutMe ?? "",
         whoTheyWant: generatedProfile.whoTheyWant ?? "",
       };
-      editProfileOpen = true;
+      profileFillMode = "manual";
       toast.success("Profile draft generated", {
         description: "Review the details before saving them.",
       });
@@ -1074,7 +1075,7 @@
 
   function skipAiGeneration() {
     aiGenerationError = "";
-    editProfileOpen = true;
+    profileFillMode = "manual";
   }
 
   // The second redundant onMount was removed during cleanup
@@ -2285,74 +2286,230 @@
           <!-- Network tab (unified Matches + Connections) -->
           <Tabs.Content value="network" class="mt-4">
             {#if !hasCompletedProfile}
-              <!-- Centered Empty State for Network Profile Completion -->
-              <div class="glass rounded-3xl border border-violet-400/20 p-8 sm:p-12 text-center max-w-2xl mx-auto my-6 space-y-6 shadow-2xl">
-                <div class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-400/30 shadow-lg">
-                  <Sparkles size={32} class="text-violet-300 animate-pulse" />
-                </div>
+              <!-- ─── PROFILE STAGE IN NETWORK TAB ─── -->
+              <div class="mx-auto max-w-5xl animate-slide-up my-4">
+                <div
+                  class="glass rounded-3xl border border-violet-400/15 overflow-hidden"
+                >
+                  <div
+                    class="h-1 bg-gradient-to-r from-violet-400 via-cyan-400/70 to-transparent"
+                  ></div>
+                  <div class="p-5 sm:p-6 space-y-4">
+                    {#if profileFillMode === "ai"}
+                      <!-- ── AI Auto-Fill Mode ── -->
+                      <div class="space-y-2">
+                        <Badge
+                          variant="secondary"
+                          class="gap-2 border-violet-400/20 bg-violet-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-violet-200"
+                        >
+                          <Brain size={12} class="text-violet-300" />
+                          AI onboarding
+                        </Badge>
+                        <div class="space-y-2">
+                          <h1
+                            class="text-2xl font-black tracking-tight text-white sm:text-3xl"
+                          >
+                            ✨ Magic AI Profile Auto-Fill
+                          </h1>
+                          <p class="max-w-xl text-sm leading-6 text-ink-300">
+                            Paste a short bio or LinkedIn blurb. The AI will turn it into
+                            a networking profile for review.
+                          </p>
+                        </div>
+                      </div>
 
-                <div class="space-y-2">
-                  <Badge variant="secondary" class="gap-1.5 border-violet-400/30 bg-violet-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-violet-200">
-                    <Brain size={13} class="text-violet-300" />
-                    AI Matchmaker
-                  </Badge>
-                  <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                    Fill your network profile to find your matches
-                  </h2>
-                  <p class="text-sm text-ink-300 max-w-md mx-auto leading-relaxed">
-                    Tell us a bit about your background and who you want to meet. The AI will match you with the most relevant attendees at this event.
-                  </p>
-                </div>
+                      <div class="mx-auto w-full max-w-2xl space-y-3">
+                        <div
+                          class="rounded-2xl border border-white/8 bg-white/4 px-3 py-2"
+                        >
+                          <p
+                            class="text-[10px] font-bold uppercase tracking-widest text-cyan-300"
+                          >
+                            Examples you can paste
+                          </p>
+                          <div
+                            class="mt-2 flex flex-wrap gap-2 text-[11px] leading-5 text-ink-300"
+                          >
+                            <span
+                              class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                              >LinkedIn About</span
+                            >
+                            <span
+                              class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                              >Resume summary</span
+                            >
+                            <span
+                              class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                              >Startup bio</span
+                            >
+                            <span
+                              class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                              >Goals + skills</span
+                            >
+                          </div>
+                        </div>
 
-                <!-- AI Magic Auto-Fill Box in Network Tab -->
-                <div class="rounded-2xl border border-white/10 bg-white/4 p-4 text-left space-y-3">
-                  <div class="flex items-center justify-between">
-                    <p class="text-xs font-bold uppercase tracking-widest text-cyan-300 flex items-center gap-1.5">
-                      <Sparkles size={14} /> ✨ Magic AI Auto-Fill
-                    </p>
-                    <span class="text-[10px] text-ink-400">Paste bio or LinkedIn blurb</span>
+                        <Label
+                          for="ai-profile-input"
+                          class="text-[10px] font-semibold uppercase tracking-widest text-ink-400"
+                        >
+                          Your background
+                        </Label>
+                        <textarea
+                          id="ai-profile-input"
+                          bind:value={aiProfileText}
+                          placeholder={`Hi, I'm Ravi.\n\nI'm a Spring Boot developer with experience building SaaS products and AI applications.\n\nI'm currently building an AI healthcare startup and I'm attending this event to meet technical co-founders, investors and AI engineers.`}
+                          class="min-h-[180px] w-full rounded-2xl border border-white/10 bg-white/4 p-3 text-sm leading-6 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
+                        ></textarea>
+
+                        {#if aiGenerating}
+                          <AmdAiLoading
+                            message="AI is working..."
+                            detail="Building your networking profile draft from your input."
+                          />
+                        {/if}
+
+                        {#if aiGenerationError}
+                          <div
+                            class="rounded-2xl border border-amber-400/20 bg-amber-400/8 p-3 text-sm text-amber-100"
+                          >
+                            <p class="font-semibold">Could not generate your profile.</p>
+                            <p class="mt-1 leading-6 text-amber-100/85">
+                              {aiGenerationError}
+                            </p>
+                            <div class="mt-3">
+                              <Button
+                                variant="outline"
+                                class="h-9 border-amber-300/20 px-3 text-xs text-amber-100 hover:bg-amber-400/10"
+                                onclick={generateAiProfile}
+                                disabled={aiGenerating}
+                              >
+                                Retry
+                              </Button>
+                            </div>
+                          </div>
+                        {/if}
+
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                          <p class="text-[11px] text-ink-400">
+                            The AI will generate a draft you can edit.
+                          </p>
+                          <span
+                            class="text-[10px] uppercase tracking-widest text-ink-500"
+                          >
+                            Review first
+                          </span>
+                        </div>
+
+                        <div class="flex flex-wrap justify-center gap-2 pt-1">
+                          <Button
+                            id="generate-profile-btn"
+                            onclick={generateAiProfile}
+                            disabled={aiGenerating || !aiProfileText.trim()}
+                            class="h-10 gap-2 px-4 text-sm"
+                          >
+                            {#if aiGenerating}
+                              <LoaderCircle size={15} class="animate-spin" />
+                              Generating profile…
+                            {:else}
+                              <Sparkles size={15} />
+                              Generate My Profile
+                            {/if}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onclick={skipAiGeneration}
+                            class="h-10 gap-2 px-4 text-sm"
+                          >
+                            Fill manually
+                          </Button>
+                        </div>
+                      </div>
+                    {:else}
+                      <!-- ── Manual Profile Form Mode ── -->
+                      <div class="flex items-center justify-between border-b border-white/8 pb-3 mb-2">
+                        <div class="flex items-center gap-2">
+                          <UserCircle2 size={18} class="text-indigo-400" />
+                          <h2 class="text-lg font-bold text-white">Fill Networking Profile</h2>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          class="h-8 text-xs text-cyan-300 hover:bg-cyan-400/10 gap-1.5"
+                          onclick={() => (profileFillMode = "ai")}
+                        >
+                          <Sparkles size={13} />
+                          Use AI Auto-Fill
+                        </Button>
+                      </div>
+
+                      <div class="mx-auto w-full max-w-2xl space-y-4">
+                        <div class="grid gap-4 sm:grid-cols-2">
+                          {#each profileFields as field}
+                            <div class="space-y-1.5">
+                              <Label
+                                for={field.wsId}
+                                class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+                              >
+                                {field.label}
+                              </Label>
+                              {#if field.key === "whoTheyAre"}
+                                <Input
+                                  id={field.wsId}
+                                  bind:value={networkingProfile[field.key]}
+                                  placeholder="Your name or headline"
+                                  class="bg-white/4 border-white/10 text-white focus:border-indigo-400/50 focus:ring-indigo-400/20"
+                                />
+                              {:else}
+                                <textarea
+                                  id={field.wsId}
+                                  bind:value={networkingProfile[field.key]}
+                                  placeholder={field.key === 'whatTheyDo' ? 'Describe your skills, background and experience (min 20 chars)...' : field.key === 'whoTheyWant' ? 'Describe who you want to meet at this event (min 20 chars)...' : 'Share any extra background or goals...'}
+                                  class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:ring-indigo-400/20 w-full rounded-xl p-3 text-xs leading-5"
+                                  rows="3"
+                                  maxlength="500"
+                                ></textarea>
+                                <div class="flex justify-between mt-1">
+                                  <span class="text-[10px] text-amber-400/80"
+                                    >{(networkingProfile[field.key]?.length || 0) < 20
+                                      ? "Minimum 20 characters required"
+                                      : ""}</span
+                                  >
+                                  <span class="text-[10px] text-ink-500 text-right"
+                                    >{networkingProfile[field.key]?.length || 0} / 500</span
+                                  >
+                                </div>
+                              {/if}
+                            </div>
+                          {/each}
+                        </div>
+
+                        <div class="flex flex-wrap justify-center gap-3 pt-3">
+                          <Button
+                            onclick={saveProfile}
+                            disabled={savingProfile || !profileValid}
+                            class="h-10 px-6 gap-2 text-sm font-bold bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white"
+                          >
+                            {#if savingProfile}
+                              <LoaderCircle size={15} class="animate-spin" />
+                              Saving Profile…
+                            {:else}
+                              <CheckCircle2 size={15} />
+                              Save Profile
+                            {/if}
+                          </Button>
+                        </div>
+
+                        {#if savingProfile}
+                          <AmdAiLoading
+                            message="AI is working..."
+                            detail="Generating embeddings and saving your networking profile."
+                            class="mt-4"
+                          />
+                        {/if}
+                      </div>
+                    {/if}
                   </div>
-                  <textarea
-                    bind:value={aiProfileText}
-                    placeholder={`Hi, I'm Ravi.\n\nI'm a developer building SaaS products and AI apps.\n\nI'm attending this event to meet technical co-founders, investors, and engineers.`}
-                    class="min-h-[100px] w-full rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-5 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/20"
-                  ></textarea>
-
-                  <div class="flex flex-wrap items-center justify-center gap-3 pt-1">
-                    <Button
-                      onclick={generateAiProfile}
-                      disabled={aiGenerating || !aiProfileText.trim()}
-                      class="h-10 text-xs gap-2 px-5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white font-bold shadow-lg shadow-violet-500/20"
-                    >
-                      {#if aiGenerating}
-                        <LoaderCircle size={14} class="animate-spin" />
-                        Generating Profile…
-                      {:else}
-                        <Sparkles size={14} />
-                        Generate My Profile
-                      {/if}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onclick={() => (editProfileOpen = true)}
-                      class="h-10 text-xs gap-2 px-5 border-white/15 text-white hover:bg-white/10 font-semibold"
-                    >
-                      <UserCircle2 size={14} />
-                      Fill your network profile to find your matches
-                    </Button>
-                  </div>
-
-                  {#if aiGenerating}
-                    <AmdAiLoading
-                      message="AI is working..."
-                      detail="Building your networking profile draft from your input."
-                      class="mt-3"
-                    />
-                  {/if}
-
-                  {#if aiGenerationError}
-                    <p class="text-xs text-amber-400 font-medium pt-1 text-center">{aiGenerationError}</p>
-                  {/if}
                 </div>
               </div>
             {:else}
@@ -3682,77 +3839,7 @@
       </div>
     {/if}
 
-    {#if stage !== "workspace"}
-      <Dialog.Root bind:open={editProfileOpen}>
-        <Dialog.Content
-          class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto"
-        >
-          <Dialog.Header class="hidden">
-            <Dialog.Title>Review networking profile</Dialog.Title>
-          </Dialog.Header>
-          <div class="flex items-center gap-2 mb-5">
-            <Sparkles size={15} class="text-amber-300" />
-            <p
-              class="text-xs font-bold uppercase tracking-widest text-amber-300"
-            >
-              Review networking profile
-            </p>
-          </div>
-          <div class="grid gap-4 sm:grid-cols-2 mb-5">
-            {#each profileFields as field}
-              <div class="space-y-1.5">
-                <Label
-                  for={field.wsId}
-                  class="text-xs font-semibold uppercase tracking-widest text-ink-400"
-                >
-                  {field.label}
-                </Label>
-                {#if field.key === "whoTheyAre"}
-                  <Input
-                    id={field.wsId}
-                    bind:value={networkingProfile[field.key]}
-                    class="bg-white/4 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
-                  />
-                {:else}
-                  <textarea
-                    id={field.wsId}
-                    bind:value={networkingProfile[field.key]}
-                    class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50 focus:ring-amber-400/20 w-full rounded-md p-2"
-                    rows="4"
-                    maxlength="500"
-                  ></textarea>
-                  <div class="flex justify-between mt-1">
-                    <span class="text-[10px] text-amber-500/80"
-                      >{(networkingProfile[field.key]?.length || 0) < 20
-                        ? "Minimum 20 characters required"
-                        : ""}</span
-                    >
-                    <span class="text-[10px] text-ink-500 text-right"
-                      >{networkingProfile[field.key]?.length || 0} / 500</span
-                    >
-                  </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-          <div class="flex flex-wrap gap-3">
-            <Button
-              onclick={saveProfile}
-              disabled={savingProfile || !profileValid}
-              class="gap-2"
-            >
-              {#if savingProfile}
-                <LoaderCircle size={15} class="animate-spin" />
-                Saving…
-              {:else}
-                <CheckCircle2 size={15} />
-                Save Profile
-              {/if}
-            </Button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Root>
-    {/if}
+
     <!-- Edit Event Modal -->
     <Dialog.Root bind:open={editEventModalOpen}>
       <Dialog.Content

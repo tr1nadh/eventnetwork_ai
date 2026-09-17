@@ -2426,30 +2426,45 @@
                         </div>
                       </div>
                     {:else}
-                      <!-- ── Manual Profile Form Mode ── -->
-                      <div class="flex items-center justify-between border-b border-white/8 pb-3 mb-2">
-                        <div class="flex items-center gap-2">
-                          <UserCircle2 size={18} class="text-indigo-400" />
-                          <h2 class="text-lg font-bold text-white">Fill Networking Profile</h2>
+                      <!-- ── AI ONBOARDING MANUAL FORM MODE ── -->
+                      <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                          <Badge
+                            variant="secondary"
+                            class="gap-2 border-violet-400/20 bg-violet-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-violet-200"
+                          >
+                            <Brain size={12} class="text-violet-300" />
+                            AI onboarding
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            class="h-8 text-xs text-cyan-300 hover:bg-cyan-400/10 gap-1.5 font-semibold"
+                            onclick={() => (profileFillMode = "ai")}
+                          >
+                            <Sparkles size={13} />
+                            ✨ Use AI Auto-Fill
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          class="h-8 text-xs text-cyan-300 hover:bg-cyan-400/10 gap-1.5"
-                          onclick={() => (profileFillMode = "ai")}
-                        >
-                          <Sparkles size={13} />
-                          Use AI Auto-Fill
-                        </Button>
+                        <div class="space-y-2">
+                          <h1
+                            class="text-2xl font-black tracking-tight text-white sm:text-3xl"
+                          >
+                            📝 Fill Networking Profile
+                          </h1>
+                          <p class="max-w-xl text-sm leading-6 text-ink-300">
+                            Enter your details manually. The AI will use these details to find your matches.
+                          </p>
+                        </div>
                       </div>
 
-                      <div class="mx-auto w-full max-w-2xl space-y-4">
+                      <div class="mx-auto w-full max-w-2xl space-y-4 pt-2">
                         <div class="grid gap-4 sm:grid-cols-2">
                           {#each profileFields as field}
                             <div class="space-y-1.5">
                               <Label
                                 for={field.wsId}
-                                class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+                                class="text-[10px] font-semibold uppercase tracking-widest text-ink-400"
                               >
                                 {field.label}
                               </Label>
@@ -2458,19 +2473,19 @@
                                   id={field.wsId}
                                   bind:value={networkingProfile[field.key]}
                                   placeholder="Your name or headline"
-                                  class="bg-white/4 border-white/10 text-white focus:border-indigo-400/50 focus:ring-indigo-400/20"
+                                  class="rounded-xl border border-white/10 bg-white/4 p-3 text-sm text-white placeholder:text-ink-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
                                 />
                               {:else}
                                 <textarea
                                   id={field.wsId}
                                   bind:value={networkingProfile[field.key]}
                                   placeholder={field.key === 'whatTheyDo' ? 'Describe your skills, background and experience (min 20 chars)...' : field.key === 'whoTheyWant' ? 'Describe who you want to meet at this event (min 20 chars)...' : 'Share any extra background or goals...'}
-                                  class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:ring-indigo-400/20 w-full rounded-xl p-3 text-xs leading-5"
+                                  class="min-h-[100px] w-full rounded-2xl border border-white/10 bg-white/4 p-3 text-xs leading-5 text-white placeholder:text-ink-600 outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
                                   rows="3"
                                   maxlength="500"
                                 ></textarea>
                                 <div class="flex justify-between mt-1">
-                                  <span class="text-[10px] text-amber-400/80"
+                                  <span class="text-[10px] text-amber-400/90 font-medium"
                                     >{(networkingProfile[field.key]?.length || 0) < 20
                                       ? "Minimum 20 characters required"
                                       : ""}</span
@@ -2488,7 +2503,7 @@
                           <Button
                             onclick={saveProfile}
                             disabled={savingProfile || !profileValid}
-                            class="h-10 px-6 gap-2 text-sm font-bold bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white"
+                            class="h-10 px-6 gap-2 text-sm font-bold bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white shadow-lg shadow-violet-500/20"
                           >
                             {#if savingProfile}
                               <LoaderCircle size={15} class="animate-spin" />

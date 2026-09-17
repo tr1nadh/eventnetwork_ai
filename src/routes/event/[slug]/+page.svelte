@@ -616,6 +616,17 @@
     }
   }
 
+  $: mapZoneSuggestions = (currentEvent?.venue_map && Array.isArray(currentEvent.venue_map) && currentEvent.venue_map.length > 0)
+    ? currentEvent.venue_map
+    : [
+        { id: 'main-stage', name: 'Main Stage' },
+        { id: 'coffee', name: 'Coffee Station' },
+        { id: 'lounge', name: 'Networking Lounge' },
+        { id: 'booth-a', name: 'Sponsor Booth A' },
+        { id: 'booth-b', name: 'Sponsor Booth B' },
+        { id: 'entrance', name: 'Entrance / Reg' }
+      ];
+
   // --- Event Settings Tab State & Handlers ---
   let settingsName = currentEvent?.name ?? '';
   let settingsDescription = currentEvent?.description ?? '';
@@ -5185,6 +5196,21 @@
                       placeholder="e.g., Main Stage, Hall A, Room 302"
                       class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50 h-10"
                     />
+                    <!-- Venue Map Zone Suggestions -->
+                    {#if mapZoneSuggestions.length > 0}
+                      <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span class="text-[11px] text-ink-500 font-medium mr-1">Venue Map Zones:</span>
+                        {#each mapZoneSuggestions as z}
+                          <button
+                            type="button"
+                            onclick={() => (timelineLocation = z.name)}
+                            class="text-[11px] px-2.5 py-1 rounded-full border transition-all {timelineLocation?.toLowerCase().trim() === z.name.toLowerCase().trim() ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-bold shadow-[0_0_10px_rgba(251,191,36,0.2)]' : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
+                          >
+                            📍 {z.name}
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
                   </div>
                 </div>
 

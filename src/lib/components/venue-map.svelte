@@ -52,6 +52,9 @@
     return new Date(isoStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
+  $: unaddedLocations = Array.from(new Set((schedule || []).map(s => s.location).filter(Boolean)))
+    .filter(loc => !zones.some(z => z.name.toLowerCase().trim() === loc.toLowerCase().trim()));
+
   let gridCols = 6;
   let gridRows = 6;
   
@@ -437,6 +440,22 @@
           <div>
             <label class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Zone Name</label>
             <input type="text" bind:value={editForm.name} class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-400/50 focus:outline-none" />
+            
+            <!-- Timeline locations not yet added to Venue Map -->
+            {#if unaddedLocations.length > 0}
+              <div class="flex flex-wrap items-center gap-1.5 pt-2">
+                <span class="text-[10px] text-amber-400/90 font-medium">Unadded Timeline Locations:</span>
+                {#each unaddedLocations as loc}
+                  <button
+                    type="button"
+                    onclick={() => (editForm.name = loc)}
+                    class="text-[10px] px-2 py-0.5 rounded-full border transition-all bg-amber-400/10 border-amber-400/30 text-amber-300 hover:bg-amber-400/20"
+                  >
+                    + {loc}
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
 
           <div>

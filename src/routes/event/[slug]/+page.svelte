@@ -789,9 +789,7 @@
     }
   }
 
-  let stage = data.isOrganizer || data.isParticipant
-    ? "workspace"
-    : "preview";
+  let stage = "workspace";
 
   let ownerViewMode = data.isOrganizer ? "organizer" : "attendee";
   if (data.isOrganizer) {
@@ -1852,6 +1850,8 @@
                       <CheckCheck size={14} class="text-emerald-400" />
                       Joined
                     </Badge>
+                  {:else}
+                    <!-- Join button moved below date & time block -->
                   {/if}
 
                   {#if currentEvent.event_format}
@@ -1906,6 +1906,26 @@
                     </span>
                   {/if}
                 </div>
+
+                <!-- Join button below date & time block -->
+                {#if !data.isOrganizer && !data.isParticipant}
+                  <div class="flex justify-center pt-4">
+                    <Button
+                      id="join-event-btn"
+                      onclick={joinEvent}
+                      disabled={joining}
+                      class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all"
+                    >
+                      {#if joining}
+                        <LoaderCircle size={16} class="animate-spin" />
+                        Joining…
+                      {:else}
+                        <LogIn size={16} />
+                        {#if data.user}Join Event{:else}Join with Google{/if}
+                      {/if}
+                    </Button>
+                  </div>
+                {/if}
               </div>
             </div>
           </div>

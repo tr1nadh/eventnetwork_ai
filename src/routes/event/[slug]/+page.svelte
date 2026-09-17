@@ -1808,45 +1808,39 @@
                       >
                         {#if ownerViewMode === 'organizer'}
                           <Crown size={14} class="text-amber-400" />
-                          <span class="text-amber-300">Host View (Owner Tabs)</span>
+                          <span class="text-amber-300">Host</span>
                         {:else}
                           <Eye size={14} class="text-cyan-400" />
-                          <span class="text-cyan-300">Attendee View (Attendee Tabs)</span>
+                          <span class="text-cyan-300">Attendee</span>
                         {/if}
-                        <ChevronDown size={14} class="text-ink-400 ml-1" />
+                        <ChevronDown size={14} class="text-ink-400 ml-0.5" />
                       </DropdownMenu.Trigger>
 
-                      <DropdownMenu.Content class="w-60 mt-2 glass border border-white/10 shadow-2xl p-1 z-50">
+                      <DropdownMenu.Content class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-50">
                         <DropdownMenu.Label class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5">
                           View Mode
                         </DropdownMenu.Label>
                         <DropdownMenu.Separator class="my-1 border-white/10" />
                         <DropdownMenu.Item
-                          class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'organizer' ? 'bg-amber-400/15 text-amber-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'organizer' ? 'bg-amber-400/15 text-amber-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
                           onSelect={() => {
                             ownerViewMode = 'organizer';
                             activeTab.set('analytics');
                           }}
                         >
                           <Crown size={15} class="text-amber-400 shrink-0" />
-                          <div class="flex flex-col text-left">
-                            <span>Host View</span>
-                            <span class="text-[10px] font-normal text-ink-400">Analytics, Attendees, Settings</span>
-                          </div>
+                          <span>Host</span>
                         </DropdownMenu.Item>
 
                         <DropdownMenu.Item
-                          class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'attendee' ? 'bg-cyan-400/15 text-cyan-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'attendee' ? 'bg-cyan-400/15 text-cyan-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
                           onSelect={() => {
                             ownerViewMode = 'attendee';
                             activeTab.set('details');
                           }}
                         >
                           <Eye size={15} class="text-cyan-400 shrink-0" />
-                          <div class="flex flex-col text-left">
-                            <span>Attendee View</span>
-                            <span class="text-[10px] font-normal text-ink-400">Overview, Network, Venue</span>
-                          </div>
+                          <span>Attendee</span>
                         </DropdownMenu.Item>
                       </DropdownMenu.Content>
                     </DropdownMenu.Root>

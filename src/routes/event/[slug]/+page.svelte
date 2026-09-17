@@ -300,12 +300,19 @@
   function formatEventDateRange(start, end) {
     if (!start) return "";
     const startDate = new Date(start);
-    const dateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const startDateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const startTimeStr = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    if (!end) return `${dateStr}, ${startTimeStr}`;
+    if (!end) return `${startDateStr}, ${startTimeStr}`;
     const endDate = new Date(end);
+    const endDateStr = endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const endTimeStr = endDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    return `${dateStr} • ${startTimeStr} - ${endTimeStr}`;
+    const sameDay = startDate.getFullYear() === endDate.getFullYear() &&
+                    startDate.getMonth() === endDate.getMonth() &&
+                    startDate.getDate() === endDate.getDate();
+    if (sameDay) {
+      return `${startDateStr} • ${startTimeStr} - ${endTimeStr}`;
+    }
+    return `${startDateStr}, ${startTimeStr} – ${endDateStr}, ${endTimeStr}`;
   }
 
   function formatDatetimeLocal(date) {

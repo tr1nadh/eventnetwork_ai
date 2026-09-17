@@ -1,5 +1,5 @@
 <script>
-  import { MapPin, Coffee, Mic, Users, MonitorPlay, Pencil, Plus, Trash2, Save, X } from '@lucide/svelte';
+  import { MapPin, Coffee, Mic, Users, MonitorPlay, Pencil, Plus, Trash2, Save, X, CalendarClock, Clock } from '@lucide/svelte';
   import { createEventDispatcher } from 'svelte';
   import { slide } from 'svelte/transition';
   
@@ -8,6 +8,49 @@
   export let currentLocation = null; // Can be a zone id
   export let isOrganizer = false;
   export let initialZones = null;
+  export let schedule = [];
+
+  // Helper function to find live or upcoming timeline session for a zone
+  function getZoneSchedule(zoneName) {
+    if (!schedule || !Array.isArray(schedule) || schedule.length === 0 || !zoneName) {
+      return { live: null, upcoming: null, all: [] };
+    }
+
+    const nameLower = zoneName.toLowerCase().trim();
+    const zoneSessions = schedule.filter(item => {
+      if (!item.location) return false;
+      const locLower = item.location.toLowerCase().trim();
+      return locLower === nameLower || locLower.includes(nameLower) || nameLower.includes(locLower);
+    });
+
+    if (zoneSessions.length === 0) return { live: null, upcoming: null, all: [] };
+
+    const now = new Date();
+    // Find live session
+    const live = zoneSessions.find(item => {
+      const start = new Date(item.start_time);
+      const end = new Date(item.end_time);
+      return now >= start && now <= end;
+    });
+
+    // Find next upcoming session
+    const upcoming = zoneSessions
+      .filter(item => new Date(item.start_time) > now)
+      .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0];
+
+    const firstSession = zoneSessions.slice().sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0];
+
+    return {
+      live,
+      upcoming: upcoming || (live ? null : firstSession),
+      all: zoneSessions
+    };
+  }
+
+  function formatTime(isoStr) {
+    if (!isoStr) return '';
+    return new Date(isoStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
 
   let gridCols = 6;
   let gridRows = 6;
@@ -252,9 +295,9 @@
   </div>
 
   <!-- Map Grid -->
-  <div class="p-4 sm:p-6 bg-black/40 relative overflow-x-auto overflow-y-hidden">
+  <div class="p-4 sm:p-6 bg-black/40 relative overflow-x-auto overflow-y-hidden scrollbar-hide">
     
-    <div class="grid gap-3 md:gap-4 mx-auto relative z-10 min-w-max sm:min-w-0" 
+    <div class="grid gap-3 md:gap-4 mx-auto relative z-10 min-w-max sm:min-w-0 p-2" 
          style="grid-template-columns: repeat({gridCols}, minmax(80px, 1fr)); grid-auto-rows: minmax(80px, 1fr);">
       
       {#if isEditing}
@@ -265,11 +308,13 @@
       {/if}
 
       {#each zones as zone (zone.id)}
+        {@const zoneSched = getZoneSchedule(zone.name)}
+        {@const activeSession = zoneSched.live || zoneSched.upcoming}
         <div 
           style="grid-column: {zone.x} / span {zone.w}; grid-row: {zone.y} / span {zone.h};"
-          class="relative flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 
+          class="relative flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-center
                  {currentLocation === zone.id && !isEditing
-                    ? 'border-amber-400 bg-amber-400/10 shadow-[0_0_20px_rgba(251,191,36,0.15)] z-20 scale-[1.02]' 
+                    ? 'border-amber-400 bg-amber-400/10 shadow-[0_0_20px_rgba(251,191,36,0.25)] z-20 ring-2 ring-amber-400/50' 
                     : isEditing 
                       ? `bg-gradient-to-br ${zone.color} border-white/30 hover:border-white/80 hover:bg-white/10 border-dashed`
                       : `bg-gradient-to-br ${zone.color} hover:border-white/40 hover:bg-white/5`}"
@@ -279,15 +324,35 @@
              <button class="absolute inset-0 w-full h-full cursor-pointer z-10" onclick={() => setLocation(zone.id)} aria-label="Set location to {zone.name}"></button>
           {/if}
 
-          <svelte:component this={iconMap[zone.icon] || MapPin} size={24} class={currentLocation === zone.id && !isEditing ? 'text-amber-400' : 'text-white/60 mb-2 pointer-events-none'} />
-          <span class="text-sm font-medium {currentLocation === zone.id && !isEditing ? 'text-amber-300 mt-2' : 'text-white/80 text-center pointer-events-none'}">
+          <svelte:component this={iconMap[zone.icon] || MapPin} size={22} class={currentLocation === zone.id && !isEditing ? 'text-amber-400' : 'text-white/60 mb-1 pointer-events-none'} />
+          <span class="text-xs font-bold {currentLocation === zone.id && !isEditing ? 'text-amber-300' : 'text-white/90 text-center pointer-events-none'}">
             {zone.name}
           </span>
+
+          <!-- Session Badge displayed directly on the block without clicking -->
+          {#if activeSession && !isEditing}
+            <div class="mt-1.5 w-full pointer-events-none px-1">
+              {#if zoneSched.live}
+                <div class="bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 px-2 py-1 rounded-lg text-[10px] text-center shadow-sm">
+                  <span class="font-extrabold uppercase text-[9px] text-emerald-400 tracking-wider flex items-center justify-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    LIVE NOW
+                  </span>
+                  <span class="font-bold block truncate text-white mt-0.5" title={activeSession.title}>{activeSession.title}</span>
+                </div>
+              {:else}
+                <div class="bg-amber-400/10 border border-amber-400/20 text-amber-200 px-2 py-1 rounded-lg text-[10px] text-center">
+                  <span class="text-[9px] text-amber-400/80 font-bold block uppercase tracking-wider">UP NEXT</span>
+                  <span class="font-semibold block truncate text-white/90 mt-0.5" title={activeSession.title}>{activeSession.title}</span>
+                </div>
+              {/if}
+            </div>
+          {/if}
           
           {#if currentLocation === zone.id && !isEditing}
             <div class="absolute inset-0 rounded-xl border border-amber-400 animate-ping opacity-20 pointer-events-none"></div>
-            <div class="absolute -top-3 -right-3 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center shadow-lg border-2 border-black pointer-events-none">
-              <MapPin size={12} class="text-black fill-black" />
+            <div class="absolute top-1.5 right-1.5 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center shadow-lg border border-black pointer-events-none z-20">
+              <MapPin size={11} class="text-black fill-black" />
             </div>
           {/if}
 
@@ -325,6 +390,40 @@
       {/each}
     </div>
   </div>
+
+  <!-- Selected Zone Sessions Footer Panel -->
+  {#if currentLocation && !isEditing}
+    {@const activeZoneObj = zones.find(z => z.id === currentLocation)}
+    {@const activeZoneSched = activeZoneObj ? getZoneSchedule(activeZoneObj.name) : null}
+    {#if activeZoneSched && activeZoneSched.all.length > 0}
+      <div class="p-4 sm:p-5 border-t border-white/10 bg-black/40 space-y-3" transition:slide>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <CalendarClock size={16} class="text-amber-400" />
+            <h4 class="text-xs font-bold uppercase tracking-wider text-white">Schedule at {activeZoneObj.name}</h4>
+          </div>
+          <span class="text-[11px] text-ink-400 font-mono">{activeZoneSched.all.length} session{activeZoneSched.all.length === 1 ? '' : 's'}</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {#each activeZoneSched.all as session}
+            <div class="glass rounded-xl border border-white/8 p-3 space-y-1 text-left">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[10px] font-mono font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                  {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                </span>
+                <span class="text-[9px] uppercase font-semibold text-ink-400">{session.category}</span>
+              </div>
+              <p class="text-xs font-bold text-white leading-snug">{session.title}</p>
+              {#if session.speaker_name}
+                <p class="text-[11px] text-indigo-300 font-medium">🎤 {session.speaker_name} {#if session.speaker_role}<span class="text-ink-500">({session.speaker_role})</span>{/if}</p>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
+  {/if}
 
   <!-- Edit Zone Modal overlay -->
   {#if isEditing && editingZoneId}

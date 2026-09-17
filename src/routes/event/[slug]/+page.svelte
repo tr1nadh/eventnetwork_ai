@@ -580,6 +580,42 @@
     }
   }
 
+  function jumpToVenueLocation(locationName) {
+    if (!locationName) return;
+    if (!currentEvent.is_venue_enabled) {
+      toast.info(`Location: ${locationName}`);
+      return;
+    }
+
+    activeTab.set('venue');
+
+    const defaultZones = [
+      { id: 'main-stage', name: 'Main Stage' },
+      { id: 'coffee', name: 'Coffee Station' },
+      { id: 'lounge', name: 'Networking Lounge' },
+      { id: 'booth-a', name: 'Sponsor Booth A' },
+      { id: 'booth-b', name: 'Sponsor Booth B' },
+      { id: 'entrance', name: 'Entrance / Reg' }
+    ];
+    const zones = (currentEvent.venue_map && Array.isArray(currentEvent.venue_map) && currentEvent.venue_map.length > 0)
+      ? currentEvent.venue_map
+      : defaultZones;
+
+    const locLower = locationName.toLowerCase().trim();
+    const matchedZone = zones.find(z =>
+      z.name.toLowerCase().trim() === locLower ||
+      locLower.includes(z.name.toLowerCase().trim()) ||
+      z.name.toLowerCase().trim().includes(locLower)
+    );
+
+    if (matchedZone) {
+      venueLocation = matchedZone.id;
+      toast.success(`Navigating to ${matchedZone.name} on Venue Map`);
+    } else {
+      toast.info(`Showing Venue Map for "${locationName}"`);
+    }
+  }
+
   // --- Event Settings Tab State & Handlers ---
   let settingsName = currentEvent?.name ?? '';
   let settingsDescription = currentEvent?.description ?? '';
@@ -2358,10 +2394,15 @@
                               {/if}
 
                               {#if item.location}
-                                <span class="inline-flex items-center gap-1 text-ink-300 bg-white/4 px-2.5 py-1 rounded-md border border-white/6">
+                                <button
+                                  type="button"
+                                  onclick={() => jumpToVenueLocation(item.location)}
+                                  class="inline-flex items-center gap-1 text-ink-300 bg-white/4 hover:bg-amber-400/15 hover:text-amber-300 hover:border-amber-400/30 transition-colors px-2.5 py-1 rounded-md border border-white/6 cursor-pointer"
+                                  title={currentEvent.is_venue_enabled ? `Click to view ${item.location} on Venue Map` : item.location}
+                                >
                                   <MapPin size={12} class="text-amber-400" />
                                   {item.location}
-                                </span>
+                                </button>
                               {/if}
                             </div>
                           {/if}
@@ -4503,6 +4544,7 @@
                 isOrganizer={data.isOrganizer && !isEventEnded}
                 initialZones={currentEvent.venue_map}
                 currentLocation={venueLocation}
+                schedule={timelineItems}
                 on:locationChange={(e) => {
                   venueLocation = e.detail;
                 }}
@@ -5008,10 +5050,15 @@
                             {item.category || 'General'}
                           </span>
                           {#if item.location}
-                            <span class="inline-flex items-center gap-1 text-xs text-ink-300 bg-white/4 px-2 py-0.5 rounded-md border border-white/6">
+                            <button
+                              type="button"
+                              onclick={() => jumpToVenueLocation(item.location)}
+                              class="inline-flex items-center gap-1 text-xs text-ink-300 bg-white/4 hover:bg-amber-400/15 hover:text-amber-300 hover:border-amber-400/30 transition-colors px-2 py-0.5 rounded-md border border-white/6 cursor-pointer"
+                              title={currentEvent.is_venue_enabled ? `Click to view ${item.location} on Venue Map` : item.location}
+                            >
                               <MapPin size={12} class="text-amber-400" />
                               {item.location}
-                            </span>
+                            </button>
                           {/if}
                         </div>
 

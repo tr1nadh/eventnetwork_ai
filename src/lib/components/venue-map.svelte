@@ -53,6 +53,59 @@
     return new Date(isoStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
+  function formatTimelineTimeRange(start, end) {
+    if (!start) return "";
+    const startDate = new Date(start);
+    if (isNaN(startDate.getTime())) return "";
+
+    const startTimeStr = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (!end) return startTimeStr;
+
+    const endDate = new Date(end);
+    if (isNaN(endDate.getTime())) return startTimeStr;
+
+    const endTimeStr = endDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+    const diffMins = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60)));
+    let durStr = "";
+    if (diffMins > 0) {
+      if (diffMins < 60) {
+        durStr = `${diffMins}m`;
+      } else {
+        const hrs = Math.floor(diffMins / 60);
+        const remainingMins = diffMins % 60;
+        durStr = remainingMins ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
+      }
+    }
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
+
+    const startDateStr = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`;
+    const endDateStr = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}`;
+
+    const formatDayLabel = (dt, dStr) => {
+      if (dStr === todayStr) return "Today";
+      if (dStr === tomorrowStr) return "Tomorrow";
+      return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    };
+
+    const startLabel = formatDayLabel(startDate, startDateStr);
+    const endLabel = formatDayLabel(endDate, endDateStr);
+
+    const durSuffix = durStr ? ` (${durStr})` : "";
+
+    if (startDateStr === endDateStr) {
+      return `${startLabel}, ${startTimeStr} – ${endTimeStr}${durSuffix}`;
+    }
+
+    return `${startLabel}, ${startTimeStr} – ${endLabel}, ${endTimeStr}${durSuffix}`;
+  }
+
   $: unaddedLocations = Array.from(new Set((schedule || []).map(s => s.location).filter(Boolean)))
     .filter(loc => !zones.some(z => z.name.toLowerCase().trim() === loc.toLowerCase().trim()));
 
@@ -414,7 +467,7 @@
             <div class="glass rounded-xl border border-white/8 p-3 space-y-1 text-left">
               <div class="flex items-center justify-between gap-2">
                 <span class="text-[10px] font-mono font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
-                  {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                  {formatTimelineTimeRange(session.start_time, session.end_time)}
                 </span>
                 <span class="text-[9px] uppercase font-semibold text-ink-400">{session.category}</span>
               </div>

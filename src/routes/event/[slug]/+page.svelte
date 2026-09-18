@@ -696,12 +696,10 @@
     const durSuffix = durStr ? ` (${durStr})` : "";
 
     if (startDateStr === endDateStr) {
-      if (startDateStr === todayStr) {
-        return `Today, ${startTimeStr} – ${endTimeStr}${durSuffix}`;
-      }
       return `${startLabel}, ${startTimeStr} – ${endTimeStr}${durSuffix}`;
     }
 
+    // Spans across different days (e.g. starts Today, ends Tomorrow)
     return `${startLabel}, ${startTimeStr} – ${endLabel}, ${endTimeStr}${durSuffix}`;
   }
 
@@ -880,6 +878,79 @@
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+
+  // --- Timeline Calendar & Clock Logic ---
+  let activeTimelineDatePicker = null; // 'start' | 'end' | null
+  function openTimelineCalendar(target) {
+    activeTimelineDatePicker = target;
+    const targetDateStr = target === 'start' ? timelineStartDate : timelineEndDate;
+    if (targetDateStr && targetDateStr.includes('-')) {
+      const parts = targetDateStr.split('-').map(Number);
+      viewYear = parts[0];
+      viewMonth = parts[1] - 1;
+    } else {
+      viewMonth = new Date().getMonth();
+      viewYear = new Date().getFullYear();
+    }
+  }
+
+  function selectTimelineCalendarDate(dateStr) {
+    if (activeTimelineDatePicker === 'start') {
+      timelineStartDate = dateStr;
+      if (!timelineEndDate || timelineEndDate < timelineStartDate) {
+        timelineEndDate = timelineStartDate;
+      }
+    } else if (activeTimelineDatePicker === 'end') {
+      timelineEndDate = dateStr;
+    }
+    activeTimelineDatePicker = null;
+  }
+
+  let activeTimelineTimePicker = null; // 'start' | 'end' | null
+  function openTimelineClock(target) {
+    activeTimelineTimePicker = target;
+    const timeVal = target === 'start' ? timelineStartTimeVal : timelineEndTimeVal;
+    if (timeVal) {
+      const [h24, m] = timeVal.split(':').map(Number);
+      clockPeriod = h24 >= 12 ? 'PM' : 'AM';
+      clockHour = h24 % 12 || 12;
+      clockMinute = m || 0;
+    } else {
+      clockHour = 9;
+      clockMinute = 0;
+      clockPeriod = 'AM';
+    }
+  }
+
+  function applyTimelineClockTime() {
+    let h24 = clockHour % 12;
+    if (clockPeriod === 'PM') h24 += 12;
+    const hStr = String(h24).padStart(2, '0');
+    const mStr = String(clockMinute).padStart(2, '0');
+    const newTimeVal = `${hStr}:${mStr}`;
+
+    if (activeTimelineTimePicker === 'start') {
+      timelineStartTimeVal = newTimeVal;
+      if (timelineStartDate === timelineEndDate && timelineEndTimeVal <= timelineStartTimeVal) {
+        const nextH24 = (h24 + 1) % 24;
+        timelineEndTimeVal = `${String(nextH24).padStart(2, '0')}:${mStr}`;
+      }
+    } else if (activeTimelineTimePicker === 'end') {
+      timelineEndTimeVal = newTimeVal;
+    }
+    activeTimelineTimePicker = null;
+  }
+
+  function isTimelineTimeDisabled(h, m, period, target) {
+    if (target !== 'start') return false;
+    const now = new Date();
+    const today = getFormattedDateStr(now);
+    if (timelineStartDate !== today) return false;
+    let h24 = h % 12;
+    if (period === 'PM') h24 += 12;
+    const selectedTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h24, m, 0, 0);
+    return selectedTime <= now;
+  }
 
   function openCalendar(target) {
     activeDatePicker = target;
@@ -5394,19 +5465,28 @@
                         <span class="text-[10px] text-ink-400 font-mono">5m interval</span>
                       </label>
                       <div class="grid grid-cols-2 gap-2">
-                        <Input
-                          type="date"
-                          min={todayStr}
-                          bind:value={timelineStartDate}
-                          class="bg-white/5 border-white/10 text-xs text-white h-10 w-full focus:border-amber-400/50"
-                        />
-                        <Input
-                          type="time"
-                          step="300"
-                          min={minAllowedStartTime}
-                          bind:value={timelineStartTimeVal}
-                          class="bg-white/5 border-white/10 text-xs text-white h-10 w-full focus:border-amber-400/50 {isStartTimeInPast ? 'border-red-500/60 bg-red-500/10 text-red-300' : ''}"
-                        />
+                        <!-- Custom Date Button -->
+                        <button
+                          type="button"
+                          onclick={() => openTimelineCalendar('start')}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors"
+                        >
+                          <span class="flex items-center gap-2">
+                            <Calendar size={14} class="text-amber-400" />
+                            {formatDateHuman(timelineStartDate)}
+                          </span>
+                        </button>
+                        <!-- Custom Clock Time Button -->
+                        <button
+                          type="button"
+                          onclick={() => openTimelineClock('start')}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors {isStartTimeInPast ? 'border-red-500/60 bg-red-500/10 text-red-300' : ''}"
+                        >
+                          <span class="flex items-center gap-2">
+                            <Clock size={14} class="text-amber-400" />
+                            {formatTime12h(timelineStartTimeVal)}
+                          </span>
+                        </button>
                       </div>
                       {#if isStartTimeInPast}
                         <p class="text-[11px] text-red-400 flex items-center gap-1 font-medium pt-0.5">
@@ -5419,19 +5499,28 @@
                     <div class="space-y-1.5">
                       <label class="text-xs text-ink-300 font-medium block">End Date & Time</label>
                       <div class="grid grid-cols-2 gap-2">
-                        <Input
-                          type="date"
-                          min={timelineStartDate || todayStr}
-                          bind:value={timelineEndDate}
-                          class="bg-white/5 border-white/10 text-xs text-white h-10 w-full focus:border-amber-400/50"
-                        />
-                        <Input
-                          type="time"
-                          step="300"
-                          min={minAllowedEndTime}
-                          bind:value={timelineEndTimeVal}
-                          class="bg-white/5 border-white/10 text-xs text-white h-10 w-full focus:border-amber-400/50 {isEndTimeBeforeStart ? 'border-red-500/60 bg-red-500/10 text-red-300' : ''}"
-                        />
+                        <!-- Custom Date Button -->
+                        <button
+                          type="button"
+                          onclick={() => openTimelineCalendar('end')}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors"
+                        >
+                          <span class="flex items-center gap-2">
+                            <Calendar size={14} class="text-amber-400" />
+                            {formatDateHuman(timelineEndDate)}
+                          </span>
+                        </button>
+                        <!-- Custom Clock Time Button -->
+                        <button
+                          type="button"
+                          onclick={() => openTimelineClock('end')}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors {isEndTimeBeforeStart ? 'border-red-500/60 bg-red-500/10 text-red-300' : ''}"
+                        >
+                          <span class="flex items-center gap-2">
+                            <Clock size={14} class="text-amber-400" />
+                            {formatTime12h(timelineEndTimeVal)}
+                          </span>
+                        </button>
                       </div>
                       {#if isEndTimeBeforeStart}
                         <p class="text-[11px] text-red-400 flex items-center gap-1 font-medium pt-0.5">
@@ -5523,6 +5612,164 @@
                     <Save size={15} />
                     {editingTimelineItem ? 'Update Session' : 'Save Session'}
                   {/if}
+                </Button>
+              </div>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Timeline Date Calendar Popover Modal -->
+        {#if activeTimelineDatePicker}
+          <div class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-4 shadow-2xl bg-neutral-950/95">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                  {activeTimelineDatePicker === 'start' ? 'Select Start Date' : 'Select End Date'}
+                </h3>
+                <button type="button" onclick={() => (activeTimelineDatePicker = null)} class="text-ink-400 hover:text-white">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div class="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
+                <button type="button" onclick={prevMonth} class="text-ink-400 hover:text-white p-1">
+                  <ArrowLeft size={16} />
+                </button>
+                <span class="text-sm font-semibold text-white">
+                  {MONTH_NAMES[viewMonth]} {viewYear}
+                </span>
+                <button type="button" onclick={nextMonth} class="text-ink-400 hover:text-white p-1">
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+
+              <div class="grid grid-cols-7 gap-1 text-center">
+                {#each ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as dayHead}
+                  <span class="text-[11px] font-bold text-ink-500 py-1">{dayHead}</span>
+                {/each}
+
+                {#each getCalendarGrid(viewYear, viewMonth) as item}
+                  {#if !item}
+                    <div></div>
+                  {:else}
+                    {@const minAllowed = activeTimelineDatePicker === 'start' ? todayStr : (timelineStartDate || todayStr)}
+                    {@const isDisabled = item.dateStr < minAllowed}
+                    {@const isSelected = item.dateStr === (activeTimelineDatePicker === 'start' ? timelineStartDate : timelineEndDate)}
+                    <button
+                      type="button"
+                      disabled={isDisabled}
+                      onclick={() => selectTimelineCalendarDate(item.dateStr)}
+                      class="h-9 w-9 mx-auto rounded-xl text-xs font-semibold flex items-center justify-center transition-all {isSelected
+                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
+                        : isDisabled
+                        ? 'text-white/20 cursor-not-allowed opacity-30'
+                        : 'text-ink-300 hover:bg-white/10 hover:text-white'}"
+                    >
+                      {item.day}
+                    </button>
+                  {/if}
+                {/each}
+              </div>
+
+              <div class="text-[11px] text-ink-500 text-center pt-1 border-t border-white/6">
+                Dates prior to {activeTimelineDatePicker === 'start' ? 'today' : 'start date'} are blocked.
+              </div>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Timeline Clock Time Picker Popover Modal -->
+        {#if activeTimelineTimePicker}
+          <div class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-5 shadow-2xl bg-neutral-950/95">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Clock size={16} class="text-amber-400" />
+                  {activeTimelineTimePicker === 'start' ? 'Set Start Time' : 'Set End Time'}
+                </h3>
+                <button type="button" onclick={() => (activeTimelineTimePicker = null)} class="text-ink-400 hover:text-white">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <!-- Clock Display -->
+              <div class="flex items-center justify-center gap-3 bg-white/5 rounded-2xl p-4 border border-white/8">
+                <div class="text-3xl font-black font-mono text-white tracking-wider">
+                  {String(clockHour).padStart(2, '0')}:{String(clockMinute).padStart(2, '0')}
+                </div>
+                <div class="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onclick={() => (clockPeriod = 'AM')}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'AM' ? 'bg-amber-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                  >
+                    AM
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => (clockPeriod = 'PM')}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'PM' ? 'bg-amber-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                  >
+                    PM
+                  </button>
+                </div>
+              </div>
+
+              <!-- Hours Selection Grid -->
+              <div class="space-y-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Hour</span>
+                <div class="grid grid-cols-6 gap-1.5">
+                  {#each [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as h}
+                    <button
+                      type="button"
+                      onclick={() => (clockHour = h)}
+                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockHour === h
+                        ? 'bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold'
+                        : 'bg-white/5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10'}"
+                    >
+                      {h}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+
+              <!-- Minutes Selection Grid -->
+              <div class="space-y-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-ink-400 flex items-center justify-between">
+                  <span>Minute</span>
+                  <span class="text-[9px] text-ink-500 font-normal normal-case">5m steps</span>
+                </span>
+                <div class="grid grid-cols-6 gap-1.5">
+                  {#each [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] as m}
+                    {@const isDisabled = isTimelineTimeDisabled(clockHour, m, clockPeriod, activeTimelineTimePicker)}
+                    <button
+                      type="button"
+                      disabled={isDisabled}
+                      onclick={() => (clockMinute = m)}
+                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockMinute === m
+                        ? 'bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold'
+                        : isDisabled
+                        ? 'text-white/20 cursor-not-allowed opacity-30'
+                        : 'bg-white/5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10'}"
+                    >
+                      {String(m).padStart(2, '0')}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="pt-2 flex flex-col gap-2">
+                {#if isTimelineTimeDisabled(clockHour, clockMinute, clockPeriod, activeTimelineTimePicker)}
+                  <p class="text-[11px] text-red-400 text-center font-medium">Selected time is in the past.</p>
+                {/if}
+                <Button
+                  onclick={applyTimelineClockTime}
+                  disabled={isTimelineTimeDisabled(clockHour, clockMinute, clockPeriod, activeTimelineTimePicker)}
+                  class="w-full gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold disabled:opacity-50"
+                >
+                  <Check size={16} />
+                  Apply Time
                 </Button>
               </div>
             </div>

@@ -184,12 +184,30 @@
     dispatch('locationChange', currentLocation);
   }
 
+  let backupState = null;
+
   function toggleEditMode() {
+    if (!isEditing) {
+      backupState = JSON.stringify({ zones, gridCols, gridRows });
+    }
     isEditing = !isEditing;
+  }
+
+  function cancelEdit() {
+    if (backupState) {
+      const b = JSON.parse(backupState);
+      zones = b.zones;
+      gridCols = b.gridCols;
+      gridRows = b.gridRows;
+    }
+    isEditing = false;
+    editingZoneId = null;
+    backupState = null;
   }
 
   function saveMap() {
     isEditing = false;
+    backupState = null;
     dispatch('saveMap', zones);
   }
 
@@ -396,6 +414,10 @@
               <span class="text-sm text-white font-mono w-5 text-center">{gridRows}</span>
               <button onclick={() => gridRows++} class="w-6 h-6 flex items-center justify-center bg-white/10 text-white rounded hover:bg-white/20 text-sm font-bold">+</button>
             </div>
+            <button onclick={cancelEdit} class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-sm font-semibold hover:bg-red-500/20 transition-colors">
+              <X size={14} />
+              Cancel
+            </button>
             <button onclick={saveMap} class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-semibold hover:bg-emerald-500/30 transition-colors">
               <Save size={14} />
               Save

@@ -1,5 +1,5 @@
 <script>
-  import { MapPin, Coffee, Mic, Users, MonitorPlay, Pencil, Plus, Trash2, Save, X, CalendarClock, Clock, DoorOpen, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from '@lucide/svelte';
+  import { MapPin, Coffee, Mic, Users, MonitorPlay, Pencil, Plus, Trash2, Save, X, CalendarClock, Clock, DoorOpen, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Music, Ticket, Sofa, Droplets, Utensils, Store, Info, Car } from '@lucide/svelte';
   import { createEventDispatcher } from 'svelte';
   import { slide } from 'svelte/transition';
   import PillScroller from '$lib/components/pill-scroller.svelte';
@@ -125,7 +125,7 @@
 
   // Map string icon names to actual components
   const iconMap = {
-    Mic, Coffee, Users, MonitorPlay, MapPin
+    MapPin, Mic, Coffee, Users, MonitorPlay, Music, Ticket, Sofa, Droplets, Utensils, Store, Info, Car
   };
 
   // Gracefully migrate legacy cols data and upgrade door property
@@ -676,9 +676,9 @@
 
           <div>
             <div class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Icon</div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
               {#each Object.keys(iconMap) as iconName}
-                <button onclick={() => editForm.icon = iconName} class="p-2 rounded-lg border {editForm.icon === iconName ? 'bg-amber-400/20 border-amber-400/50 text-amber-400' : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white'}">
+                <button onclick={() => editForm.icon = iconName} class="p-2 rounded-lg border transition-colors {editForm.icon === iconName ? 'bg-amber-400/20 border-amber-400/50 text-amber-400' : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white'}">
                   <svelte:component this={iconMap[iconName]} size={20} />
                 </button>
               {/each}

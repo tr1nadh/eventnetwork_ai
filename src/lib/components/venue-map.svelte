@@ -1,5 +1,5 @@
 <script>
-  import { MapPin, Coffee, Mic, Users, MonitorPlay, Pencil, Plus, Trash2, Save, X, CalendarClock, Clock } from '@lucide/svelte';
+  import { MapPin, Coffee, Mic, Users, MonitorPlay, Pencil, Plus, Trash2, Save, X, CalendarClock, Clock, DoorOpen, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from '@lucide/svelte';
   import { createEventDispatcher } from 'svelte';
   import { slide } from 'svelte/transition';
   import PillScroller from '$lib/components/pill-scroller.svelte';
@@ -112,13 +112,15 @@
   let gridCols = 6;
   let gridRows = 6;
   
+  const emptyDoors = () => ({ top: [], bottom: [], left: [], right: [] });
+
   const defaultZones = [
-    { id: 'main-stage', name: 'Main Stage', icon: 'Mic', x: 2, y: 1, w: 4, h: 2, color: 'from-blue-500/20 to-indigo-500/20 border-blue-400/30' },
-    { id: 'coffee', name: 'Coffee Station', icon: 'Coffee', x: 1, y: 1, w: 1, h: 2, color: 'from-amber-500/20 to-orange-500/20 border-amber-400/30' },
-    { id: 'lounge', name: 'Networking Lounge', icon: 'Users', x: 1, y: 3, w: 3, h: 2, color: 'from-emerald-500/20 to-teal-500/20 border-emerald-400/30' },
-    { id: 'booth-a', name: 'Sponsor Booth A', icon: 'MonitorPlay', x: 4, y: 3, w: 1, h: 2, color: 'from-purple-500/20 to-fuchsia-500/20 border-purple-400/30' },
-    { id: 'booth-b', name: 'Sponsor Booth B', icon: 'MonitorPlay', x: 5, y: 3, w: 2, h: 1, color: 'from-pink-500/20 to-rose-500/20 border-pink-400/30' },
-    { id: 'entrance', name: 'Entrance / Reg', icon: 'MapPin', x: 5, y: 4, w: 2, h: 2, color: 'from-gray-500/20 to-slate-500/20 border-gray-400/30' },
+    { id: 'main-stage', name: 'Main Stage', icon: 'Mic', x: 2, y: 1, w: 4, h: 2, color: 'from-blue-500/20 to-indigo-500/20 border-blue-400/30', door: { ...emptyDoors(), bottom: [50] } },
+    { id: 'coffee', name: 'Coffee Station', icon: 'Coffee', x: 1, y: 1, w: 1, h: 2, color: 'from-amber-500/20 to-orange-500/20 border-amber-400/30', door: { ...emptyDoors(), right: [50] } },
+    { id: 'lounge', name: 'Networking Lounge', icon: 'Users', x: 1, y: 3, w: 3, h: 2, color: 'from-emerald-500/20 to-teal-500/20 border-emerald-400/30', door: { ...emptyDoors(), top: [50] } },
+    { id: 'booth-a', name: 'Sponsor Booth A', icon: 'MonitorPlay', x: 4, y: 3, w: 1, h: 2, color: 'from-purple-500/20 to-fuchsia-500/20 border-purple-400/30', door: { ...emptyDoors(), left: [50] } },
+    { id: 'booth-b', name: 'Sponsor Booth B', icon: 'MonitorPlay', x: 5, y: 3, w: 2, h: 1, color: 'from-pink-500/20 to-rose-500/20 border-pink-400/30', door: { ...emptyDoors(), bottom: [50] } },
+    { id: 'entrance', name: 'Entrance / Reg', icon: 'MapPin', x: 5, y: 4, w: 2, h: 2, color: 'from-gray-500/20 to-slate-500/20 border-gray-400/30', door: { ...emptyDoors(), top: [50] } },
   ];
 
   // Map string icon names to actual components
@@ -126,21 +128,41 @@
     Mic, Coffee, Users, MonitorPlay, MapPin
   };
 
-  // Gracefully migrate legacy cols data
+  // Gracefully migrate legacy cols data and upgrade door property
   let zones = (initialZones && Array.isArray(initialZones) && initialZones.length > 0) 
     ? initialZones.map(z => {
-        if (z.cols) {
-          const c = z.cols.match(/col-span-(\d+)/);
-          const r = z.cols.match(/row-span-(\d+)/);
-          return { ...z, x: 1, y: 1, w: c ? parseInt(c[1], 10) : 1, h: r ? parseInt(r[1], 10) : 1, cols: undefined };
+        let newZ = { ...z };
+        if (newZ.cols) {
+          const c = newZ.cols.match(/col-span-(\d+)/);
+          const r = newZ.cols.match(/row-span-(\d+)/);
+          newZ = { ...newZ, x: 1, y: 1, w: c ? parseInt(c[1], 10) : 1, h: r ? parseInt(r[1], 10) : 1, cols: undefined };
         }
-        return z;
+        
+        const d = emptyDoors();
+        if (newZ.door) {
+          if (typeof newZ.door === 'string') {
+            d[newZ.door] = [50];
+          } else {
+             ['top', 'bottom', 'left', 'right'].forEach(side => {
+               if (Array.isArray(newZ.door[side])) {
+                 d[side] = [...newZ.door[side]];
+               } else if (typeof newZ.door[side] === 'number') {
+                 const count = newZ.door[side];
+                 for (let i = 0; i < count; i++) {
+                   d[side].push(((i + 1) / (count + 1)) * 100);
+                 }
+               }
+             });
+          }
+        }
+        newZ.door = d;
+        return newZ;
       })
     : defaultZones;
 
   let isEditing = false;
   let editingZoneId = null; 
-  let editForm = { name: '', icon: '', color: '' };
+  let editForm = { name: '', icon: '', color: '', door: emptyDoors() };
 
   const colorOptions = [
     { value: 'from-blue-500/20 to-indigo-500/20 border-blue-400/30', name: 'Blue' },
@@ -178,6 +200,7 @@
       name: 'New Zone',
       icon: 'MapPin',
       x: 1, y: 1, w: 1, h: 1,
+      door: emptyDoors(),
       color: 'from-gray-500/20 to-slate-500/20 border-gray-400/30'
     }];
     openEditZone(newId);
@@ -187,7 +210,15 @@
     const zone = zones.find(z => z.id === zoneId);
     if (!zone) return;
     editingZoneId = zoneId;
-    editForm = { ...zone };
+    editForm = { 
+      ...zone, 
+      door: { 
+        top: [...zone.door.top], 
+        bottom: [...zone.door.bottom], 
+        left: [...zone.door.left], 
+        right: [...zone.door.right] 
+      } 
+    };
   }
 
   function saveZone() {
@@ -221,8 +252,52 @@
     window.addEventListener('pointerup', onPointerUp);
   }
 
+  function onDoorPointerDown(e, zone, side, index) {
+    if (!isEditing) return;
+    e.stopPropagation();
+    
+    const blockEl = e.currentTarget.closest('.relative.flex');
+    if (!blockEl) return;
+    
+    dragState = {
+      type: 'door',
+      zoneId: zone.id,
+      side,
+      index,
+      rect: blockEl.getBoundingClientRect()
+    };
+    
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  }
+
   function onPointerMove(e) {
     if (!dragState) return;
+    
+    if (dragState.type === 'door') {
+      const { zoneId, side, index, rect } = dragState;
+      let newOffset = 50;
+      
+      if (side === 'top' || side === 'bottom') {
+        newOffset = ((e.clientX - rect.left) / rect.width) * 100;
+      } else {
+        newOffset = ((e.clientY - rect.top) / rect.height) * 100;
+      }
+      
+      newOffset = Math.max(0, Math.min(100, newOffset));
+      
+      zones = zones.map(z => {
+        if (z.id === zoneId) {
+          const newDoors = { ...z.door };
+          newDoors[side] = [...newDoors[side]];
+          newDoors[side][index] = newOffset;
+          return { ...z, door: newDoors };
+        }
+        return z;
+      });
+      return;
+    }
+
     const deltaX = e.clientX - dragState.startX;
     const deltaY = e.clientY - dragState.startY;
     
@@ -367,6 +442,7 @@
       {#each zones as zone (zone.id)}
         {@const zoneSched = getZoneSchedule(zone.name)}
         {@const activeSession = zoneSched.live || zoneSched.upcoming}
+        {@const doorIsActive = currentLocation === zone.id}
         <div 
           style="grid-column: {zone.x} / span {zone.w}; grid-row: {zone.y} / span {zone.h};"
           class="relative flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-center
@@ -411,6 +487,69 @@
             <div class="absolute top-1.5 right-1.5 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center shadow-lg border border-black pointer-events-none z-20">
               <MapPin size={11} class="text-black fill-black" />
             </div>
+          {/if}
+
+          <!-- Door direction indicators -->
+          {#if zone.door}
+            {#if zone.door.top.length > 0}
+              {#each zone.door.top as offset, i}
+                <div class="absolute top-0 z-30 {isEditing ? 'cursor-ew-resize hover:scale-125 transition-transform' : 'pointer-events-none'}" 
+                     style="left: {offset}%; transform: translate(-50%, -50%);"
+                     onpointerdown={isEditing ? (e) => onDoorPointerDown(e, zone, 'top', i) : null}>
+                  <div class="flex flex-col items-center gap-0.5">
+                    <ArrowUp size={10} class="{doorIsActive ? 'text-amber-400' : 'text-white/50'}" />
+                    <div class="w-6 h-3 rounded-b-md border-x border-b {doorIsActive ? 'border-amber-400/60 bg-amber-400/15' : 'border-white/20 bg-white/8'}  flex items-center justify-center {isEditing ? 'bg-white/20' : ''}">
+                      <DoorOpen size={9} class="{doorIsActive ? 'text-amber-300' : 'text-white/40'}" />
+                    </div>
+                  </div>
+                </div>
+              {/each}
+            {/if}
+
+            {#if zone.door.bottom.length > 0}
+              {#each zone.door.bottom as offset, i}
+                <div class="absolute bottom-0 z-30 {isEditing ? 'cursor-ew-resize hover:scale-125 transition-transform' : 'pointer-events-none'}" 
+                     style="left: {offset}%; transform: translate(-50%, 50%);"
+                     onpointerdown={isEditing ? (e) => onDoorPointerDown(e, zone, 'bottom', i) : null}>
+                  <div class="flex flex-col items-center gap-0.5">
+                    <div class="w-6 h-3 rounded-t-md border-x border-t {doorIsActive ? 'border-amber-400/60 bg-amber-400/15' : 'border-white/20 bg-white/8'} flex items-center justify-center {isEditing ? 'bg-white/20' : ''}">
+                      <DoorOpen size={9} class="{doorIsActive ? 'text-amber-300' : 'text-white/40'}" />
+                    </div>
+                    <ArrowDown size={10} class="{doorIsActive ? 'text-amber-400' : 'text-white/50'}" />
+                  </div>
+                </div>
+              {/each}
+            {/if}
+
+            {#if zone.door.left.length > 0}
+              {#each zone.door.left as offset, i}
+                <div class="absolute left-0 z-30 {isEditing ? 'cursor-ns-resize hover:scale-125 transition-transform' : 'pointer-events-none'}" 
+                     style="top: {offset}%; transform: translate(-50%, -50%);"
+                     onpointerdown={isEditing ? (e) => onDoorPointerDown(e, zone, 'left', i) : null}>
+                  <div class="flex items-center gap-0.5">
+                    <ArrowLeft size={10} class="{doorIsActive ? 'text-amber-400' : 'text-white/50'}" />
+                    <div class="h-6 w-3 rounded-r-md border-y border-r {doorIsActive ? 'border-amber-400/60 bg-amber-400/15' : 'border-white/20 bg-white/8'} flex items-center justify-center {isEditing ? 'bg-white/20' : ''}">
+                      <DoorOpen size={9} class="{doorIsActive ? 'text-amber-300' : 'text-white/40'}" />
+                    </div>
+                  </div>
+                </div>
+              {/each}
+            {/if}
+
+            {#if zone.door.right.length > 0}
+              {#each zone.door.right as offset, i}
+                <div class="absolute right-0 z-30 {isEditing ? 'cursor-ns-resize hover:scale-125 transition-transform' : 'pointer-events-none'}" 
+                     style="top: {offset}%; transform: translate(50%, -50%);"
+                     onpointerdown={isEditing ? (e) => onDoorPointerDown(e, zone, 'right', i) : null}>
+                  <div class="flex items-center gap-0.5">
+                    <div class="h-6 w-3 rounded-l-md border-y border-l {doorIsActive ? 'border-amber-400/60 bg-amber-400/15' : 'border-white/20 bg-white/8'} flex items-center justify-center {isEditing ? 'bg-white/20' : ''}">
+                      <DoorOpen size={9} class="{doorIsActive ? 'text-amber-300' : 'text-white/40'}" />
+                    </div>
+                    <ArrowRight size={10} class="{doorIsActive ? 'text-amber-400' : 'text-white/50'}" />
+                  </div>
+                </div>
+              {/each}
+            {/if}
           {/if}
 
           {#if isEditing}
@@ -492,7 +631,7 @@
         </div>
         <div class="p-5 space-y-4">
           <div>
-            <label class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Zone Name</label>
+            <div class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Zone Name</div>
             <input type="text" bind:value={editForm.name} class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-400/50 focus:outline-none" />
             
             <!-- Timeline locations not yet added to Venue Map -->
@@ -514,7 +653,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Icon</label>
+            <div class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Icon</div>
             <div class="flex gap-2">
               {#each Object.keys(iconMap) as iconName}
                 <button onclick={() => editForm.icon = iconName} class="p-2 rounded-lg border {editForm.icon === iconName ? 'bg-amber-400/20 border-amber-400/50 text-amber-400' : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white'}">
@@ -525,7 +664,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Color Theme</label>
+            <div class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Color Theme</div>
             <div class="grid grid-cols-4 gap-2">
               {#each colorOptions as color}
                 <button onclick={() => editForm.color = color.value} class="h-8 rounded border-2 transition-all bg-gradient-to-br {editForm.color === color.value ? 'border-white scale-105' : 'border-transparent opacity-60 hover:opacity-100'}"
@@ -545,6 +684,53 @@
                         class:to-red-700={color.name === 'Red'}
                         title={color.name}></button>
               {/each}
+            </div>
+          </div>
+
+          <!-- Door Direction -->
+          <div>
+            <div class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Doors</div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <!-- Top row -->
+              <div></div>
+              <div class="flex items-center justify-between px-2 py-1 bg-white/5 border border-white/10 rounded-lg">
+                <button onclick={() => { editForm.door.top.pop(); editForm.door.top = editForm.door.top; }} class="text-white/50 hover:text-white">-</button>
+                <div class="flex items-center gap-1.5 text-xs font-semibold {editForm.door.top.length > 0 ? 'text-amber-300' : 'text-white/50'}">
+                  <ArrowUp size={12} /> {editForm.door.top.length}
+                </div>
+                <button onclick={() => editForm.door.top = [...editForm.door.top, 50]} class="text-white/50 hover:text-white">+</button>
+              </div>
+              <div></div>
+              
+              <!-- Middle row -->
+              <div class="flex items-center justify-between px-2 py-1 bg-white/5 border border-white/10 rounded-lg">
+                <button onclick={() => { editForm.door.left.pop(); editForm.door.left = editForm.door.left; }} class="text-white/50 hover:text-white">-</button>
+                <div class="flex items-center gap-1.5 text-xs font-semibold {editForm.door.left.length > 0 ? 'text-amber-300' : 'text-white/50'}">
+                  <ArrowLeft size={12} /> {editForm.door.left.length}
+                </div>
+                <button onclick={() => editForm.door.left = [...editForm.door.left, 50]} class="text-white/50 hover:text-white">+</button>
+              </div>
+              <div class="flex items-center justify-center py-1 bg-white/5 border border-white/10 rounded-lg">
+                 <DoorOpen size={16} class="text-white/30" />
+              </div>
+              <div class="flex items-center justify-between px-2 py-1 bg-white/5 border border-white/10 rounded-lg">
+                <button onclick={() => { editForm.door.right.pop(); editForm.door.right = editForm.door.right; }} class="text-white/50 hover:text-white">-</button>
+                <div class="flex items-center gap-1.5 text-xs font-semibold {editForm.door.right.length > 0 ? 'text-amber-300' : 'text-white/50'}">
+                  {editForm.door.right.length} <ArrowRight size={12} />
+                </div>
+                <button onclick={() => editForm.door.right = [...editForm.door.right, 50]} class="text-white/50 hover:text-white">+</button>
+              </div>
+              
+              <!-- Bottom row -->
+              <div></div>
+              <div class="flex items-center justify-between px-2 py-1 bg-white/5 border border-white/10 rounded-lg">
+                <button onclick={() => { editForm.door.bottom.pop(); editForm.door.bottom = editForm.door.bottom; }} class="text-white/50 hover:text-white">-</button>
+                <div class="flex items-center gap-1.5 text-xs font-semibold {editForm.door.bottom.length > 0 ? 'text-amber-300' : 'text-white/50'}">
+                  <ArrowDown size={12} /> {editForm.door.bottom.length}
+                </div>
+                <button onclick={() => editForm.door.bottom = [...editForm.door.bottom, 50]} class="text-white/50 hover:text-white">+</button>
+              </div>
+              <div></div>
             </div>
           </div>
         </div>

@@ -426,6 +426,7 @@
   // --- Live Sessions Carousel Slider State ---
   let liveSlideIndex = 0;
   let liveSlideTimer = null;
+  let liveSwipeStartX = 0; // Touch swipe tracking
 
   $: {
     // Reset slide index if sessions change
@@ -2485,8 +2486,20 @@
                       {/if}
                     </div>
 
-                    <!-- Mobile: no buttons, just dots below -->
-                    <div class="flex sm:hidden flex-col items-center gap-3">
+                    <!-- Mobile: swipeable card + dots below -->
+                    <div
+                      class="flex sm:hidden flex-col items-center gap-3"
+                      role="region"
+                      aria-label="Live sessions"
+                      ontouchstart={(e) => { liveSwipeStartX = e.touches[0].clientX; }}
+                      ontouchend={(e) => {
+                        const dx = e.changedTouches[0].clientX - liveSwipeStartX;
+                        if (Math.abs(dx) > 40) {
+                          if (dx < 0) liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length;
+                          else liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length;
+                        }
+                      }}
+                    >
                       {#key liveSlideIndex}
                         {@const session = liveSessions[liveSlideIndex]}
                         <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in w-full max-w-sm">

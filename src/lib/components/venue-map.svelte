@@ -476,9 +476,10 @@
         {@const zoneSched = getZoneSchedule(zone.name, globalLiveSession, globalNextSession, schedule)}
         {@const activeSession = zoneSched.live || zoneSched.upcoming}
         {@const doorIsActive = currentLocation === zone.id}
+        {@const isCompact = zone.w === 1 && zone.h === 1}
         <div 
           style="grid-column: {zone.x} / span {zone.w}; grid-row: {zone.y} / span {zone.h};"
-          class="relative flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-center
+          class="relative flex flex-col items-center justify-center {isCompact ? 'p-1' : 'p-3 sm:p-4'} rounded-xl border-2 transition-all duration-200 text-center
                  {currentLocation === zone.id && !isEditing
                     ? 'border-amber-400 bg-amber-400/10 shadow-[0_0_20px_rgba(251,191,36,0.25)] z-20 ring-2 ring-amber-400/50' 
                     : isEditing 
@@ -490,30 +491,49 @@
              <button class="absolute inset-0 w-full h-full cursor-pointer z-10" onclick={() => setLocation(zone.id)} aria-label="Set location to {zone.name}"></button>
           {/if}
 
-          <svelte:component this={iconMap[zone.icon] || MapPin} size={22} class={currentLocation === zone.id && !isEditing ? 'text-amber-400' : 'text-white/60 mb-1 pointer-events-none'} />
-          <span class="text-xs font-bold {currentLocation === zone.id && !isEditing ? 'text-amber-300' : 'text-white/90 text-center pointer-events-none'}">
-            {zone.name}
-          </span>
-
-          <!-- Session Badge displayed directly on the block without clicking -->
-          {#if activeSession && !isEditing}
-            <div class="mt-1.5 w-full pointer-events-none px-1 flex flex-col gap-1">
-              {#if zoneSched.live}
-                <div class="bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 px-2 py-1 rounded-lg text-[10px] text-center shadow-sm">
-                  <span class="font-extrabold uppercase text-[9px] text-emerald-400 tracking-wider flex items-center justify-center gap-1">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    LIVE NOW
-                  </span>
-                  <span class="font-bold block truncate text-white mt-0.5" title={zoneSched.live.title}>{zoneSched.live.title}</span>
-                </div>
-              {/if}
-              {#if zoneSched.upcoming && zoneSched.upcoming.id !== zoneSched.live?.id}
-                <div class="bg-amber-400/10 border border-amber-400/20 text-amber-200 px-2 py-1 rounded-lg text-[10px] text-center">
-                  <span class="text-[9px] text-amber-400/80 font-bold block uppercase tracking-wider">UP NEXT</span>
-                  <span class="font-semibold block truncate text-white/90 mt-0.5" title={zoneSched.upcoming.title}>{zoneSched.upcoming.title}</span>
-                </div>
+          {#if isCompact}
+            <!-- Compact mode: icon + status dot only, tooltip shows full info -->
+            <div
+              class="relative flex items-center justify-center pointer-events-none"
+              title="{zone.name}{activeSession && !isEditing ? (zoneSched.live ? ' · Live: ' + zoneSched.live.title : ' · Up Next: ' + zoneSched.upcoming.title) : ''}"
+            >
+              <svelte:component this={iconMap[zone.icon] || MapPin} size={18} class={currentLocation === zone.id && !isEditing ? 'text-amber-400' : 'text-white/60'} />
+              {#if activeSession && !isEditing}
+                <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-black/30
+                  {zoneSched.live ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"
+                ></span>
               {/if}
             </div>
+            {#if currentLocation === zone.id && !isEditing}
+              <span class="text-[9px] font-bold text-amber-300 mt-0.5 pointer-events-none truncate w-full text-center">{zone.name}</span>
+            {/if}
+          {:else}
+            <!-- Full mode: icon + name + session badges -->
+            <svelte:component this={iconMap[zone.icon] || MapPin} size={22} class={currentLocation === zone.id && !isEditing ? 'text-amber-400' : 'text-white/60 mb-1 pointer-events-none'} />
+            <span class="text-xs font-bold {currentLocation === zone.id && !isEditing ? 'text-amber-300' : 'text-white/90 text-center pointer-events-none'}">
+              {zone.name}
+            </span>
+
+            <!-- Session Badge displayed directly on the block without clicking -->
+            {#if activeSession && !isEditing}
+              <div class="mt-1.5 w-full pointer-events-none px-1 flex flex-col gap-1">
+                {#if zoneSched.live}
+                  <div class="bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 px-2 py-1 rounded-lg text-[10px] text-center shadow-sm">
+                    <span class="font-extrabold uppercase text-[9px] text-emerald-400 tracking-wider flex items-center justify-center gap-1">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      LIVE NOW
+                    </span>
+                    <span class="font-bold block truncate text-white mt-0.5" title={zoneSched.live.title}>{zoneSched.live.title}</span>
+                  </div>
+                {/if}
+                {#if zoneSched.upcoming && zoneSched.upcoming.id !== zoneSched.live?.id}
+                  <div class="bg-amber-400/10 border border-amber-400/20 text-amber-200 px-2 py-1 rounded-lg text-[10px] text-center">
+                    <span class="text-[9px] text-amber-400/80 font-bold block uppercase tracking-wider">UP NEXT</span>
+                    <span class="font-semibold block truncate text-white/90 mt-0.5" title={zoneSched.upcoming.title}>{zoneSched.upcoming.title}</span>
+                  </div>
+                {/if}
+              </div>
+            {/if}
           {/if}
           
           {#if currentLocation === zone.id && !isEditing}

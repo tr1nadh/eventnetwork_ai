@@ -115,6 +115,8 @@ About me: ${currentProfile.about_me}
 I am looking for: ${currentProfile.looking_for}
 `;
 
+      let aiSuccessCount = 0;
+
       const promises = scored.map(async (match) => {
         const matchContext = `
 Their name is ${match.name}.
@@ -177,7 +179,6 @@ Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
         controller.enqueue(encoder.encode(JSON.stringify(match) + '\n'));
       });
 
-      let aiSuccessCount = 0;
 
       try {
         await Promise.all(promises);

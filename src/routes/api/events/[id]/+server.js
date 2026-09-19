@@ -99,8 +99,13 @@ export async function PUT({ request, params, locals }) {
     }
   }
 
-  const effectiveStart = startTimeDate || (existingEvent.start_time ? new Date(existingEvent.start_time) : null);
-  const effectiveEnd = endTimeDate || (existingEvent.end_time ? new Date(existingEvent.end_time) : null);
+  const effectiveStart = 'start_time' in updatePayload 
+    ? (updatePayload.start_time ? new Date(updatePayload.start_time) : null) 
+    : (existingEvent.start_time ? new Date(existingEvent.start_time) : null);
+    
+  const effectiveEnd = 'end_time' in updatePayload
+    ? (updatePayload.end_time ? new Date(updatePayload.end_time) : null)
+    : (existingEvent.end_time ? new Date(existingEvent.end_time) : null);
 
   if (effectiveStart && effectiveEnd && effectiveEnd <= effectiveStart) {
     throw error(400, 'End time must be greater than start time.');

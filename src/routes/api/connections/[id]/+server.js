@@ -51,6 +51,14 @@ export async function PATCH({ params, request, cookies }) {
     if (!['accepted', 'rejected', 'cancelled'].includes(status)) {
       throw error(400, `Invalid transition from pending to ${status}`);
     }
+    
+    // Security check: Only the receiver can accept or reject, only the sender can cancel
+    if ((status === 'accepted' || status === 'rejected') && currentConn.receiver_user_id !== user.id) {
+      throw error(403, 'Unauthorized: Only the receiver can accept or reject a connection request.');
+    }
+    if (status === 'cancelled' && currentConn.sender_user_id !== user.id) {
+      throw error(403, 'Unauthorized: Only the sender can cancel a pending connection request.');
+    }
   } else if (currentStatus === 'accepted') {
     if (!['met', 'cancelled'].includes(status)) {
       throw error(400, `Invalid transition from accepted to ${status}`);

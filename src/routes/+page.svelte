@@ -158,9 +158,9 @@
     },
     {
       icon: Sparkles,
-      label: "AMD AI Ecosystem",
+      label: "AI Ecosystem",
       detail:
-        "Built for the AMD Developer Hackathon, leveraging AMD AI momentum.",
+        "Advanced semantic matching and real-time event intelligence.",
     },
   ];
 
@@ -460,7 +460,7 @@
           >
             <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"
             ></span>
-            ⚡ Powered by AMD AI
+            ⚡ AI-Powered Event Intelligence
           </div>
 
           <h1
@@ -1000,7 +1000,7 @@
       <div
         class="max-w-7xl mx-auto mt-12 flex flex-col sm:flex-row items-center justify-center gap-4 border-t border-white/5 pt-8 text-xs font-medium text-slate-600 uppercase tracking-widest"
       >
-        <span>Built for AMD Developer Hackathon ACT II</span>
+        <span>Evenai Event Platform</span>
         <span class="hidden sm:inline text-slate-800">•</span>
         <span>Powered by Fireworks AI</span>
       </div>

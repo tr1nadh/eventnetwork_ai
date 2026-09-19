@@ -16,5 +16,5 @@
   )}
 >
   <Cpu size={10} class="text-cyan-300" />
-  Powered by AMD AI
+  Powered by AI
 </Badge>

@@ -40,6 +40,8 @@
     Clock,
     MapPinOff,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     Settings,
     Save,
     AlertTriangle,
@@ -392,14 +394,19 @@
     timelineItems = data.timeline;
   }
 
-  $: liveSession = timelineItems?.find(it => {
-    currentTime; // Bind reactivity so this re-runs every second
-    if (!it.start_time || !it.end_time) return false;
-    const start = new Date(it.start_time).getTime();
-    const end = new Date(it.end_time).getTime();
+  // --- All concurrently live sessions (can be more than one) ---
+  $: liveSessions = (() => {
+    currentTime; // Bind reactivity
+    if (!timelineItems?.length) return [];
     const now = Date.now();
-    return now >= start && now < end;
-  });
+    return timelineItems.filter(it => {
+      if (!it.start_time || !it.end_time) return false;
+      return now >= new Date(it.start_time).getTime() && now < new Date(it.end_time).getTime();
+    });
+  })();
+
+  // Keep liveSession as a singular reference (first live session) for backwards compat
+  $: liveSession = liveSessions[0] ?? null;
 
   $: isEndingSoon = (() => {
     currentTime;
@@ -410,12 +417,31 @@
 
   $: nextSession = (() => {
     currentTime;
-    if (!liveSession) return null;
-    const liveEnd = new Date(liveSession.end_time).getTime();
+    const now = Date.now();
     return timelineItems
-      ?.filter(it => it.start_time && new Date(it.start_time).getTime() >= liveEnd)
+      ?.filter(it => it.start_time && new Date(it.start_time).getTime() > now)
       .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0] ?? null;
   })();
+
+  // --- Live Sessions Carousel Slider State ---
+  let liveSlideIndex = 0;
+  let liveSlideTimer = null;
+
+  $: {
+    // Reset slide index if sessions change
+    if (liveSlideIndex >= liveSessions.length) liveSlideIndex = 0;
+  }
+
+  $: if (liveSessions.length > 1) {
+    // Auto-advance every 4 seconds
+    if (liveSlideTimer) clearInterval(liveSlideTimer);
+    liveSlideTimer = setInterval(() => {
+      liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length;
+    }, 4000);
+  } else {
+    if (liveSlideTimer) { clearInterval(liveSlideTimer); liveSlideTimer = null; }
+    liveSlideIndex = 0;
+  }
 
   let timelineModalOpen = false;
   let editingTimelineItem = null;
@@ -2397,33 +2423,98 @@
                   {currentEvent.name}
                 </h1>
 
-                {#if liveSession}
-                  <div class="flex justify-center mt-3 animate-fade-in" transition:slide>
-                    <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 backdrop-blur-md shadow-lg shadow-emerald-500/5">
-                      <div class="relative flex h-3 w-3 items-center justify-center">
-                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                      </div>
-                      <div class="flex flex-col text-left">
-                        <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
-                        <span class="text-sm font-semibold text-white">{liveSession.title}</span>
-                      </div>
-                      {#if liveSession.location && currentEvent.is_venue_enabled}
-                        <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left">
-                          <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
-                          <button 
-                            onclick={() => jumpToVenueLocation(liveSession.location)}
-                            class="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline flex items-center gap-1 transition-colors"
-                          >
-                            <MapPin size={10} /> {liveSession.location}
-                          </button>
+                {#if liveSessions.length > 0}
+                  <div class="mt-4 w-full" transition:slide>
+                    <!-- Desktop: left/right button carousel -->
+                    <div class="hidden sm:flex items-center justify-center gap-3">
+                      {#if liveSessions.length > 1}
+                        <button
+                          onclick={() => liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length}
+                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
+                          aria-label="Previous live session"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                      {/if}
+
+                      {#key liveSlideIndex}
+                        {@const session = liveSessions[liveSlideIndex]}
+                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in max-w-sm">
+                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                          </div>
+                          <div class="flex flex-col text-left min-w-0">
+                            <div class="flex items-center gap-2">
+                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
+                              {#if liveSessions.length > 1}
+                                <span class="text-[10px] text-emerald-400/60 font-semibold">{liveSlideIndex + 1}/{liveSessions.length}</span>
+                              {/if}
+                            </div>
+                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
+                          </div>
+                          {#if session.location && currentEvent.is_venue_enabled}
+                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
+                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
+                              <button
+                                onclick={() => jumpToVenueLocation(session.location)}
+                                class="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline flex items-center gap-1 transition-colors"
+                              >
+                                <MapPin size={10} /> {session.location}
+                              </button>
+                            </div>
+                          {:else if session.location}
+                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
+                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
+                              <span class="text-xs font-semibold text-emerald-300 flex items-center gap-1">
+                                <MapPin size={10} /> {session.location}
+                              </span>
+                            </div>
+                          {/if}
                         </div>
-                      {:else if liveSession.location}
-                        <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left">
-                           <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
-                           <span class="text-xs font-semibold text-emerald-300 flex items-center gap-1">
-                             <MapPin size={10} /> {liveSession.location}
-                           </span>
+                      {/key}
+
+                      {#if liveSessions.length > 1}
+                        <button
+                          onclick={() => liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length}
+                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
+                          aria-label="Next live session"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      {/if}
+                    </div>
+
+                    <!-- Mobile: no buttons, just dots below -->
+                    <div class="flex sm:hidden flex-col items-center gap-3">
+                      {#key liveSlideIndex}
+                        {@const session = liveSessions[liveSlideIndex]}
+                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in w-full max-w-sm">
+                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                          </div>
+                          <div class="flex flex-col text-left min-w-0 flex-1">
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
+                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
+                            {#if session.location}
+                              <span class="text-[11px] text-emerald-300/80 flex items-center gap-1 mt-0.5">
+                                <MapPin size={9} /> {session.location}
+                              </span>
+                            {/if}
+                          </div>
+                        </div>
+                      {/key}
+
+                      {#if liveSessions.length > 1}
+                        <div class="flex items-center gap-1.5">
+                          {#each liveSessions as _, i}
+                            <button
+                              onclick={() => liveSlideIndex = i}
+                              aria-label="Go to session {i + 1}"
+                              class="h-1.5 rounded-full transition-all duration-300 {liveSlideIndex === i ? 'w-4 bg-emerald-400' : 'w-1.5 bg-emerald-400/30'}"
+                            ></button>
+                          {/each}
                         </div>
                       {/if}
                     </div>

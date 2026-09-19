@@ -547,6 +547,7 @@
   let editEventGoogleMapUrl = "";
   let editEventApprovalRequired = false;
   let editEventVenueEnabled = true;
+  let editEventAnnouncementsEnabled = true;
 
   let togglingVenueMap = false;
 
@@ -1046,6 +1047,7 @@
   let settingsIsApprovalRequired = Boolean(currentEvent?.is_approval_required);
   let settingsIsVenueEnabled = currentEvent?.is_venue_enabled !== false;
   let settingsIsNetworkEnabled = Boolean(currentEvent?.is_network_enabled);
+  let settingsIsAnnouncementsEnabled = currentEvent?.is_announcements_enabled !== false;
 
   $: if (currentEvent) {
     settingsName = currentEvent.name ?? '';
@@ -1059,6 +1061,7 @@
     settingsIsApprovalRequired = Boolean(currentEvent.is_approval_required);
     settingsIsVenueEnabled = currentEvent.is_venue_enabled !== false;
     settingsIsNetworkEnabled = Boolean(currentEvent.is_network_enabled);
+    settingsIsAnnouncementsEnabled = currentEvent.is_announcements_enabled !== false;
   }
 
   let settingsStartDate = settingsStartTime ? settingsStartTime.split('T')[0] : '';
@@ -1373,6 +1376,7 @@
           is_approval_required: settingsIsApprovalRequired,
           is_venue_enabled: settingsIsVenueEnabled,
           is_network_enabled: settingsIsNetworkEnabled,
+          is_announcements_enabled: settingsIsAnnouncementsEnabled,
         }),
       });
 
@@ -1436,6 +1440,7 @@
     editEventGoogleMapUrl = currentEvent.google_map_url || "";
     editEventApprovalRequired = Boolean(currentEvent.is_approval_required);
     editEventVenueEnabled = currentEvent.is_venue_enabled !== false;
+    editEventAnnouncementsEnabled = currentEvent.is_announcements_enabled !== false;
     editEventError = "";
     editEventModalOpen = true;
   }
@@ -1467,6 +1472,7 @@
           google_map_url: editEventGoogleMapUrl,
           is_approval_required: editEventApprovalRequired,
           is_venue_enabled: editEventVenueEnabled,
+          is_announcements_enabled: editEventAnnouncementsEnabled,
         }),
       });
       const resData = await res.json().catch(() => ({}));
@@ -5952,6 +5958,30 @@
                     </button>
                   </div>
 
+                  <!-- Enable Announcements -->
+                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+                    <div class="flex items-start gap-3">
+                      <Megaphone size={16} class="text-rose-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p class="text-sm font-semibold text-white">Enable Announcements</p>
+                        <p class="text-xs text-ink-500 mt-0.5">Show the Announcements tab to broadcast updates to attendees.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isEventEnded}
+                      onclick={() => (settingsIsAnnouncementsEnabled = !settingsIsAnnouncementsEnabled)}
+                      class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsAnnouncementsEnabled ? 'bg-rose-500' : 'bg-white/10'} disabled:opacity-50"
+                      role="switch"
+                      aria-checked={settingsIsAnnouncementsEnabled}
+                      aria-label="Enable Announcements"
+                    >
+                      <span
+                        class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsAnnouncementsEnabled ? 'translate-x-5' : 'translate-x-0'}"
+                      ></span>
+                    </button>
+                  </div>
+
                   <!-- Enable Venue Map -->
                   {#if settingsEventFormat !== 'online'}
                     <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
@@ -6914,6 +6944,18 @@
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4">
+              <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+                <Megaphone size={13} class="text-rose-400" />
+                Enable Announcements
+              </span>
+              <input
+                type="checkbox"
+                bind:checked={editEventAnnouncementsEnabled}
+                class="h-4 w-4 rounded border-white/20 bg-white/10 text-rose-400 focus:ring-rose-400/30 accent-rose-500 cursor-pointer"
+              />
+            </div>
+
             <div class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <Lock size={13} class="text-amber-400" />

@@ -1,6 +1,6 @@
 <script>
   import { MapPin, Coffee, Mic, Users, MonitorPlay, Pencil, Plus, Trash2, Save, X, CalendarClock, Clock, DoorOpen, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Music, Ticket, Sofa, Droplets, Utensils, Store, Info, Car } from '@lucide/svelte';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { slide } from 'svelte/transition';
   import PillScroller from '$lib/components/pill-scroller.svelte';
   
@@ -11,6 +11,29 @@
   export let initialZones = null;
   export let schedule = [];
 
+  let timeInterval;
+  let currentTime = new Date();
+
+  onMount(() => {
+    timeInterval = setInterval(() => {
+      currentTime = new Date();
+    }, 1000);
+  });
+
+  onDestroy(() => {
+    if (timeInterval) clearInterval(timeInterval);
+  });
+
+  $: globalLiveSession = (schedule || []).find(item => {
+    const start = new Date(item.start_time);
+    const end = new Date(item.end_time);
+    return currentTime >= start && currentTime <= end;
+  });
+
+  $: globalNextSession = (schedule || [])
+    .filter(item => new Date(item.start_time) > currentTime)
+    .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0];
+
   // Helper function to find live or upcoming timeline session for a zone
   function getZoneSchedule(zoneName) {
     if (!schedule || !Array.isArray(schedule) || schedule.length === 0 || !zoneName) {
@@ -18,32 +41,20 @@
     }
 
     const nameLower = zoneName.toLowerCase().trim();
-    const zoneSessions = schedule.filter(item => {
-      if (!item.location) return false;
-      const locLower = item.location.toLowerCase().trim();
+    const isMatch = (loc) => {
+      if (!loc) return false;
+      const locLower = loc.toLowerCase().trim();
       return locLower === nameLower || locLower.includes(nameLower) || nameLower.includes(locLower);
-    });
+    };
 
-    if (zoneSessions.length === 0) return { live: null, upcoming: null, all: [] };
-
-    const now = new Date();
-    // Find live session
-    const live = zoneSessions.find(item => {
-      const start = new Date(item.start_time);
-      const end = new Date(item.end_time);
-      return now >= start && now <= end;
-    });
-
-    // Find next upcoming session
-    const upcoming = zoneSessions
-      .filter(item => new Date(item.start_time) > now)
-      .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0];
-
-    const firstSession = zoneSessions.slice().sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0];
+    const zoneSessions = schedule.filter(item => isMatch(item.location));
+    
+    const live = globalLiveSession && isMatch(globalLiveSession.location) ? globalLiveSession : null;
+    const upcoming = globalNextSession && isMatch(globalNextSession.location) ? globalNextSession : null;
 
     return {
       live,
-      upcoming: upcoming || (live ? null : firstSession),
+      upcoming,
       all: zoneSessions
     };
   }
@@ -486,19 +497,20 @@
 
           <!-- Session Badge displayed directly on the block without clicking -->
           {#if activeSession && !isEditing}
-            <div class="mt-1.5 w-full pointer-events-none px-1">
+            <div class="mt-1.5 w-full pointer-events-none px-1 flex flex-col gap-1">
               {#if zoneSched.live}
                 <div class="bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 px-2 py-1 rounded-lg text-[10px] text-center shadow-sm">
                   <span class="font-extrabold uppercase text-[9px] text-emerald-400 tracking-wider flex items-center justify-center gap-1">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                     LIVE NOW
                   </span>
-                  <span class="font-bold block truncate text-white mt-0.5" title={activeSession.title}>{activeSession.title}</span>
+                  <span class="font-bold block truncate text-white mt-0.5" title={zoneSched.live.title}>{zoneSched.live.title}</span>
                 </div>
-              {:else}
+              {/if}
+              {#if zoneSched.upcoming && zoneSched.upcoming.id !== zoneSched.live?.id}
                 <div class="bg-amber-400/10 border border-amber-400/20 text-amber-200 px-2 py-1 rounded-lg text-[10px] text-center">
                   <span class="text-[9px] text-amber-400/80 font-bold block uppercase tracking-wider">UP NEXT</span>
-                  <span class="font-semibold block truncate text-white/90 mt-0.5" title={activeSession.title}>{activeSession.title}</span>
+                  <span class="font-semibold block truncate text-white/90 mt-0.5" title={zoneSched.upcoming.title}>{zoneSched.upcoming.title}</span>
                 </div>
               {/if}
             </div>

@@ -97,9 +97,16 @@
   export let data;
   let realtimeChannel;
 
+  let timeInterval;
+  let currentTime = new Date();
+
   onMount(() => {
     // Hide page loading indicator once mounted
     pageLoading = false;
+    
+    timeInterval = setInterval(() => {
+      currentTime = new Date();
+    }, 1000);
 
     // Always clear the connections store on mount so we don't show stale data from another event
     connectionsStore.set([]);
@@ -287,6 +294,7 @@
     if (realtimeChannel) {
       supabase.removeChannel(realtimeChannel);
     }
+    if (timeInterval) clearInterval(timeInterval);
   });
 
   let signingOut = false;
@@ -383,6 +391,15 @@
   $: if (data.timeline) {
     timelineItems = data.timeline;
   }
+
+  $: liveSession = timelineItems?.find(it => {
+    currentTime; // Bind reactivity so this re-runs every 5 seconds
+    if (!it.start_time || !it.end_time) return false;
+    const start = new Date(it.start_time).getTime();
+    const end = new Date(it.end_time).getTime();
+    const now = Date.now(); // Always use precise time for comparison
+    return now >= start && now < end;
+  });
 
   let timelineModalOpen = false;
   let editingTimelineItem = null;
@@ -1049,13 +1066,12 @@
     activeTimePicker = null;
   }
 
-  $: now = new Date();
   $: eventStart = currentEvent?.start_time ? new Date(currentEvent.start_time) : null;
   $: eventEnd = currentEvent?.end_time ? new Date(currentEvent.end_time) : null;
-  $: isEventLive = Boolean(eventStart && eventStart <= now && (!eventEnd || new Date(eventEnd) >= now));
-  $: isEventEnded = Boolean(eventEnd && new Date(eventEnd) < now);
+  $: isEventLive = Boolean(eventStart && eventStart <= currentTime && (!eventEnd || eventEnd >= currentTime));
+  $: isEventEnded = Boolean(eventEnd && eventEnd < currentTime);
 
-  $: isStartInPast = Boolean(!isEventLive && !isEventEnded && settingsStartDate && settingsStartDate < todayStr);
+  $: isStartInPast = Boolean(!isEventLive && !isEventEnded && settingsStartDate && settingsStartDate < getFormattedDateStr(currentTime));
   $: isEndBeforeStart = Boolean(
     (settingsEndDate && settingsStartDate && settingsEndDate < settingsStartDate) ||
     (settingsStartDate && settingsEndDate && settingsStartDate === settingsEndDate && settingsStartTimeVal && settingsEndTimeVal && settingsEndTimeVal <= settingsStartTimeVal)
@@ -2364,6 +2380,39 @@
                 >
                   {currentEvent.name}
                 </h1>
+
+                {#if liveSession}
+                  <div class="flex justify-center mt-3 animate-fade-in" transition:slide>
+                    <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 backdrop-blur-md shadow-lg shadow-emerald-500/5">
+                      <div class="relative flex h-3 w-3 items-center justify-center">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                      </div>
+                      <div class="flex flex-col text-left">
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
+                        <span class="text-sm font-semibold text-white">{liveSession.title}</span>
+                      </div>
+                      {#if liveSession.location && currentEvent.is_venue_enabled}
+                        <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left">
+                          <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
+                          <button 
+                            onclick={() => jumpToVenueLocation(liveSession.location)}
+                            class="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline flex items-center gap-1 transition-colors"
+                          >
+                            <MapPin size={10} /> {liveSession.location}
+                          </button>
+                        </div>
+                      {:else if liveSession.location}
+                        <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left">
+                           <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
+                           <span class="text-xs font-semibold text-emerald-300 flex items-center gap-1">
+                             <MapPin size={10} /> {liveSession.location}
+                           </span>
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
 
                 <!-- Join button below date & time block -->
                 {#if !data.isOrganizer && !data.isParticipant}

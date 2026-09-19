@@ -1,5 +1,5 @@
 <script>
-  import { slide, fade } from "svelte/transition";
+  import { slide, fade, fly } from "svelte/transition";
   import { goto } from "$app/navigation";
   import {
     ArrowLeft,
@@ -108,7 +108,25 @@
   let announcementsList = data.announcements ?? [];
   let announcementSearchQuery = "";
   let pinnedSlideIndex = 0;
+  let pinnedSlideDirection = 1;
   let pinnedSwipeStartX = 0;
+
+  function nextPinnedSlide() {
+    if (!pinnedAnnouncements.length) return;
+    pinnedSlideDirection = 1;
+    pinnedSlideIndex = (pinnedSlideIndex + 1) % pinnedAnnouncements.length;
+  }
+
+  function prevPinnedSlide() {
+    if (!pinnedAnnouncements.length) return;
+    pinnedSlideDirection = -1;
+    pinnedSlideIndex = (pinnedSlideIndex - 1 + pinnedAnnouncements.length) % pinnedAnnouncements.length;
+  }
+
+  function selectPinnedSlide(index) {
+    pinnedSlideDirection = index > pinnedSlideIndex ? 1 : -1;
+    pinnedSlideIndex = index;
+  }
 
   let showAnnouncementModal = false;
   let editingAnnouncement = null;
@@ -3694,7 +3712,7 @@
                     {#if pinnedAnnouncements.length > 1}
                       <div class="hidden sm:flex items-center gap-1.5">
                         <button
-                          onclick={() => pinnedSlideIndex = (pinnedSlideIndex - 1 + pinnedAnnouncements.length) % pinnedAnnouncements.length}
+                          onclick={prevPinnedSlide}
                           class="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 transition-all"
                           aria-label="Previous pinned announcement"
                         >
@@ -3704,7 +3722,7 @@
                           {pinnedSlideIndex + 1}/{pinnedAnnouncements.length}
                         </span>
                         <button
-                          onclick={() => pinnedSlideIndex = (pinnedSlideIndex + 1) % pinnedAnnouncements.length}
+                          onclick={nextPinnedSlide}
                           class="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 transition-all"
                           aria-label="Next pinned announcement"
                         >
@@ -3715,10 +3733,14 @@
                   </div>
 
                   <!-- Desktop Slide -->
-                  <div class="hidden sm:block">
+                  <div class="hidden sm:grid grid-cols-1 grid-rows-1 overflow-hidden relative">
                     {#key pinnedSlideIndex}
                       {@const item = pinnedAnnouncements[pinnedSlideIndex || 0] || pinnedAnnouncements[0]}
-                      <div in:slide={{ duration: 250 }} out:fade={{ duration: 150 }} class="relative overflow-hidden rounded-2xl p-4 sm:p-5 backdrop-blur-md {getPriorityBorderClass(item.priority)}">
+                      <div
+                        in:fade={{ duration: 200 }}
+                        out:fade={{ duration: 150 }}
+                        class="col-start-1 row-start-1 relative overflow-hidden rounded-2xl p-4 sm:p-5 backdrop-blur-md {getPriorityBorderClass(item.priority)}"
+                      >
                         <div class="flex items-start justify-between gap-4">
                           <div class="space-y-1 min-w-0 flex-1">
                             <div class="flex items-center gap-2 mb-1">
@@ -3780,70 +3802,76 @@
                   </div>
 
                   <!-- Mobile Slide + Touch Swipe + Dots -->
-                  <div
-                    class="flex sm:hidden flex-col gap-2.5"
-                    role="region"
-                    aria-label="Pinned announcements"
-                    ontouchstart={(e) => { pinnedSwipeStartX = e.touches[0].clientX; }}
-                    ontouchend={(e) => {
-                      const dx = e.changedTouches[0].clientX - pinnedSwipeStartX;
-                      if (Math.abs(dx) > 40 && pinnedAnnouncements.length > 1) {
-                        if (dx < 0) pinnedSlideIndex = (pinnedSlideIndex + 1) % pinnedAnnouncements.length;
-                        else pinnedSlideIndex = (pinnedSlideIndex - 1 + pinnedAnnouncements.length) % pinnedAnnouncements.length;
-                      }
-                    }}
-                  >
-                    {#key pinnedSlideIndex}
-                      {@const item = pinnedAnnouncements[pinnedSlideIndex || 0] || pinnedAnnouncements[0]}
-                      <div in:slide={{ duration: 200 }} out:fade={{ duration: 150 }} class="relative overflow-hidden rounded-2xl p-4 backdrop-blur-md w-full {getPriorityBorderClass(item.priority)}">
-                        <div class="flex flex-col gap-1.5">
-                          <div class="flex items-center justify-between gap-2">
-                            <div class="flex items-center gap-1.5">
-                              <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                                <Pin size={9} class="rotate-45" /> Pinned
-                              </span>
-                              {#if item.priority === 'urgent'}
-                                <span class="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300">Urgent</span>
-                              {/if}
-                              <span class="text-[10px] text-ink-400 flex items-center gap-1 ml-auto">
-                                <Clock size={10} /> {formatAnnouncementDateTime(item.created_at)}
-                              </span>
-                            </div>
-                            {#if data.isOrganizer && ownerViewMode === "organizer"}
-                              <div class="flex items-center gap-1 shrink-0">
-                                <button
-                                  onclick={() => togglePinAnnouncement(item)}
-                                  class="p-1 text-amber-400"
-                                >
-                                  <PinOff size={13} />
-                                </button>
-                                <button
-                                  onclick={() => openEditAnnouncementModal(item)}
-                                  class="p-1 text-ink-400 hover:text-white"
-                                >
-                                  <Pencil size={13} />
-                                </button>
+                  <div class="flex sm:hidden flex-col gap-2.5">
+                    <div
+                      class="grid grid-cols-1 grid-rows-1 overflow-hidden relative"
+                      role="region"
+                      aria-label="Pinned announcements"
+                      ontouchstart={(e) => { pinnedSwipeStartX = e.touches[0].clientX; }}
+                      ontouchend={(e) => {
+                        const dx = e.changedTouches[0].clientX - pinnedSwipeStartX;
+                        if (Math.abs(dx) > 40 && pinnedAnnouncements.length > 1) {
+                          if (dx < 0) nextPinnedSlide();
+                          else prevPinnedSlide();
+                        }
+                      }}
+                    >
+                      {#key pinnedSlideIndex}
+                        {@const item = pinnedAnnouncements[pinnedSlideIndex || 0] || pinnedAnnouncements[0]}
+                        <div
+                          in:fade={{ duration: 200 }}
+                          out:fade={{ duration: 150 }}
+                          class="col-start-1 row-start-1 relative overflow-hidden rounded-2xl p-4 backdrop-blur-md w-full {getPriorityBorderClass(item.priority)}"
+                        >
+                          <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between gap-2">
+                              <div class="flex items-center gap-1.5">
+                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                                  <Pin size={9} class="rotate-45" /> Pinned
+                                </span>
+                                {#if item.priority === 'urgent'}
+                                  <span class="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300">Urgent</span>
+                                {/if}
+                                <span class="text-[10px] text-ink-400 flex items-center gap-1 ml-auto">
+                                  <Clock size={10} /> {formatAnnouncementDateTime(item.created_at)}
+                                </span>
                               </div>
-                            {/if}
+                              {#if data.isOrganizer && ownerViewMode === "organizer"}
+                                <div class="flex items-center gap-1 shrink-0">
+                                  <button
+                                    onclick={() => togglePinAnnouncement(item)}
+                                    class="p-1 text-amber-400"
+                                  >
+                                    <PinOff size={13} />
+                                  </button>
+                                  <button
+                                    onclick={() => openEditAnnouncementModal(item)}
+                                    class="p-1 text-ink-400 hover:text-white"
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                </div>
+                              {/if}
+                            </div>
+                            <!-- Title -->
+                            <h4 class="text-sm font-bold text-white truncate line-clamp-1">
+                              {item.title}
+                            </h4>
+                            <!-- One line description -->
+                            <p class="text-xs text-ink-300 line-clamp-1 truncate">
+                              {item.content}
+                            </p>
                           </div>
-                          <!-- Title -->
-                          <h4 class="text-sm font-bold text-white truncate line-clamp-1">
-                            {item.title}
-                          </h4>
-                          <!-- One line description -->
-                          <p class="text-xs text-ink-300 line-clamp-1 truncate">
-                            {item.content}
-                          </p>
                         </div>
-                      </div>
-                    {/key}
+                      {/key}
+                    </div>
 
                     <!-- Dots indicator -->
                     {#if pinnedAnnouncements.length > 1}
                       <div class="flex items-center justify-center gap-1.5 pt-1">
                         {#each pinnedAnnouncements as _, i}
                           <button
-                            onclick={() => pinnedSlideIndex = i}
+                            onclick={() => selectPinnedSlide(i)}
                             aria-label="Go to pinned announcement {i + 1}"
                             class="h-1.5 rounded-full transition-all duration-300 {pinnedSlideIndex === i ? 'w-4 bg-amber-400' : 'w-1.5 bg-amber-400/30'}"
                           ></button>

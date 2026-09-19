@@ -2696,8 +2696,8 @@
                     <div class="space-y-3">
                       {#each timelineItems as item, idx (item.id)}
                         {@const style = getCategoryColor(item.category)}
-                        {@const isLiveNow = item.start_time && item.end_time && new Date(item.start_time) <= new Date() && new Date(item.end_time) >= new Date()}
-                        {@const isPast = item.end_time && new Date(item.end_time) < new Date()}
+                        {@const isLiveNow = item.start_time && item.end_time && new Date(item.start_time) <= currentTime && new Date(item.end_time) >= currentTime}
+                        {@const isPast = item.end_time && new Date(item.end_time) < currentTime}
 
                         <div
                           class="relative flex gap-4 group animate-slide-up"

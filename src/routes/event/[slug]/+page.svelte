@@ -131,15 +131,31 @@
 
   function getPriorityBorderClass(priority) {
     if (priority === 'urgent') {
-      return 'border-rose-500/60 bg-rose-500/5';
+      return 'border border-white/10 border-l-4 border-l-rose-500 bg-white/[0.03] hover:border-white/20 transition-all';
     }
     if (priority === 'high') {
-      return 'border-amber-500/60 bg-amber-500/5';
+      return 'border border-white/10 border-l-4 border-l-amber-500 bg-white/[0.03] hover:border-white/20 transition-all';
     }
     if (priority === 'low') {
-      return 'border-slate-500/30 bg-slate-500/5';
+      return 'border border-white/10 border-l-4 border-l-slate-500 bg-white/[0.03] hover:border-white/20 transition-all';
     }
-    return 'border-indigo-500/40 bg-indigo-500/5';
+    return 'border border-white/10 border-l-4 border-l-indigo-500 bg-white/[0.03] hover:border-white/20 transition-all';
+  }
+
+  function formatAnnouncementDateTime(dateInput) {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+    const dateStr = d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const timeStr = d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+    return `${dateStr} at ${timeStr}`;
   }
 
   function openNewAnnouncementModal() {
@@ -3696,7 +3712,7 @@
                   <div class="hidden sm:block">
                     {#key pinnedSlideIndex}
                       {@const item = pinnedAnnouncements[pinnedSlideIndex || 0] || pinnedAnnouncements[0]}
-                      <div in:slide={{ duration: 250 }} out:fade={{ duration: 150 }} class="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-amber-400/5 p-4 sm:p-5 backdrop-blur-md">
+                      <div in:slide={{ duration: 250 }} out:fade={{ duration: 150 }} class="relative overflow-hidden rounded-2xl p-4 sm:p-5 backdrop-blur-md {getPriorityBorderClass(item.priority)}">
                         <div class="flex items-start justify-between gap-4">
                           <div class="space-y-1 min-w-0 flex-1">
                             <div class="flex items-center gap-2 mb-1">
@@ -3709,7 +3725,7 @@
                                 <span class="rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">High Priority</span>
                               {/if}
                               <span class="text-[11px] text-ink-400 flex items-center gap-1 ml-auto sm:ml-0">
-                                <Clock size={10} /> {formatDateHuman(item.created_at)}
+                                <Clock size={10} /> {formatAnnouncementDateTime(item.created_at)}
                               </span>
                             </div>
                             <!-- Title -->
@@ -3773,7 +3789,7 @@
                   >
                     {#key pinnedSlideIndex}
                       {@const item = pinnedAnnouncements[pinnedSlideIndex || 0] || pinnedAnnouncements[0]}
-                      <div in:slide={{ duration: 200 }} out:fade={{ duration: 150 }} class="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-amber-400/5 p-4 backdrop-blur-md w-full">
+                      <div in:slide={{ duration: 200 }} out:fade={{ duration: 150 }} class="relative overflow-hidden rounded-2xl p-4 backdrop-blur-md w-full {getPriorityBorderClass(item.priority)}">
                         <div class="flex flex-col gap-1.5">
                           <div class="flex items-center justify-between gap-2">
                             <div class="flex items-center gap-1.5">
@@ -3783,6 +3799,9 @@
                               {#if item.priority === 'urgent'}
                                 <span class="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300">Urgent</span>
                               {/if}
+                              <span class="text-[10px] text-ink-400 flex items-center gap-1 ml-auto">
+                                <Clock size={10} /> {formatAnnouncementDateTime(item.created_at)}
+                              </span>
                             </div>
                             {#if data.isOrganizer && ownerViewMode === "organizer"}
                               <div class="flex items-center gap-1 shrink-0">
@@ -3892,7 +3911,7 @@
 
                               <span class="text-[11px] font-medium text-ink-400 flex items-center gap-1">
                                 <Clock size={11} class="text-ink-500" />
-                                {formatDateHuman(item.created_at)}
+                                {formatAnnouncementDateTime(item.created_at)}
                               </span>
                             </div>
 

@@ -5622,10 +5622,10 @@
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <!-- Start Date & Time -->
                     <div class="space-y-1.5">
-                      <label class="text-xs text-ink-300 font-medium flex items-center justify-between">
+                      <div class="text-xs text-ink-300 font-medium flex items-center justify-between">
                         <span>Start Date & Time</span>
                         <span class="text-[10px] text-ink-400 font-mono">5m interval</span>
-                      </label>
+                      </div>
                       <div class="grid grid-cols-2 gap-2">
                         <!-- Custom Date Button -->
                         <button
@@ -5659,7 +5659,7 @@
 
                     <!-- End Date & Time -->
                     <div class="space-y-1.5">
-                      <label class="text-xs text-ink-300 font-medium block">End Date & Time</label>
+                      <div class="text-xs text-ink-300 font-medium block">End Date & Time</div>
                       <div class="grid grid-cols-2 gap-2">
                         <!-- Custom Date Button -->
                         <button

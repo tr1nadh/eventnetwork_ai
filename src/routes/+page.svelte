@@ -990,10 +990,10 @@
             target="_blank"
             class="hover:text-slate-300 transition-colors">GitHub</a
           >
-          <a href="#" class="hover:text-slate-300 transition-colors"
+          <a href="/" class="hover:text-slate-300 transition-colors"
             >Documentation</a
           >
-          <a href="#" class="hover:text-slate-300 transition-colors">Contact</a>
+          <a href="/" class="hover:text-slate-300 transition-colors">Contact</a>
         </div>
       </div>
 

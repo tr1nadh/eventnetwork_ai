@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { goto, beforeNavigate } from '$app/navigation';
   import { page } from '$app/stores';
   import {
@@ -46,6 +46,19 @@
       signingOut = false;
     }
   }
+
+  let timeInterval;
+  let currentTime = new Date();
+
+  onMount(() => {
+    timeInterval = setInterval(() => {
+      currentTime = new Date();
+    }, 1000);
+  });
+
+  onDestroy(() => {
+    if (timeInterval) clearInterval(timeInterval);
+  });
 
   // Form state — pre-filled with existing data
   let name = event?.name ?? '';
@@ -245,12 +258,11 @@
   }
 
   // --- Strict Validation Flags ---
-  const now = new Date();
   const eventStart = event?.start_time ? new Date(event.start_time) : null;
   const eventEnd = event?.end_time ? new Date(event.end_time) : null;
 
-  $: isEventLive = Boolean(eventStart && eventStart <= now && (!eventEnd || new Date(eventEnd) >= now));
-  $: isEventEnded = Boolean(eventEnd && new Date(eventEnd) < now);
+  $: isEventLive = Boolean(eventStart && eventStart <= currentTime && (!eventEnd || eventEnd >= currentTime));
+  $: isEventEnded = Boolean(eventEnd && eventEnd < currentTime);
 
   $: isStartInPast = Boolean(!isEventLive && !isEventEnded && startDate && startDate < todayStr);
   $: isEndBeforeStart = Boolean(

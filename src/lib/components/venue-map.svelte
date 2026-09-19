@@ -37,7 +37,7 @@
   // Helper function to find live or upcoming timeline session for a zone
   function getZoneSchedule(zoneName, _globalLive, _globalNext, _schedule) {
     if (!_schedule || !Array.isArray(_schedule) || _schedule.length === 0 || !zoneName) {
-      return { live: null, upcoming: null, all: [] };
+      return { live: null, liveSessions: [], upcoming: null, upcomingSessions: [], all: [] };
     }
 
     const nameLower = zoneName.toLowerCase().trim();
@@ -49,12 +49,24 @@
 
     const zoneSessions = _schedule.filter(item => isMatch(item.location));
     
-    const live = _globalLive && isMatch(_globalLive.location) ? _globalLive : null;
-    const upcoming = _globalNext && isMatch(_globalNext.location) ? _globalNext : null;
+    const liveSessions = zoneSessions.filter(item => {
+      const start = new Date(item.start_time);
+      const end = new Date(item.end_time);
+      return currentTime >= start && currentTime <= end;
+    });
+
+    const upcomingSessions = zoneSessions
+      .filter(item => new Date(item.start_time) > currentTime)
+      .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+    const live = liveSessions[0] || (_globalLive && isMatch(_globalLive.location) ? _globalLive : null);
+    const upcoming = upcomingSessions[0] || (_globalNext && isMatch(_globalNext.location) ? _globalNext : null);
 
     return {
       live,
+      liveSessions,
       upcoming,
+      upcomingSessions,
       all: zoneSessions
     };
   }
@@ -492,16 +504,25 @@
           {/if}
 
           {#if isCompact}
-            <!-- Compact mode: icon + status dot only, tooltip shows full info -->
+            {@const liveCount = zoneSched.liveSessions.length}
+            {@const liveTitles = zoneSched.liveSessions.map(s => s.title).join(', ')}
+            {@const compactTitle = zone.name + (activeSession && !isEditing ? (liveCount > 0 ? ` · Live (${liveCount}): ${liveTitles}` : ' · Up Next: ' + zoneSched.upcoming.title) : '')}
+            <!-- Compact mode: icon + status dot / counter pill, tooltip shows full info -->
             <div
               class="relative flex items-center justify-center pointer-events-none"
-              title="{zone.name}{activeSession && !isEditing ? (zoneSched.live ? ' · Live: ' + zoneSched.live.title : ' · Up Next: ' + zoneSched.upcoming.title) : ''}"
+              title={compactTitle}
             >
               <svelte:component this={iconMap[zone.icon] || MapPin} size={18} class={currentLocation === zone.id && !isEditing ? 'text-amber-400' : 'text-white/60'} />
               {#if activeSession && !isEditing}
-                <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-black/30
-                  {zoneSched.live ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"
-                ></span>
+                {#if liveCount > 1}
+                  <span class="absolute -top-1.5 -right-2 bg-emerald-500 text-black font-extrabold text-[9px] px-1 py-0 rounded-full border border-black/50 shadow-md animate-pulse">
+                    {liveCount}
+                  </span>
+                {:else}
+                  <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-black/30
+                    {zoneSched.live ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"
+                  ></span>
+                {/if}
               {/if}
             </div>
             {#if currentLocation === zone.id && !isEditing}
@@ -518,12 +539,20 @@
             {#if activeSession && !isEditing}
               <div class="mt-1.5 w-full pointer-events-none px-1 flex flex-col gap-1">
                 {#if zoneSched.live}
+                  {@const extraCount = Math.max(0, zoneSched.liveSessions.length - 1)}
                   <div class="bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 px-2 py-1 rounded-lg text-[10px] text-center shadow-sm">
-                    <span class="font-extrabold uppercase text-[9px] text-emerald-400 tracking-wider flex items-center justify-center gap-1">
-                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      LIVE NOW
-                    </span>
-                    <span class="font-bold block truncate text-white mt-0.5" title={zoneSched.live.title}>{zoneSched.live.title}</span>
+                    <div class="flex items-center justify-center gap-1.5">
+                      <span class="font-extrabold uppercase text-[9px] text-emerald-400 tracking-wider flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        LIVE NOW
+                      </span>
+                      {#if extraCount > 0}
+                        <span class="bg-emerald-400/30 text-emerald-200 font-extrabold text-[8px] px-1.5 py-0.2 rounded-full border border-emerald-300/40" title={zoneSched.liveSessions.map(s => s.title).join(', ')}>
+                          +{extraCount} MORE
+                        </span>
+                      {/if}
+                    </div>
+                    <span class="font-bold block truncate text-white mt-0.5" title={zoneSched.liveSessions.map(s => s.title).join(', ')}>{zoneSched.live.title}</span>
                   </div>
                 {/if}
                 {#if zoneSched.upcoming && zoneSched.upcoming.id !== zoneSched.live?.id}
@@ -657,12 +686,20 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {#each activeZoneSched.all as session}
-            <div class="glass rounded-xl border border-white/8 p-3 space-y-1 text-left">
+            {@const isSessionLive = new Date(session.start_time) <= currentTime && currentTime <= new Date(session.end_time)}
+            <div class="glass rounded-xl border {isSessionLive ? 'border-emerald-500/40 bg-emerald-500/10 shadow-[0_0_12px_rgba(16,185,129,0.15)]' : 'border-white/8'} p-3 space-y-1 text-left">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-[10px] font-mono font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                <span class="text-[10px] font-mono font-bold {isSessionLive ? 'text-emerald-300 bg-emerald-400/20 border-emerald-400/30' : 'text-amber-300 bg-amber-400/10 border-amber-400/20'} px-2 py-0.5 rounded border">
                   {formatTimelineTimeRange(session.start_time, session.end_time)}
                 </span>
-                <span class="text-[9px] uppercase font-semibold text-ink-400">{session.category}</span>
+                {#if isSessionLive}
+                  <span class="text-[9px] font-extrabold uppercase text-emerald-400 tracking-wider flex items-center gap-1 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-400/30">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    LIVE NOW
+                  </span>
+                {:else}
+                  <span class="text-[9px] uppercase font-semibold text-ink-400">{session.category}</span>
+                {/if}
               </div>
               <p class="text-xs font-bold text-white leading-snug">{session.title}</p>
               {#if session.speaker_name}

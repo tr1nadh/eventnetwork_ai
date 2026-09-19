@@ -19,6 +19,24 @@ async function checkOrganizerPermission(admin, eventId, userId) {
   return eventData;
 }
 
+async function checkMaxPinnedLimit(admin, eventId, excludeId = null) {
+  let query = admin
+    .from('event_announcements')
+    .select('id', { count: 'exact' })
+    .eq('event_id', eventId)
+    .eq('is_pinned', true);
+
+  if (excludeId) {
+    query = query.neq('id', excludeId);
+  }
+
+  const { count, error: countErr } = await query;
+  if (countErr) return;
+  if ((count ?? 0) >= 3) {
+    throw error(400, 'Maximum 3 announcements can be pinned at a time.');
+  }
+}
+
 export async function GET({ params }) {
   const eventId = params.id;
   const admin = createSupabaseAdminClient();
@@ -57,6 +75,10 @@ export async function POST({ request, params, locals }) {
   }
   if (!content) {
     throw error(400, 'Announcement content is required.');
+  }
+
+  if (is_pinned) {
+    await checkMaxPinnedLimit(admin, eventId);
   }
 
   const payload = {
@@ -107,6 +129,10 @@ export async function PUT({ request, params, locals }) {
   }
   if (!content) {
     throw error(400, 'Content is required.');
+  }
+
+  if (is_pinned) {
+    await checkMaxPinnedLimit(admin, eventId, announcementId);
   }
 
   const updatePayload = {

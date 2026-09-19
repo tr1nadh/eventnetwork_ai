@@ -107,7 +107,8 @@
   // Announcements State & Reactive Handlers
   let announcementsList = data.announcements ?? [];
   let announcementSearchQuery = "";
-  let announcementPriorityFilter = "all";
+  let pinnedSlideIndex = 0;
+  let pinnedSwipeStartX = 0;
 
   let showAnnouncementModal = false;
   let editingAnnouncement = null;
@@ -120,16 +121,26 @@
 
   $: announcementsList = data.announcements ?? [];
 
-  $: filteredAnnouncements = announcementsList.filter(item => {
-    const matchesSearch = !announcementSearchQuery.trim() ||
-      item.title.toLowerCase().includes(announcementSearchQuery.toLowerCase()) ||
-      item.content.toLowerCase().includes(announcementSearchQuery.toLowerCase());
+  $: pinnedAnnouncements = announcementsList.filter(a => a.is_pinned).slice(0, 3);
 
-    if (!matchesSearch) return false;
-    if (announcementPriorityFilter === 'all') return true;
-    if (announcementPriorityFilter === 'pinned') return item.is_pinned;
-    return item.priority === announcementPriorityFilter;
+  $: filteredAnnouncements = announcementsList.filter(item => {
+    if (!announcementSearchQuery.trim()) return true;
+    const q = announcementSearchQuery.toLowerCase();
+    return item.title.toLowerCase().includes(q) || item.content.toLowerCase().includes(q);
   });
+
+  function getPriorityBorderClass(priority) {
+    if (priority === 'urgent') {
+      return 'border-rose-500/60 bg-rose-500/5';
+    }
+    if (priority === 'high') {
+      return 'border-amber-500/60 bg-amber-500/5';
+    }
+    if (priority === 'low') {
+      return 'border-slate-500/30 bg-slate-500/5';
+    }
+    return 'border-indigo-500/40 bg-indigo-500/5';
+  }
 
   function openNewAnnouncementModal() {
     editingAnnouncement = null;
@@ -153,6 +164,14 @@
     if (!announcementTitle.trim() || !announcementContent.trim()) {
       toast.error("Please provide both title and content.");
       return;
+    }
+
+    if (announcementIsPinned) {
+      const currentlyPinned = announcementsList.filter(a => a.is_pinned && a.id !== editingAnnouncement?.id);
+      if (currentlyPinned.length >= 3) {
+        toast.error("Maximum 3 announcements can be pinned at a time.");
+        return;
+      }
     }
 
     savingAnnouncement = true;
@@ -202,6 +221,15 @@
   async function togglePinAnnouncement(item) {
     try {
       const newPinned = !item.is_pinned;
+
+      if (newPinned) {
+        const currentlyPinned = announcementsList.filter(a => a.is_pinned);
+        if (currentlyPinned.length >= 3) {
+          toast.error("Maximum 3 announcements can be pinned at a time.");
+          return;
+        }
+      }
+
       const res = await fetch(`/api/events/${currentEvent.id}/announcements`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1074,12 +1102,28 @@
     return `${displayHStr}:${displayMStr} ${period}`;
   }
 
-  function formatDateHuman(dateStr) {
-    if (!dateStr) return 'Select Date';
-    const parts = dateStr.split('-').map(Number);
-    if (parts.length < 3) return dateStr;
-    const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-    return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  function formatDateHuman(dateInput) {
+    if (!dateInput) return 'Select Date';
+    if (typeof dateInput === 'string' && dateInput.includes('T')) {
+      const parsedDate = new Date(dateInput);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+    }
+    if (typeof dateInput === 'string' && dateInput.includes('-')) {
+      const parts = dateInput.split('T')[0].split('-').map(Number);
+      if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+        if (!isNaN(dateObj.getTime())) {
+          return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        }
+      }
+    }
+    const d = new Date(dateInput);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    return String(dateInput);
   }
 
   let activeDatePicker = null;
@@ -3588,7 +3632,7 @@
                     <Search size={15} class="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
                     <Input
                       bind:value={announcementSearchQuery}
-                      placeholder="Search announcements by title or content..."
+                      placeholder="Search announcements..."
                       class="pl-9 bg-white/5 border-white/10 text-white placeholder:text-ink-500 focus:border-rose-400/50 rounded-xl h-10 text-xs sm:text-sm"
                     />
                     {#if announcementSearchQuery}
@@ -3601,73 +3645,215 @@
                     {/if}
                   </div>
 
-                  <!-- Filter Pills & Host New Announcement Button -->
-                  <div class="flex flex-wrap items-center justify-between sm:justify-end gap-2">
-                    <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
-                      <button
-                        onclick={() => (announcementPriorityFilter = "all")}
-                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {announcementPriorityFilter === 'all' ? 'bg-white/15 text-white border border-white/20' : 'bg-white/4 text-ink-400 hover:text-white border border-white/5'}"
-                      >
-                        All ({announcementsList.length})
-                      </button>
-                      <button
-                        onclick={() => (announcementPriorityFilter = "pinned")}
-                        class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {announcementPriorityFilter === 'pinned' ? 'bg-amber-500/20 text-amber-200 border border-amber-400/30' : 'bg-white/4 text-ink-400 hover:text-amber-200 border border-white/5'}"
-                      >
-                        <Pin size={12} class="rotate-45" /> Pinned ({announcementsList.filter(a => a.is_pinned).length})
-                      </button>
-                      <button
-                        onclick={() => (announcementPriorityFilter = "urgent")}
-                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {announcementPriorityFilter === 'urgent' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/4 text-ink-400 hover:text-rose-300 border border-white/5'}"
-                      >
-                        Urgent ({announcementsList.filter(a => a.priority === 'urgent').length})
-                      </button>
-                      <button
-                        onclick={() => (announcementPriorityFilter = "high")}
-                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {announcementPriorityFilter === 'high' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/4 text-ink-400 hover:text-amber-300 border border-white/5'}"
-                      >
-                        High ({announcementsList.filter(a => a.priority === 'high').length})
-                      </button>
+                  {#if data.isOrganizer && ownerViewMode === "organizer"}
+                    <Button
+                      onclick={openNewAnnouncementModal}
+                      class="gap-1.5 bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-600 hover:to-pink-600 text-white font-semibold text-xs shadow-lg shadow-rose-500/20 shrink-0 h-10 px-4 rounded-xl border border-rose-400/30"
+                    >
+                      <Plus size={15} />
+                      New Announcement
+                    </Button>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Pinned Announcements Carousel (At Top, Max 3) -->
+              {#if pinnedAnnouncements.length > 0 && !announcementSearchQuery}
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between px-1">
+                    <div class="flex items-center gap-2">
+                      <Pin size={13} class="text-amber-400 rotate-45" />
+                      <span class="text-xs font-bold uppercase tracking-widest text-amber-300">
+                        Pinned Updates ({pinnedAnnouncements.length}/3)
+                      </span>
                     </div>
 
-                    {#if data.isOrganizer && ownerViewMode === "organizer"}
-                      <Button
-                        onclick={openNewAnnouncementModal}
-                        class="gap-1.5 bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-600 hover:to-pink-600 text-white font-semibold text-xs shadow-lg shadow-rose-500/20 shrink-0 h-9 px-4 rounded-xl border border-rose-400/30"
-                      >
-                        <Plus size={14} />
-                        New Announcement
-                      </Button>
+                    <!-- Desktop Carousel Controls -->
+                    {#if pinnedAnnouncements.length > 1}
+                      <div class="hidden sm:flex items-center gap-1.5">
+                        <button
+                          onclick={() => pinnedSlideIndex = (pinnedSlideIndex - 1 + pinnedAnnouncements.length) % pinnedAnnouncements.length}
+                          class="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 transition-all"
+                          aria-label="Previous pinned announcement"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <span class="text-[11px] font-semibold text-amber-300/80 px-1">
+                          {pinnedSlideIndex + 1}/{pinnedAnnouncements.length}
+                        </span>
+                        <button
+                          onclick={() => pinnedSlideIndex = (pinnedSlideIndex + 1) % pinnedAnnouncements.length}
+                          class="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 transition-all"
+                          aria-label="Next pinned announcement"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    {/if}
+                  </div>
+
+                  <!-- Desktop Slide -->
+                  <div class="hidden sm:block">
+                    {#key pinnedSlideIndex}
+                      {@const item = pinnedAnnouncements[pinnedSlideIndex || 0] || pinnedAnnouncements[0]}
+                      <div in:slide={{ duration: 250 }} out:fade={{ duration: 150 }} class="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-amber-400/5 p-4 sm:p-5 backdrop-blur-md">
+                        <div class="flex items-start justify-between gap-4">
+                          <div class="space-y-1 min-w-0 flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                              <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                                <Pin size={9} class="rotate-45" /> Pinned
+                              </span>
+                              {#if item.priority === 'urgent'}
+                                <span class="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300">Urgent</span>
+                              {:else if item.priority === 'high'}
+                                <span class="rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">High Priority</span>
+                              {/if}
+                              <span class="text-[11px] text-ink-400 flex items-center gap-1 ml-auto sm:ml-0">
+                                <Clock size={10} /> {formatDateHuman(item.created_at)}
+                              </span>
+                            </div>
+                            <!-- Title -->
+                            <h4 class="text-base font-bold text-white truncate line-clamp-1">
+                              {item.title}
+                            </h4>
+                            <!-- One line description -->
+                            <p class="text-xs text-ink-300 line-clamp-1 truncate">
+                              {item.content}
+                            </p>
+                          </div>
+
+                          {#if data.isOrganizer && ownerViewMode === "organizer"}
+                            <div class="flex items-center gap-1 shrink-0 bg-white/5 border border-white/10 rounded-xl p-1">
+                              <button
+                                onclick={() => togglePinAnnouncement(item)}
+                                title="Unpin announcement"
+                                class="p-1.5 rounded-lg text-amber-400 hover:bg-white/10 transition-colors"
+                              >
+                                <PinOff size={14} />
+                              </button>
+                              <button
+                                onclick={() => openEditAnnouncementModal(item)}
+                                title="Edit announcement"
+                                class="p-1.5 rounded-lg text-ink-400 hover:text-indigo-300 hover:bg-white/10 transition-colors"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onclick={() => handleDeleteAnnouncement(item.id)}
+                                disabled={deletingAnnouncementId === item.id}
+                                title="Delete announcement"
+                                class="p-1.5 rounded-lg text-ink-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50"
+                              >
+                                {#if deletingAnnouncementId === item.id}
+                                  <LoaderCircle size={14} class="animate-spin text-rose-400" />
+                                {:else}
+                                  <Trash2 size={14} />
+                                {/if}
+                              </button>
+                            </div>
+                          {/if}
+                        </div>
+                      </div>
+                    {/key}
+                  </div>
+
+                  <!-- Mobile Slide + Touch Swipe + Dots -->
+                  <div
+                    class="flex sm:hidden flex-col gap-2.5"
+                    role="region"
+                    aria-label="Pinned announcements"
+                    ontouchstart={(e) => { pinnedSwipeStartX = e.touches[0].clientX; }}
+                    ontouchend={(e) => {
+                      const dx = e.changedTouches[0].clientX - pinnedSwipeStartX;
+                      if (Math.abs(dx) > 40 && pinnedAnnouncements.length > 1) {
+                        if (dx < 0) pinnedSlideIndex = (pinnedSlideIndex + 1) % pinnedAnnouncements.length;
+                        else pinnedSlideIndex = (pinnedSlideIndex - 1 + pinnedAnnouncements.length) % pinnedAnnouncements.length;
+                      }
+                    }}
+                  >
+                    {#key pinnedSlideIndex}
+                      {@const item = pinnedAnnouncements[pinnedSlideIndex || 0] || pinnedAnnouncements[0]}
+                      <div in:slide={{ duration: 200 }} out:fade={{ duration: 150 }} class="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-amber-400/5 p-4 backdrop-blur-md w-full">
+                        <div class="flex flex-col gap-1.5">
+                          <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-1.5">
+                              <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                                <Pin size={9} class="rotate-45" /> Pinned
+                              </span>
+                              {#if item.priority === 'urgent'}
+                                <span class="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300">Urgent</span>
+                              {/if}
+                            </div>
+                            {#if data.isOrganizer && ownerViewMode === "organizer"}
+                              <div class="flex items-center gap-1 shrink-0">
+                                <button
+                                  onclick={() => togglePinAnnouncement(item)}
+                                  class="p-1 text-amber-400"
+                                >
+                                  <PinOff size={13} />
+                                </button>
+                                <button
+                                  onclick={() => openEditAnnouncementModal(item)}
+                                  class="p-1 text-ink-400 hover:text-white"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                              </div>
+                            {/if}
+                          </div>
+                          <!-- Title -->
+                          <h4 class="text-sm font-bold text-white truncate line-clamp-1">
+                            {item.title}
+                          </h4>
+                          <!-- One line description -->
+                          <p class="text-xs text-ink-300 line-clamp-1 truncate">
+                            {item.content}
+                          </p>
+                        </div>
+                      </div>
+                    {/key}
+
+                    <!-- Dots indicator -->
+                    {#if pinnedAnnouncements.length > 1}
+                      <div class="flex items-center justify-center gap-1.5 pt-1">
+                        {#each pinnedAnnouncements as _, i}
+                          <button
+                            onclick={() => pinnedSlideIndex = i}
+                            aria-label="Go to pinned announcement {i + 1}"
+                            class="h-1.5 rounded-full transition-all duration-300 {pinnedSlideIndex === i ? 'w-4 bg-amber-400' : 'w-1.5 bg-amber-400/30'}"
+                          ></button>
+                        {/each}
+                      </div>
                     {/if}
                   </div>
                 </div>
-              </div>
+              {/if}
 
               <!-- Announcements Cards Feed -->
               {#if filteredAnnouncements.length === 0}
                 <div class="glass rounded-2xl border border-white/8 p-12 text-center space-y-4">
-                  <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
-                    <Megaphone size={28} />
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                    <Megaphone size={24} />
                   </div>
                   <div class="space-y-1">
-                    <h3 class="text-lg font-bold text-white">
-                      {#if announcementSearchQuery || announcementPriorityFilter !== 'all'}
+                    <h3 class="text-base font-bold text-white">
+                      {#if announcementSearchQuery}
                         No matching announcements found
                       {:else}
                         No announcements yet
                       {/if}
                     </h3>
-                    <p class="text-sm text-ink-400 max-w-md mx-auto">
-                      {#if announcementSearchQuery || announcementPriorityFilter !== 'all'}
-                        Try adjusting your search query or clear the priority filter.
+                    <p class="text-xs text-ink-400 max-w-md mx-auto">
+                      {#if announcementSearchQuery}
+                        Try adjusting your search query.
                       {:else}
                         Organizers haven't posted any announcements for this event yet. Check back soon for updates!
                       {/if}
                     </p>
                   </div>
-                  {#if data.isOrganizer && ownerViewMode === "organizer" && !announcementSearchQuery && announcementPriorityFilter === 'all'}
-                    <Button onclick={openNewAnnouncementModal} variant="outline" class="gap-2 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 mt-2">
-                      <Plus size={15} />
+                  {#if data.isOrganizer && ownerViewMode === "organizer" && !announcementSearchQuery}
+                    <Button onclick={openNewAnnouncementModal} variant="outline" class="gap-2 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 mt-2 text-xs">
+                      <Plus size={14} />
                       Post First Announcement
                     </Button>
                   {/if}
@@ -3676,23 +3862,13 @@
                 <div class="space-y-4">
                   {#each filteredAnnouncements as item (item.id)}
                     <div
-                      class="relative overflow-hidden rounded-2xl border transition-all duration-200 {item.is_pinned ? 'border-amber-400/40 bg-gradient-to-br from-amber-500/8 via-white/4 to-white/2 shadow-[0_0_20px_rgba(251,191,36,0.08)]' : 'border-white/8 bg-white/4 hover:border-white/15'}"
+                      class="relative overflow-hidden rounded-2xl border transition-all duration-200 {getPriorityBorderClass(item.priority)}"
                     >
-                      <!-- Top accent bar for pinned or urgent -->
-                      {#if item.is_pinned}
-                        <div class="h-1 w-full bg-gradient-to-r from-amber-400 to-rose-400"></div>
-                      {:else if item.priority === 'urgent'}
-                        <div class="h-1 w-full bg-rose-500"></div>
-                      {:else if item.priority === 'high'}
-                        <div class="h-1 w-full bg-amber-500"></div>
-                      {/if}
-
-                      <div class="p-5 sm:p-6 space-y-4">
+                      <div class="p-5 sm:p-6 space-y-3">
                         <!-- Header Row -->
                         <div class="flex flex-wrap items-start justify-between gap-3">
                           <div class="space-y-1.5 flex-1 min-w-[240px]">
                             <div class="flex flex-wrap items-center gap-2">
-                              <!-- Pinned Pill -->
                               {#if item.is_pinned}
                                 <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
                                   <Pin size={10} class="rotate-45" /> Pinned
@@ -3730,7 +3906,7 @@
                             <div class="flex items-center gap-1.5 shrink-0 bg-white/5 border border-white/8 rounded-xl p-1">
                               <button
                                 onclick={() => togglePinAnnouncement(item)}
-                                title={item.is_pinned ? "Unpin announcement" : "Pin announcement to top"}
+                                title={item.is_pinned ? "Unpin announcement" : "Pin announcement to top (max 3)"}
                                 class="p-2 rounded-lg text-ink-400 hover:text-amber-300 hover:bg-white/10 transition-colors"
                               >
                                 {#if item.is_pinned}

@@ -35,8 +35,8 @@
     .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0];
 
   // Helper function to find live or upcoming timeline session for a zone
-  function getZoneSchedule(zoneName) {
-    if (!schedule || !Array.isArray(schedule) || schedule.length === 0 || !zoneName) {
+  function getZoneSchedule(zoneName, _globalLive, _globalNext, _schedule) {
+    if (!_schedule || !Array.isArray(_schedule) || _schedule.length === 0 || !zoneName) {
       return { live: null, upcoming: null, all: [] };
     }
 
@@ -47,10 +47,10 @@
       return locLower === nameLower || locLower.includes(nameLower) || nameLower.includes(locLower);
     };
 
-    const zoneSessions = schedule.filter(item => isMatch(item.location));
+    const zoneSessions = _schedule.filter(item => isMatch(item.location));
     
-    const live = globalLiveSession && isMatch(globalLiveSession.location) ? globalLiveSession : null;
-    const upcoming = globalNextSession && isMatch(globalNextSession.location) ? globalNextSession : null;
+    const live = _globalLive && isMatch(_globalLive.location) ? _globalLive : null;
+    const upcoming = _globalNext && isMatch(_globalNext.location) ? _globalNext : null;
 
     return {
       live,
@@ -473,7 +473,7 @@
       {/if}
 
       {#each zones as zone (zone.id)}
-        {@const zoneSched = getZoneSchedule(zone.name)}
+        {@const zoneSched = getZoneSchedule(zone.name, globalLiveSession, globalNextSession, schedule)}
         {@const activeSession = zoneSched.live || zoneSched.upcoming}
         {@const doorIsActive = currentLocation === zone.id}
         <div 
@@ -624,7 +624,7 @@
   <!-- Selected Zone Sessions Footer Panel -->
   {#if currentLocation && !isEditing}
     {@const activeZoneObj = zones.find(z => z.id === currentLocation)}
-    {@const activeZoneSched = activeZoneObj ? getZoneSchedule(activeZoneObj.name) : null}
+    {@const activeZoneSched = activeZoneObj ? getZoneSchedule(activeZoneObj.name, globalLiveSession, globalNextSession, schedule) : null}
     {#if activeZoneSched && activeZoneSched.all.length > 0}
       <div class="p-4 sm:p-5 border-t border-white/10 bg-black/40 space-y-3" transition:slide>
         <div class="flex items-center justify-between">

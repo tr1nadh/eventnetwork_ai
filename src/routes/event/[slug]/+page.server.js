@@ -184,7 +184,7 @@ export const load = async ({ params, locals }) => {
   const admin = createSupabaseAdminClient();
   const { data, error: loadError } = await admin
     .from('events')
-    .select('id, name, description, slug, venue_map, created_by, created_at, updated_at, start_time, end_time, location, google_map_url, event_format, attendees_count, is_approval_required, is_venue_enabled, is_network_enabled')
+    .select('id, name, description, slug, venue_map, created_by, created_at, updated_at, start_time, end_time, location, google_map_url, event_format, attendees_count, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled')
     .eq('slug', params.slug)
     .maybeSingle();
 
@@ -268,18 +268,27 @@ export const load = async ({ params, locals }) => {
     }
   }
 
-  // Fetch timeline items for event
-  const { data: timelineData } = await admin
-    .from('event_timeline')
-    .select('*')
-    .eq('event_id', data.id)
-    .order('start_time', { ascending: true })
-    .order('sort_order', { ascending: true });
+  // Fetch timeline items and announcements for event in parallel
+  const [timelineRes, announcementsRes] = await Promise.all([
+    admin
+      .from('event_timeline')
+      .select('*')
+      .eq('event_id', data.id)
+      .order('start_time', { ascending: true })
+      .order('sort_order', { ascending: true }),
+    admin
+      .from('event_announcements')
+      .select('*')
+      .eq('event_id', data.id)
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false })
+  ]);
 
   return {
     event: data,
     suggestedMatches,
-    timeline: timelineData ?? [],
+    timeline: timelineRes.data ?? [],
+    announcements: announcementsRes.data ?? [],
     user: locals.user,
     isOrganizer,
     isParticipant,

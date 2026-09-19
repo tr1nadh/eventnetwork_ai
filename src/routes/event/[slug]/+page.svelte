@@ -48,6 +48,11 @@
     Copy,
     Check,
     Calendar,
+    Megaphone,
+    Pin,
+    PinOff,
+    Filter,
+    Bell,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -98,6 +103,153 @@
 
   export let data;
   let realtimeChannel;
+
+  // Announcements State & Reactive Handlers
+  let announcementsList = data.announcements ?? [];
+  let announcementSearchQuery = "";
+  let announcementPriorityFilter = "all";
+
+  let showAnnouncementModal = false;
+  let editingAnnouncement = null;
+  let announcementTitle = "";
+  let announcementContent = "";
+  let announcementPriority = "normal";
+  let announcementIsPinned = false;
+  let savingAnnouncement = false;
+  let deletingAnnouncementId = null;
+
+  $: announcementsList = data.announcements ?? [];
+
+  $: filteredAnnouncements = announcementsList.filter(item => {
+    const matchesSearch = !announcementSearchQuery.trim() ||
+      item.title.toLowerCase().includes(announcementSearchQuery.toLowerCase()) ||
+      item.content.toLowerCase().includes(announcementSearchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+    if (announcementPriorityFilter === 'all') return true;
+    if (announcementPriorityFilter === 'pinned') return item.is_pinned;
+    return item.priority === announcementPriorityFilter;
+  });
+
+  function openNewAnnouncementModal() {
+    editingAnnouncement = null;
+    announcementTitle = "";
+    announcementContent = "";
+    announcementPriority = "normal";
+    announcementIsPinned = false;
+    showAnnouncementModal = true;
+  }
+
+  function openEditAnnouncementModal(item) {
+    editingAnnouncement = item;
+    announcementTitle = item.title;
+    announcementContent = item.content;
+    announcementPriority = item.priority ?? "normal";
+    announcementIsPinned = item.is_pinned ?? false;
+    showAnnouncementModal = true;
+  }
+
+  async function handleSaveAnnouncement() {
+    if (!announcementTitle.trim() || !announcementContent.trim()) {
+      toast.error("Please provide both title and content.");
+      return;
+    }
+
+    savingAnnouncement = true;
+    try {
+      const isEditing = Boolean(editingAnnouncement);
+      const url = `/api/events/${currentEvent.id}/announcements`;
+      const method = isEditing ? 'PUT' : 'POST';
+      const body = {
+        title: announcementTitle.trim(),
+        content: announcementContent.trim(),
+        priority: announcementPriority,
+        is_pinned: announcementIsPinned
+      };
+      if (isEditing) {
+        body.id = editingAnnouncement.id;
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body)
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json?.message ?? json?.error ?? 'Failed to save announcement.');
+        return;
+      }
+
+      if (isEditing) {
+        announcementsList = announcementsList.map(a => a.id === json.announcement.id ? json.announcement : a);
+        toast.success("Announcement updated!");
+      } else {
+        announcementsList = [json.announcement, ...announcementsList];
+        toast.success("Announcement posted!");
+      }
+
+      showAnnouncementModal = false;
+    } catch (err) {
+      toast.error(err.message ?? "An error occurred.");
+    } finally {
+      savingAnnouncement = false;
+    }
+  }
+
+  async function togglePinAnnouncement(item) {
+    try {
+      const newPinned = !item.is_pinned;
+      const res = await fetch(`/api/events/${currentEvent.id}/announcements`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: item.id,
+          title: item.title,
+          content: item.content,
+          priority: item.priority,
+          is_pinned: newPinned
+        })
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error("Failed to update pin status");
+        return;
+      }
+
+      announcementsList = announcementsList.map(a => a.id === item.id ? json.announcement : a);
+      toast.success(newPinned ? "Announcement pinned to top" : "Announcement unpinned");
+    } catch (e) {
+      toast.error("An error occurred");
+    }
+  }
+
+  async function handleDeleteAnnouncement(id) {
+    deletingAnnouncementId = id;
+    try {
+      const res = await fetch(`/api/events/${currentEvent.id}/announcements?id=${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error(json?.message ?? "Failed to delete announcement");
+        return;
+      }
+
+      announcementsList = announcementsList.filter(a => a.id !== id);
+      toast.success("Announcement deleted");
+    } catch (e) {
+      toast.error("An error occurred");
+    } finally {
+      deletingAnnouncementId = null;
+    }
+  }
 
   let timeInterval;
   let currentTime = new Date();
@@ -2635,6 +2787,21 @@
                 </Tabs.Trigger>
 
                 <Tabs.Trigger
+                  value="announcements"
+                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-rose-400/15 data-[state=active]:text-rose-200 data-[state=inactive]:text-ink-500 hover:text-rose-200"
+                >
+                  <Megaphone size={16} />
+                  <span class="flex items-center gap-1.5">
+                    Announcements
+                    {#if announcementsList.length}
+                      <span class="rounded-full bg-rose-400/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">
+                        {announcementsList.length}
+                      </span>
+                    {/if}
+                  </span>
+                </Tabs.Trigger>
+
+                <Tabs.Trigger
                   value="settings"
                   class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
                 >
@@ -2650,6 +2817,23 @@
                   <Info size={16} />
                   <span>Overview</span>
                 </Tabs.Trigger>
+
+                {#if Boolean(currentEvent.is_announcements_enabled ?? true)}
+                  <Tabs.Trigger
+                    value="announcements"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-rose-400/15 data-[state=active]:text-rose-200 data-[state=inactive]:text-ink-500 hover:text-rose-200"
+                  >
+                    <Megaphone size={16} />
+                    <span class="flex items-center gap-1.5">
+                      Announcements
+                      {#if announcementsList.length}
+                        <span class="rounded-full bg-rose-400/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">
+                          {announcementsList.length}
+                        </span>
+                      {/if}
+                    </span>
+                  </Tabs.Trigger>
+                {/if}
 
                 {#if Boolean(currentEvent.is_network_enabled)}
                   <Tabs.Trigger
@@ -3389,6 +3573,205 @@
                 </div>
               </div>
             {/if}
+          </Tabs.Content>
+
+          <!-- Announcements tab -->
+          <Tabs.Content value="announcements" class="mt-4">
+            <div class="space-y-6 animate-fade-in">
+              <!-- Action & Search Bar -->
+              <div class="glass rounded-2xl border border-white/8 p-4 sm:p-5 relative overflow-hidden">
+                <div class="absolute top-0 left-0 h-[2px] w-full bg-gradient-to-r from-rose-500 via-pink-400 to-amber-400"></div>
+
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <!-- Search input -->
+                  <div class="relative flex-1">
+                    <Search size={15} class="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
+                    <Input
+                      bind:value={announcementSearchQuery}
+                      placeholder="Search announcements by title or content..."
+                      class="pl-9 bg-white/5 border-white/10 text-white placeholder:text-ink-500 focus:border-rose-400/50 rounded-xl h-10 text-xs sm:text-sm"
+                    />
+                    {#if announcementSearchQuery}
+                      <button
+                        onclick={() => (announcementSearchQuery = "")}
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 hover:text-white"
+                      >
+                        <X size={14} />
+                      </button>
+                    {/if}
+                  </div>
+
+                  <!-- Filter Pills & Host New Announcement Button -->
+                  <div class="flex flex-wrap items-center justify-between sm:justify-end gap-2">
+                    <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
+                      <button
+                        onclick={() => (announcementPriorityFilter = "all")}
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {announcementPriorityFilter === 'all' ? 'bg-white/15 text-white border border-white/20' : 'bg-white/4 text-ink-400 hover:text-white border border-white/5'}"
+                      >
+                        All ({announcementsList.length})
+                      </button>
+                      <button
+                        onclick={() => (announcementPriorityFilter = "pinned")}
+                        class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {announcementPriorityFilter === 'pinned' ? 'bg-amber-500/20 text-amber-200 border border-amber-400/30' : 'bg-white/4 text-ink-400 hover:text-amber-200 border border-white/5'}"
+                      >
+                        <Pin size={12} class="rotate-45" /> Pinned ({announcementsList.filter(a => a.is_pinned).length})
+                      </button>
+                      <button
+                        onclick={() => (announcementPriorityFilter = "urgent")}
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {announcementPriorityFilter === 'urgent' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/4 text-ink-400 hover:text-rose-300 border border-white/5'}"
+                      >
+                        Urgent ({announcementsList.filter(a => a.priority === 'urgent').length})
+                      </button>
+                      <button
+                        onclick={() => (announcementPriorityFilter = "high")}
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 {announcementPriorityFilter === 'high' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/4 text-ink-400 hover:text-amber-300 border border-white/5'}"
+                      >
+                        High ({announcementsList.filter(a => a.priority === 'high').length})
+                      </button>
+                    </div>
+
+                    {#if data.isOrganizer && ownerViewMode === "organizer"}
+                      <Button
+                        onclick={openNewAnnouncementModal}
+                        class="gap-1.5 bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-600 hover:to-pink-600 text-white font-semibold text-xs shadow-lg shadow-rose-500/20 shrink-0 h-9 px-4 rounded-xl border border-rose-400/30"
+                      >
+                        <Plus size={14} />
+                        New Announcement
+                      </Button>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Announcements Cards Feed -->
+              {#if filteredAnnouncements.length === 0}
+                <div class="glass rounded-2xl border border-white/8 p-12 text-center space-y-4">
+                  <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                    <Megaphone size={28} />
+                  </div>
+                  <div class="space-y-1">
+                    <h3 class="text-lg font-bold text-white">
+                      {#if announcementSearchQuery || announcementPriorityFilter !== 'all'}
+                        No matching announcements found
+                      {:else}
+                        No announcements yet
+                      {/if}
+                    </h3>
+                    <p class="text-sm text-ink-400 max-w-md mx-auto">
+                      {#if announcementSearchQuery || announcementPriorityFilter !== 'all'}
+                        Try adjusting your search query or clear the priority filter.
+                      {:else}
+                        Organizers haven't posted any announcements for this event yet. Check back soon for updates!
+                      {/if}
+                    </p>
+                  </div>
+                  {#if data.isOrganizer && ownerViewMode === "organizer" && !announcementSearchQuery && announcementPriorityFilter === 'all'}
+                    <Button onclick={openNewAnnouncementModal} variant="outline" class="gap-2 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 mt-2">
+                      <Plus size={15} />
+                      Post First Announcement
+                    </Button>
+                  {/if}
+                </div>
+              {:else}
+                <div class="space-y-4">
+                  {#each filteredAnnouncements as item (item.id)}
+                    <div
+                      class="relative overflow-hidden rounded-2xl border transition-all duration-200 {item.is_pinned ? 'border-amber-400/40 bg-gradient-to-br from-amber-500/8 via-white/4 to-white/2 shadow-[0_0_20px_rgba(251,191,36,0.08)]' : 'border-white/8 bg-white/4 hover:border-white/15'}"
+                    >
+                      <!-- Top accent bar for pinned or urgent -->
+                      {#if item.is_pinned}
+                        <div class="h-1 w-full bg-gradient-to-r from-amber-400 to-rose-400"></div>
+                      {:else if item.priority === 'urgent'}
+                        <div class="h-1 w-full bg-rose-500"></div>
+                      {:else if item.priority === 'high'}
+                        <div class="h-1 w-full bg-amber-500"></div>
+                      {/if}
+
+                      <div class="p-5 sm:p-6 space-y-4">
+                        <!-- Header Row -->
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                          <div class="space-y-1.5 flex-1 min-w-[240px]">
+                            <div class="flex flex-wrap items-center gap-2">
+                              <!-- Pinned Pill -->
+                              {#if item.is_pinned}
+                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                                  <Pin size={10} class="rotate-45" /> Pinned
+                                </span>
+                              {/if}
+
+                              <!-- Priority Pill -->
+                              {#if item.priority === 'urgent'}
+                                <span class="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300">
+                                  Urgent
+                                </span>
+                              {:else if item.priority === 'high'}
+                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                                  High Priority
+                                </span>
+                              {:else if item.priority === 'low'}
+                                <span class="inline-flex items-center gap-1 rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  Low Priority
+                                </span>
+                              {/if}
+
+                              <span class="text-[11px] font-medium text-ink-400 flex items-center gap-1">
+                                <Clock size={11} class="text-ink-500" />
+                                {formatDateHuman(item.created_at)}
+                              </span>
+                            </div>
+
+                            <h3 class="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug">
+                              {item.title}
+                            </h3>
+                          </div>
+
+                          <!-- Organizer Action Buttons -->
+                          {#if data.isOrganizer && ownerViewMode === "organizer"}
+                            <div class="flex items-center gap-1.5 shrink-0 bg-white/5 border border-white/8 rounded-xl p-1">
+                              <button
+                                onclick={() => togglePinAnnouncement(item)}
+                                title={item.is_pinned ? "Unpin announcement" : "Pin announcement to top"}
+                                class="p-2 rounded-lg text-ink-400 hover:text-amber-300 hover:bg-white/10 transition-colors"
+                              >
+                                {#if item.is_pinned}
+                                  <PinOff size={14} class="text-amber-400" />
+                                {:else}
+                                  <Pin size={14} class="rotate-45" />
+                                {/if}
+                              </button>
+                              <button
+                                onclick={() => openEditAnnouncementModal(item)}
+                                title="Edit announcement"
+                                class="p-2 rounded-lg text-ink-400 hover:text-indigo-300 hover:bg-white/10 transition-colors"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onclick={() => handleDeleteAnnouncement(item.id)}
+                                disabled={deletingAnnouncementId === item.id}
+                                title="Delete announcement"
+                                class="p-2 rounded-lg text-ink-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50"
+                              >
+                                {#if deletingAnnouncementId === item.id}
+                                  <LoaderCircle size={14} class="animate-spin text-rose-400" />
+                                {:else}
+                                  <Trash2 size={14} />
+                                {/if}
+                              </button>
+                            </div>
+                          {/if}
+                        </div>
+
+                        <!-- Content Text -->
+                        <div class="text-sm leading-relaxed text-ink-200 whitespace-pre-wrap font-normal">
+                          {item.content}
+                        </div>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
           </Tabs.Content>
 
           <!-- Networking profile dialog (portaled outside) -->
@@ -6426,6 +6809,115 @@
             Delete Event
           </Button>
         </div>
+      </Dialog.Content>
+    </Dialog.Root>
+
+    <!-- Announcement Create/Edit Modal -->
+    <Dialog.Root bind:open={showAnnouncementModal}>
+      <Dialog.Content class="sm:max-w-xl bg-[#0f0f11] border border-white/10 text-white p-6 sm:p-8">
+        <Dialog.Header class="space-y-1.5 mb-5">
+          <div class="flex items-center gap-2">
+            <Megaphone size={18} class="text-rose-400" />
+            <Dialog.Title class="text-lg font-bold text-white">
+              {editingAnnouncement ? "Edit Announcement" : "Create Announcement"}
+            </Dialog.Title>
+          </div>
+          <Dialog.Description class="text-xs text-ink-400">
+            {editingAnnouncement ? "Modify this event update broadcast for attendees." : "Broadcast an official update or notice to all event attendees."}
+          </Dialog.Description>
+        </Dialog.Header>
+
+        <form onsubmit={(e) => { e.preventDefault(); handleSaveAnnouncement(); }} class="space-y-4">
+          <!-- Title -->
+          <div class="space-y-2">
+            <Label class="text-xs font-semibold uppercase tracking-wider text-ink-300">
+              Title <span class="text-rose-400">*</span>
+            </Label>
+            <Input
+              bind:value={announcementTitle}
+              placeholder="e.g. Schedule Change: Keynote pushed by 30 mins"
+              class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-rose-400/50 text-sm"
+              required
+            />
+          </div>
+
+          <!-- Content -->
+          <div class="space-y-2">
+            <Label class="text-xs font-semibold uppercase tracking-wider text-ink-300">
+              Content / Notice Details <span class="text-rose-400">*</span>
+            </Label>
+            <textarea
+              bind:value={announcementContent}
+              rows="5"
+              placeholder="Write the details of your announcement here..."
+              class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm text-white placeholder:text-ink-600 focus:border-rose-400/50 focus:outline-none focus:ring-1 focus:ring-rose-400/20 resize-y"
+              required
+            ></textarea>
+          </div>
+
+          <!-- Priority & Pin Row -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <!-- Priority selector -->
+            <div class="space-y-2">
+              <Label class="text-xs font-semibold uppercase tracking-wider text-ink-300">
+                Priority Level
+              </Label>
+              <select
+                bind:value={announcementPriority}
+                class="w-full bg-[#18181b] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:border-rose-400/50 focus:outline-none"
+              >
+                <option value="normal" class="bg-[#18181b] text-white">Normal</option>
+                <option value="high" class="bg-[#18181b] text-amber-300">High Priority</option>
+                <option value="urgent" class="bg-[#18181b] text-rose-400">Urgent</option>
+                <option value="low" class="bg-[#18181b] text-ink-400">Low Priority</option>
+              </select>
+            </div>
+
+            <!-- Pin Toggle -->
+            <div class="space-y-2">
+              <Label class="text-xs font-semibold uppercase tracking-wider text-ink-300">
+                Pin to Top
+              </Label>
+              <button
+                type="button"
+                onclick={() => (announcementIsPinned = !announcementIsPinned)}
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/4 hover:bg-white/8 transition-colors"
+              >
+                <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <Pin size={13} class="text-amber-400 rotate-45" />
+                  {announcementIsPinned ? "Pinned" : "Normal Position"}
+                </span>
+                <div class="w-8 h-4.5 rounded-full transition-colors relative {announcementIsPinned ? 'bg-amber-500' : 'bg-white/15'}">
+                  <div class="w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 left-0.5 transition-transform {announcementIsPinned ? 'translate-x-3.5' : 'translate-x-0'}"></div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+            <Button
+              type="button"
+              variant="ghost"
+              onclick={() => (showAnnouncementModal = false)}
+              class="text-ink-400 hover:text-white text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={savingAnnouncement || !announcementTitle.trim() || !announcementContent.trim()}
+              class="gap-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-semibold text-xs px-5 h-9"
+            >
+              {#if savingAnnouncement}
+                <LoaderCircle size={14} class="animate-spin" /> Saving…
+              {:else}
+                <Megaphone size={14} />
+                {editingAnnouncement ? "Update Announcement" : "Post Announcement"}
+              {/if}
+            </Button>
+          </div>
+        </form>
       </Dialog.Content>
     </Dialog.Root>
 

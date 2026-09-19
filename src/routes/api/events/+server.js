@@ -9,7 +9,7 @@ function slugify(input) {
     .replace(/^-+|-+$/g, '');
 }
 
-const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_format, attendees_count, is_approval_required, is_venue_enabled, is_network_enabled';
+const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_format, attendees_count, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
 
 export async function POST({ request, locals }) {
   if (!locals.user) {
@@ -50,6 +50,7 @@ export async function POST({ request, locals }) {
   const is_approval_required = Boolean(body?.is_approval_required);
   const is_venue_enabled = body?.is_venue_enabled !== undefined ? Boolean(body.is_venue_enabled) : true;
   const is_network_enabled = Boolean(body?.is_network_enabled);
+  const is_announcements_enabled = body?.is_announcements_enabled !== undefined ? Boolean(body.is_announcements_enabled) : true;
 
   const admin = createSupabaseAdminClient();
 
@@ -81,7 +82,8 @@ export async function POST({ request, locals }) {
       event_format,
       is_approval_required,
       is_venue_enabled,
-      is_network_enabled
+      is_network_enabled,
+      is_announcements_enabled
     })
     .select(SELECT_FIELDS)
     .single();

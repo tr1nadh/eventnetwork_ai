@@ -20,6 +20,7 @@
     Calendar,
     Clock,
     X,
+    Megaphone,
   } from '@lucide/svelte';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
   import Sidebar from '$lib/components/sidebar.svelte';
@@ -80,6 +81,7 @@
   let isApprovalRequired = event?.is_approval_required ?? false;
   let isVenueEnabled = event?.is_venue_enabled ?? true;
   let isNetworkEnabled = event?.is_network_enabled ?? false;
+  let isAnnouncementsEnabled = event?.is_announcements_enabled ?? true;
 
   // Split start & end time into Date and Time components for custom UX
   let startDate = startTime ? startTime.split('T')[0] : '';
@@ -284,6 +286,7 @@
     isApprovalRequired,
     isVenueEnabled,
     isNetworkEnabled,
+    isAnnouncementsEnabled,
   });
 
   $: currentFormSnapshot = JSON.stringify({
@@ -298,6 +301,7 @@
     isApprovalRequired,
     isVenueEnabled,
     isNetworkEnabled,
+    isAnnouncementsEnabled,
   });
 
   $: isDirty = currentFormSnapshot !== initialFormSnapshot;
@@ -389,6 +393,7 @@
           is_approval_required: isApprovalRequired,
           is_venue_enabled: isVenueEnabled,
           is_network_enabled: isNetworkEnabled,
+          is_announcements_enabled: isAnnouncementsEnabled,
         }),
       });
 
@@ -762,6 +767,30 @@
           >
             <span
               class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isNetworkEnabled ? 'translate-x-5' : 'translate-x-0'}"
+            ></span>
+          </button>
+        </div>
+
+        <!-- Enable Announcements -->
+        <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+          <div class="flex items-start gap-3">
+            <Megaphone size={16} class="text-rose-400 mt-0.5 shrink-0" />
+            <div>
+              <p class="text-sm font-semibold text-white">Enable Announcements</p>
+              <p class="text-xs text-ink-500 mt-0.5">Show the Announcements tab to broadcast updates to attendees.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={isEventEnded}
+            onclick={() => (isAnnouncementsEnabled = !isAnnouncementsEnabled)}
+            class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isAnnouncementsEnabled ? 'bg-rose-500' : 'bg-white/10'} disabled:opacity-50"
+            role="switch"
+            aria-checked={isAnnouncementsEnabled}
+            aria-label="Enable Announcements"
+          >
+            <span
+              class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isAnnouncementsEnabled ? 'translate-x-5' : 'translate-x-0'}"
             ></span>
           </button>
         </div>

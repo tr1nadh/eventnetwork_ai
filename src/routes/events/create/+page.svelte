@@ -71,6 +71,7 @@
   let isApprovalRequired = false;
   let isVenueEnabled = false;
   let isNetworkEnabled = false;
+  let isAnnouncementsEnabled = true;
 
   let startDate = getFormattedDateStr(defaultStartObj);
   let startTimeVal = `${String(defaultStartObj.getHours()).padStart(2, '0')}:${String(defaultStartObj.getMinutes()).padStart(2, '0')}`;
@@ -291,6 +292,7 @@
           is_approval_required: isApprovalRequired,
           is_venue_enabled: isVenueEnabled,
           is_network_enabled: isNetworkEnabled,
+          is_announcements_enabled: isAnnouncementsEnabled,
         }),
       });
 

@@ -2521,16 +2521,31 @@
                   </div>
                 {/if}
 
-                {#if isEndingSoon && nextSession}
+                {#if nextSession}
                   <div class="flex justify-center mt-2 animate-fade-in" transition:slide>
-                    <div class="inline-flex items-center gap-3 rounded-2xl border border-orange-500/25 bg-orange-500/10 px-4 py-2 backdrop-blur-md shadow-lg shadow-orange-500/5">
+                    <div class="inline-flex items-center gap-3 rounded-2xl border px-4 py-2 backdrop-blur-md shadow-lg
+                      {isEndingSoon
+                        ? 'border-orange-500/25 bg-orange-500/10 shadow-orange-500/5'
+                        : 'border-amber-400/20 bg-amber-400/8 shadow-amber-400/5'}">
                       <div class="relative flex h-3 w-3 items-center justify-center">
-                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-60"></span>
-                        <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-400"></span>
+                        {#if isEndingSoon}
+                          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-60"></span>
+                          <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-400"></span>
+                        {:else}
+                          <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-80"></span>
+                        {/if}
                       </div>
                       <div class="flex flex-col text-left">
-                        <span class="text-[10px] font-bold uppercase tracking-widest text-orange-400">Coming Up Next</span>
-                        <span class="text-sm font-semibold text-orange-200">{nextSession.title}</span>
+                        <span class="text-[10px] font-bold uppercase tracking-widest {isEndingSoon ? 'text-orange-400' : 'text-amber-400'}">Coming Up Next</span>
+                        <span class="text-sm font-semibold {isEndingSoon ? 'text-orange-200' : 'text-amber-200'}">{nextSession.title}</span>
+                        <span class="text-[11px] {isEndingSoon ? 'text-orange-300/70' : 'text-amber-300/70'} flex items-center gap-1 mt-0.5">
+                          <Clock size={9} />
+                          {new Date(nextSession.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          {#if nextSession.location}
+                            <span class="opacity-50">·</span>
+                            <MapPin size={9} /> {nextSession.location}
+                          {/if}
+                        </span>
                       </div>
                     </div>
                   </div>

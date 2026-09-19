@@ -393,13 +393,29 @@
   }
 
   $: liveSession = timelineItems?.find(it => {
-    currentTime; // Bind reactivity so this re-runs every 5 seconds
+    currentTime; // Bind reactivity so this re-runs every second
     if (!it.start_time || !it.end_time) return false;
     const start = new Date(it.start_time).getTime();
     const end = new Date(it.end_time).getTime();
-    const now = Date.now(); // Always use precise time for comparison
+    const now = Date.now();
     return now >= start && now < end;
   });
+
+  $: isEndingSoon = (() => {
+    currentTime;
+    if (!liveSession?.end_time) return false;
+    const msLeft = new Date(liveSession.end_time).getTime() - Date.now();
+    return msLeft > 0 && msLeft <= 2 * 60 * 1000; // within 2 minutes
+  })();
+
+  $: nextSession = (() => {
+    currentTime;
+    if (!liveSession) return null;
+    const liveEnd = new Date(liveSession.end_time).getTime();
+    return timelineItems
+      ?.filter(it => it.start_time && new Date(it.start_time).getTime() >= liveEnd)
+      .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0] ?? null;
+  })();
 
   let timelineModalOpen = false;
   let editingTimelineItem = null;
@@ -2410,6 +2426,21 @@
                            </span>
                         </div>
                       {/if}
+                    </div>
+                  </div>
+                {/if}
+
+                {#if isEndingSoon && nextSession}
+                  <div class="flex justify-center mt-2 animate-fade-in" transition:slide>
+                    <div class="inline-flex items-center gap-3 rounded-2xl border border-orange-500/25 bg-orange-500/10 px-4 py-2 backdrop-blur-md shadow-lg shadow-orange-500/5">
+                      <div class="relative flex h-3 w-3 items-center justify-center">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-60"></span>
+                        <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-400"></span>
+                      </div>
+                      <div class="flex flex-col text-left">
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-orange-400">Coming Up Next</span>
+                        <span class="text-sm font-semibold text-orange-200">{nextSession.title}</span>
+                      </div>
                     </div>
                   </div>
                 {/if}

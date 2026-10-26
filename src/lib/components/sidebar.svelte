@@ -15,6 +15,7 @@
     Compass,
   } from "@lucide/svelte";
   import * as Avatar from "$lib/components/ui/avatar/index.js";
+  import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
   import AICredits from "$lib/components/AICredits.svelte";
   import { aiCreditsStore } from "$lib/stores/ai-credits";
   import { sidebarCollapsed } from "$lib/stores/sidebar";
@@ -31,7 +32,8 @@
   $: name =
     user?.user_metadata?.full_name ??
     user?.user_metadata?.name ??
-    user?.email ??
+    user?.user_metadata?.display_name ??
+    user?.email?.split("@")[0] ??
     "Account";
   $: firstName = name.split(" ")[0];
   $: initials = name.slice(0, 1).toUpperCase();
@@ -225,18 +227,62 @@
     </button>
   {/each}
   {#if user}
-    <button class="mobile-item" onclick={() => onSignOut?.()}>
-      <Avatar.Root class="h-5 w-5">
-        {#if avatar}
-          <Avatar.Image src={avatar} alt={name} />
-        {/if}
-        <Avatar.Fallback
-          class="text-[9px] font-bold bg-amber-400/20 text-amber-300"
-          >{initials}</Avatar.Fallback
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger class="mobile-item" aria-label="Account">
+        <Avatar.Root class="h-5 w-5">
+          {#if avatar}
+            <Avatar.Image src={avatar} alt={name} />
+          {/if}
+          <Avatar.Fallback
+            class="text-[9px] font-bold bg-amber-400/20 text-amber-300"
+            >{initials}</Avatar.Fallback
+          >
+        </Avatar.Root>
+        <span>Account</span>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content
+        side="top"
+        align="end"
+        sideOffset={12}
+        class="w-72 bg-[#0c101d]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-2 z-[60] rounded-2xl"
+      >
+        <DropdownMenu.Label class="px-3 py-2">
+          <div class="flex items-center gap-2.5">
+            <Avatar.Root class="h-8 w-8">
+              {#if avatar}
+                <Avatar.Image src={avatar} alt={name} />
+              {/if}
+              <Avatar.Fallback
+                class="text-xs font-bold bg-amber-400/20 text-amber-300"
+              >
+                {initials}
+              </Avatar.Fallback>
+            </Avatar.Root>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-white truncate">{name}</p>
+              <p class="text-xs text-slate-400 truncate">{user?.email ?? ""}</p>
+            </div>
+          </div>
+        </DropdownMenu.Label>
+
+        <div class="px-1 py-1.5">
+          <AICredits />
+        </div>
+
+        <DropdownMenu.Separator class="my-1.5 border-white/10" />
+
+        <DropdownMenu.Item
+          class="gap-2.5 text-rose-300 focus:bg-rose-400/10 hover:bg-rose-400/10 cursor-pointer rounded-lg px-3 py-2 text-xs font-medium"
+          onSelect={(event) => {
+            event.preventDefault();
+            onSignOut?.();
+          }}
         >
-      </Avatar.Root>
-      <span>Account</span>
-    </button>
+          <LogOut size={15} />
+          <span>{signingOut ? "Signing out…" : "Sign out"}</span>
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   {:else}
     <button class="mobile-item" onclick={() => onSignIn?.()}>
       <LogIn size={20} />
@@ -563,7 +609,7 @@
       align-items: flex-end;
     }
 
-    .mobile-item {
+    :global(.mobile-item) {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -578,9 +624,12 @@
       border-radius: 0.5rem;
       transition: color 150ms;
       text-decoration: none;
+      font-family: inherit;
+      line-height: 1.2;
     }
-    .mobile-item.active,
-    .mobile-item:hover {
+    :global(.mobile-item.active),
+    :global(.mobile-item:hover),
+    :global(.mobile-item[data-state="open"]) {
       color: #facc15;
     }
   }

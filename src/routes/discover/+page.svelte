@@ -21,9 +21,8 @@
     X,
     ChevronLeft,
     ChevronRight,
-    ChevronDown,
-    ChevronUp,
   } from "@lucide/svelte";
+  import { onDestroy } from "svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
   import { createSupabaseBrowserClient } from "$lib/supabase/client";
@@ -50,6 +49,67 @@
   let rangeStartDate = null; // 'YYYY-MM-DD'
   let rangeEndDate = null; // 'YYYY-MM-DD'
   let mobileFiltersOpen = false;
+
+  // Mobile Bottom Sheet Swipe gestures
+  let touchStartY = 0;
+  let currentTouchY = 0;
+  let sheetTransform = 0;
+  let isDragging = false;
+
+  function handleTouchStart(e) {
+    if (!e.touches || e.touches.length === 0) return;
+    touchStartY = e.touches[0].clientY;
+    currentTouchY = touchStartY;
+    isDragging = true;
+    sheetTransform = 0;
+  }
+
+  function handleTouchMove(e) {
+    if (!isDragging || !e.touches || e.touches.length === 0) return;
+    currentTouchY = e.touches[0].clientY;
+    const deltaY = currentTouchY - touchStartY;
+    if (deltaY > 0) {
+      sheetTransform = deltaY;
+    } else {
+      sheetTransform = 0;
+    }
+  }
+
+  function handleTouchEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    const deltaY = currentTouchY - touchStartY;
+    if (deltaY > 60) {
+      closeMobileFilters();
+    } else {
+      sheetTransform = 0;
+    }
+  }
+
+  function openMobileFilters() {
+    sheetTransform = 0;
+    mobileFiltersOpen = true;
+  }
+
+  function closeMobileFilters() {
+    sheetTransform = 0;
+    isDragging = false;
+    mobileFiltersOpen = false;
+  }
+
+  $: if (typeof document !== "undefined") {
+    if (mobileFiltersOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+  }
+
+  onDestroy(() => {
+    if (typeof document !== "undefined") {
+      document.body.style.overflow = "";
+    }
+  });
 
   // Calendar state
   const now = new Date();
@@ -317,6 +377,277 @@
   }
 </script>
 
+<!-- Filter Sections Reusable Snippet -->
+{#snippet filterSections(isMobile = false)}
+  <!-- Section 1: Event Format / Type (Online and Offline Checkboxes) -->
+  <div class="space-y-3">
+    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+      <span>Event Type</span>
+    </h3>
+    <div class="space-y-2">
+      <!-- Online Checkbox -->
+      <label
+        class="group flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer select-none {filterOnline
+          ? 'bg-amber-400/10 border-amber-400/40 shadow-sm'
+          : 'bg-white/3 border-white/8 hover:bg-white/6 hover:border-white/15'}"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="h-4 w-4 rounded-md border flex items-center justify-center transition {filterOnline
+              ? 'bg-amber-400 border-amber-400 text-slate-950'
+              : 'border-white/30 group-hover:border-white/60 bg-white/5'}"
+          >
+            {#if filterOnline}
+              <Check size={12} strokeWidth={3} />
+            {/if}
+          </div>
+          <input
+            type="checkbox"
+            id="{isMobile ? 'm-' : ''}filter-online"
+            bind:checked={filterOnline}
+            class="sr-only"
+          />
+          <div class="flex items-center gap-2 text-xs font-semibold text-white">
+            <Globe size={14} class="text-cyan-400" />
+            <span>Online</span>
+          </div>
+        </div>
+        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400">
+          {onlineCount}
+        </span>
+      </label>
+
+      <!-- Offline Checkbox -->
+      <label
+        class="group flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer select-none {filterOffline
+          ? 'bg-amber-400/10 border-amber-400/40 shadow-sm'
+          : 'bg-white/3 border-white/8 hover:bg-white/6 hover:border-white/15'}"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="h-4 w-4 rounded-md border flex items-center justify-center transition {filterOffline
+              ? 'bg-amber-400 border-amber-400 text-slate-950'
+              : 'border-white/30 group-hover:border-white/60 bg-white/5'}"
+          >
+            {#if filterOffline}
+              <Check size={12} strokeWidth={3} />
+            {/if}
+          </div>
+          <input
+            type="checkbox"
+            id="{isMobile ? 'm-' : ''}filter-offline"
+            bind:checked={filterOffline}
+            class="sr-only"
+          />
+          <div class="flex items-center gap-2 text-xs font-semibold text-white">
+            <MapPin size={14} class="text-amber-400" />
+            <span>Offline</span>
+          </div>
+        </div>
+        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400">
+          {offlineCount}
+        </span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Section 2: Date Filter (By calendar & calendar range) -->
+  <div class="space-y-3.5 pt-3 border-t border-white/8">
+    <div class="flex items-center justify-between">
+      <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+        <Calendar size={13} class="text-amber-400" />
+        <span>Date Filter</span>
+      </h3>
+      {#if dateFilterMode !== 'all'}
+        <button
+          type="button"
+          onclick={() => setPreset('all')}
+          class="text-[10px] text-slate-400 hover:text-white transition"
+        >
+          Clear date
+        </button>
+      {/if}
+    </div>
+
+    <!-- Mode Selector Pills (By Calendar vs Calendar Range) -->
+    <div class="grid grid-cols-2 gap-1 p-1 bg-white/5 border border-white/8 rounded-xl text-xs font-semibold">
+      <button
+        type="button"
+        id="{isMobile ? 'm-' : ''}btn-mode-single"
+        onclick={() => {
+          dateFilterMode = 'single';
+          rangeStartDate = null;
+          rangeEndDate = null;
+        }}
+        class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition {dateFilterMode === 'single'
+          ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
+          : 'text-slate-400 hover:text-white hover:bg-white/5'}"
+      >
+        <Calendar size={13} />
+        By Calendar
+      </button>
+      <button
+        type="button"
+        id="{isMobile ? 'm-' : ''}btn-mode-range"
+        onclick={() => {
+          dateFilterMode = 'range';
+          selectedSingleDate = null;
+        }}
+        class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition {dateFilterMode === 'range'
+          ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
+          : 'text-slate-400 hover:text-white hover:bg-white/5'}"
+      >
+        <CalendarDays size={13} />
+        Date Range
+      </button>
+    </div>
+
+    <!-- Quick Preset Chips -->
+    <div class="flex flex-wrap gap-1.5">
+      <button
+        type="button"
+        onclick={() => setPreset('today')}
+        class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition {dateFilterMode === 'single' && selectedSingleDate === todayStr
+          ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
+          : 'bg-white/4 text-slate-300 border-white/8 hover:bg-white/8 hover:text-white'}"
+      >
+        Today
+      </button>
+      <button
+        type="button"
+        onclick={() => setPreset('thisWeek')}
+        class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition {dateFilterMode === 'range' && rangeStartDate && rangeEndDate
+          ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
+          : 'bg-white/4 text-slate-300 border-white/8 hover:bg-white/8 hover:text-white'}"
+      >
+        This Week
+      </button>
+      <button
+        type="button"
+        onclick={() => setPreset('thisMonth')}
+        class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition bg-white/4 text-slate-300 border-white/8 hover:bg-white/8 hover:text-white"
+      >
+        This Month
+      </button>
+    </div>
+
+    <!-- Date Status Feedback Pill -->
+    {#if dateFilterMode === 'single' && selectedSingleDate}
+      <div class="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/30 text-xs">
+        <span class="text-amber-200">
+          Date: <strong>{formatShortDate(selectedSingleDate)}</strong>
+        </span>
+        <button
+          type="button"
+          onclick={() => { selectedSingleDate = null; dateFilterMode = 'all'; }}
+          class="text-amber-300 hover:text-white"
+          aria-label="Clear selected date"
+        >
+          <X size={13} />
+        </button>
+      </div>
+    {:else if dateFilterMode === 'range' && (rangeStartDate || rangeEndDate)}
+      <div class="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/30 text-xs">
+        <span class="text-amber-200 truncate pr-2">
+          {#if rangeStartDate && rangeEndDate}
+            <strong>{formatShortDate(rangeStartDate)}</strong> → <strong>{formatShortDate(rangeEndDate)}</strong>
+          {:else if rangeStartDate}
+            From <strong>{formatShortDate(rangeStartDate)}</strong> (click end date)
+          {:else}
+            Until <strong>{formatShortDate(rangeEndDate)}</strong>
+          {/if}
+        </span>
+        <button
+          type="button"
+          onclick={() => { rangeStartDate = null; rangeEndDate = null; dateFilterMode = 'all'; }}
+          class="text-amber-300 hover:text-white shrink-0"
+          aria-label="Clear date range"
+        >
+          <X size={13} />
+        </button>
+      </div>
+    {/if}
+
+    <!-- Interactive Inline Mini Calendar -->
+    <div class="rounded-xl border border-white/8 bg-black/40 p-3 space-y-2">
+      <!-- Month navigation header -->
+      <div class="flex items-center justify-between px-1">
+        <button
+          type="button"
+          onclick={prevMonth}
+          class="h-7 w-7 rounded-lg border border-white/10 hover:bg-white/10 flex items-center justify-center text-slate-300 hover:text-white transition"
+          aria-label="Previous month"
+        >
+          <ChevronLeft size={14} />
+        </button>
+        <span class="text-xs font-bold text-white tracking-wide">
+          {MONTH_NAMES[currentMonth]} {currentYear}
+        </span>
+        <button
+          type="button"
+          onclick={nextMonth}
+          class="h-7 w-7 rounded-lg border border-white/10 hover:bg-white/10 flex items-center justify-center text-slate-300 hover:text-white transition"
+          aria-label="Next month"
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
+      <!-- Weekdays header -->
+      <div class="grid grid-cols-7 gap-1 text-center">
+        {#each ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as day}
+          <span class="text-[10px] font-bold text-slate-500 py-0.5">{day}</span>
+        {/each}
+      </div>
+
+      <!-- Days Grid -->
+      <div class="grid grid-cols-7 gap-1 text-center">
+        {#each getCalendarGrid(currentYear, currentMonth) as item}
+          {#if !item}
+            <div></div>
+          {:else}
+            {@const isSingleSelected = dateFilterMode === 'single' && selectedSingleDate === item.dateStr}
+            {@const isStart = dateFilterMode === 'range' && rangeStartDate === item.dateStr}
+            {@const isEnd = dateFilterMode === 'range' && rangeEndDate === item.dateStr}
+            {@const isInRange = dateFilterMode === 'range' && rangeStartDate && rangeEndDate && item.dateStr > rangeStartDate && item.dateStr < rangeEndDate}
+            {@const isToday = todayStr === item.dateStr}
+            {@const hasEvents = eventDatesSet.has(item.dateStr)}
+
+            <button
+              type="button"
+              onclick={() => handleDateClick(item.dateStr)}
+              class="relative h-7 w-7 mx-auto rounded-lg text-[11px] font-medium flex flex-col items-center justify-center transition-all {isSingleSelected || isStart || isEnd
+                ? 'bg-amber-400 text-slate-950 font-bold shadow-md shadow-amber-400/20'
+                : isInRange
+                ? 'bg-amber-400/25 text-amber-200'
+                : isToday
+                ? 'border border-amber-400/50 text-white font-bold bg-white/5'
+                : 'text-slate-300 hover:bg-white/10 hover:text-white'}"
+              title="{item.dateStr}{hasEvents ? ' (has events)' : ''}"
+            >
+              <span>{item.day}</span>
+              {#if hasEvents && !isSingleSelected && !isStart && !isEnd}
+                <span class="absolute bottom-0.5 h-1 w-1 rounded-full bg-amber-400"></span>
+              {/if}
+            </button>
+          {/if}
+        {/each}
+      </div>
+
+      <!-- Calendar legend & hint -->
+      <div class="pt-2 border-t border-white/6 flex items-center justify-between text-[10px] text-slate-400 px-1">
+        <span class="flex items-center gap-1.5">
+          <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+          Events scheduled
+        </span>
+        <span class="text-slate-500">
+          {dateFilterMode === 'range' ? 'Select 2 dates' : 'Click to filter'}
+        </span>
+      </div>
+    </div>
+  </div>
+{/snippet}
+
 <svelte:head>
   <title>Discover Events | Evenai</title>
   <meta
@@ -342,7 +673,7 @@
       </div>
     </div>
 
-    <!-- Top Toolbar: Search + Mobile Filter Toggle -->
+    <!-- Top Toolbar: Search + Mobile Filter Button -->
     <div class="mb-6 flex flex-col sm:flex-row gap-3 animate-slide-up items-stretch sm:items-center justify-between">
       <div class="flex items-center gap-2">
         <form onsubmit={applySearch} class="relative w-full sm:w-80">
@@ -358,11 +689,12 @@
           />
         </form>
 
-        <!-- Mobile Filter Button (lg:hidden) -->
+        <!-- Mobile Filter Button (lg:hidden) -> Opens Bottom Canvas -->
         <button
           type="button"
-          onclick={() => mobileFiltersOpen = !mobileFiltersOpen}
-          class="lg:hidden flex items-center gap-2 px-3.5 h-10 rounded-xl border border-white/10 bg-white/5 text-xs font-semibold text-white hover:bg-white/10 transition"
+          onclick={openMobileFilters}
+          class="lg:hidden flex items-center gap-2 px-3.5 h-10 rounded-xl border border-white/10 bg-white/5 text-xs font-semibold text-white hover:bg-white/10 transition shrink-0"
+          aria-haspopup="dialog"
           aria-expanded={mobileFiltersOpen}
         >
           <SlidersHorizontal size={14} class="text-amber-400" />
@@ -371,11 +703,6 @@
             <span class="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] font-black text-slate-950">
               {activeFilterCount}
             </span>
-          {/if}
-          {#if mobileFiltersOpen}
-            <ChevronUp size={14} class="text-slate-400" />
-          {:else}
-            <ChevronDown size={14} class="text-slate-400" />
           {/if}
         </button>
       </div>
@@ -602,10 +929,8 @@
         {/if}
       </div>
 
-      <!-- Right Column: Filters Sidebar -->
-      <aside
-        class="{mobileFiltersOpen ? 'block' : 'hidden'} lg:block w-full lg:w-80 xl:w-88 shrink-0"
-      >
+      <!-- Desktop Right Column: Filters Sidebar (hidden on mobile, visible on lg+) -->
+      <aside class="hidden lg:block w-full lg:w-80 xl:w-88 shrink-0">
         <div class="glass rounded-2xl border border-white/10 p-5 shadow-2xl sticky top-6 space-y-5 bg-[#0b0f19]/90 backdrop-blur-xl">
           <!-- Filters Header -->
           <div class="flex items-center justify-between border-b border-white/8 pb-3.5">
@@ -630,278 +955,108 @@
             {/if}
           </div>
 
-          <!-- Section 1: Event Format / Type (Online and Offline Checkboxes) -->
-          <div class="space-y-3">
-            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-              <span>Event Type</span>
-            </h3>
-            <div class="space-y-2">
-              <!-- Online Checkbox -->
-              <label
-                class="group flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer select-none {filterOnline
-                  ? 'bg-amber-400/10 border-amber-400/40 shadow-sm'
-                  : 'bg-white/3 border-white/8 hover:bg-white/6 hover:border-white/15'}"
-              >
-                <div class="flex items-center gap-3">
-                  <div
-                    class="h-4 w-4 rounded-md border flex items-center justify-center transition {filterOnline
-                      ? 'bg-amber-400 border-amber-400 text-slate-950'
-                      : 'border-white/30 group-hover:border-white/60 bg-white/5'}"
-                  >
-                    {#if filterOnline}
-                      <Check size={12} strokeWidth={3} />
-                    {/if}
-                  </div>
-                  <input
-                    type="checkbox"
-                    id="filter-online"
-                    bind:checked={filterOnline}
-                    class="sr-only"
-                  />
-                  <div class="flex items-center gap-2 text-xs font-semibold text-white">
-                    <Globe size={14} class="text-cyan-400" />
-                    <span>Online</span>
-                  </div>
-                </div>
-                <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400">
-                  {onlineCount}
-                </span>
-              </label>
-
-              <!-- Offline Checkbox -->
-              <label
-                class="group flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer select-none {filterOffline
-                  ? 'bg-amber-400/10 border-amber-400/40 shadow-sm'
-                  : 'bg-white/3 border-white/8 hover:bg-white/6 hover:border-white/15'}"
-              >
-                <div class="flex items-center gap-3">
-                  <div
-                    class="h-4 w-4 rounded-md border flex items-center justify-center transition {filterOffline
-                      ? 'bg-amber-400 border-amber-400 text-slate-950'
-                      : 'border-white/30 group-hover:border-white/60 bg-white/5'}"
-                  >
-                    {#if filterOffline}
-                      <Check size={12} strokeWidth={3} />
-                    {/if}
-                  </div>
-                  <input
-                    type="checkbox"
-                    id="filter-offline"
-                    bind:checked={filterOffline}
-                    class="sr-only"
-                  />
-                  <div class="flex items-center gap-2 text-xs font-semibold text-white">
-                    <MapPin size={14} class="text-amber-400" />
-                    <span>Offline</span>
-                  </div>
-                </div>
-                <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400">
-                  {offlineCount}
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Section 2: Date Filter (By calendar & calendar range) -->
-          <div class="space-y-3.5 pt-3 border-t border-white/8">
-            <div class="flex items-center justify-between">
-              <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar size={13} class="text-amber-400" />
-                <span>Date Filter</span>
-              </h3>
-              {#if dateFilterMode !== 'all'}
-                <button
-                  type="button"
-                  onclick={() => setPreset('all')}
-                  class="text-[10px] text-slate-400 hover:text-white transition"
-                >
-                  Clear date
-                </button>
-              {/if}
-            </div>
-
-            <!-- Mode Selector Pills (By Calendar vs Calendar Range) -->
-            <div class="grid grid-cols-2 gap-1 p-1 bg-white/5 border border-white/8 rounded-xl text-xs font-semibold">
-              <button
-                type="button"
-                id="btn-mode-single"
-                onclick={() => {
-                  dateFilterMode = 'single';
-                  rangeStartDate = null;
-                  rangeEndDate = null;
-                }}
-                class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition {dateFilterMode === 'single'
-                  ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'}"
-              >
-                <Calendar size={13} />
-                By Calendar
-              </button>
-              <button
-                type="button"
-                id="btn-mode-range"
-                onclick={() => {
-                  dateFilterMode = 'range';
-                  selectedSingleDate = null;
-                }}
-                class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition {dateFilterMode === 'range'
-                  ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'}"
-              >
-                <CalendarDays size={13} />
-                Date Range
-              </button>
-            </div>
-
-            <!-- Quick Preset Chips -->
-            <div class="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onclick={() => setPreset('today')}
-                class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition {dateFilterMode === 'single' && selectedSingleDate === todayStr
-                  ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
-                  : 'bg-white/4 text-slate-300 border-white/8 hover:bg-white/8 hover:text-white'}"
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onclick={() => setPreset('thisWeek')}
-                class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition {dateFilterMode === 'range' && rangeStartDate && rangeEndDate
-                  ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
-                  : 'bg-white/4 text-slate-300 border-white/8 hover:bg-white/8 hover:text-white'}"
-              >
-                This Week
-              </button>
-              <button
-                type="button"
-                onclick={() => setPreset('thisMonth')}
-                class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition bg-white/4 text-slate-300 border-white/8 hover:bg-white/8 hover:text-white"
-              >
-                This Month
-              </button>
-            </div>
-
-            <!-- Date Status Feedback Pill -->
-            {#if dateFilterMode === 'single' && selectedSingleDate}
-              <div class="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/30 text-xs">
-                <span class="text-amber-200">
-                  Date: <strong>{formatShortDate(selectedSingleDate)}</strong>
-                </span>
-                <button
-                  type="button"
-                  onclick={() => { selectedSingleDate = null; dateFilterMode = 'all'; }}
-                  class="text-amber-300 hover:text-white"
-                  aria-label="Clear selected date"
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            {:else if dateFilterMode === 'range' && (rangeStartDate || rangeEndDate)}
-              <div class="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/30 text-xs">
-                <span class="text-amber-200 truncate pr-2">
-                  {#if rangeStartDate && rangeEndDate}
-                    <strong>{formatShortDate(rangeStartDate)}</strong> → <strong>{formatShortDate(rangeEndDate)}</strong>
-                  {:else if rangeStartDate}
-                    From <strong>{formatShortDate(rangeStartDate)}</strong> (click end date)
-                  {:else}
-                    Until <strong>{formatShortDate(rangeEndDate)}</strong>
-                  {/if}
-                </span>
-                <button
-                  type="button"
-                  onclick={() => { rangeStartDate = null; rangeEndDate = null; dateFilterMode = 'all'; }}
-                  class="text-amber-300 hover:text-white shrink-0"
-                  aria-label="Clear date range"
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            {/if}
-
-            <!-- Interactive Inline Mini Calendar -->
-            <div class="rounded-xl border border-white/8 bg-black/40 p-3 space-y-2">
-              <!-- Month navigation header -->
-              <div class="flex items-center justify-between px-1">
-                <button
-                  type="button"
-                  onclick={prevMonth}
-                  class="h-7 w-7 rounded-lg border border-white/10 hover:bg-white/10 flex items-center justify-center text-slate-300 hover:text-white transition"
-                  aria-label="Previous month"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <span class="text-xs font-bold text-white tracking-wide">
-                  {MONTH_NAMES[currentMonth]} {currentYear}
-                </span>
-                <button
-                  type="button"
-                  onclick={nextMonth}
-                  class="h-7 w-7 rounded-lg border border-white/10 hover:bg-white/10 flex items-center justify-center text-slate-300 hover:text-white transition"
-                  aria-label="Next month"
-                >
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-
-              <!-- Weekdays header -->
-              <div class="grid grid-cols-7 gap-1 text-center">
-                {#each ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as day}
-                  <span class="text-[10px] font-bold text-slate-500 py-0.5">{day}</span>
-                {/each}
-              </div>
-
-              <!-- Days Grid -->
-              <div class="grid grid-cols-7 gap-1 text-center">
-                {#each getCalendarGrid(currentYear, currentMonth) as item}
-                  {#if !item}
-                    <div></div>
-                  {:else}
-                    {@const isSingleSelected = dateFilterMode === 'single' && selectedSingleDate === item.dateStr}
-                    {@const isStart = dateFilterMode === 'range' && rangeStartDate === item.dateStr}
-                    {@const isEnd = dateFilterMode === 'range' && rangeEndDate === item.dateStr}
-                    {@const isInRange = dateFilterMode === 'range' && rangeStartDate && rangeEndDate && item.dateStr > rangeStartDate && item.dateStr < rangeEndDate}
-                    {@const isToday = todayStr === item.dateStr}
-                    {@const hasEvents = eventDatesSet.has(item.dateStr)}
-
-                    <button
-                      type="button"
-                      onclick={() => handleDateClick(item.dateStr)}
-                      class="relative h-7 w-7 mx-auto rounded-lg text-[11px] font-medium flex flex-col items-center justify-center transition-all {isSingleSelected || isStart || isEnd
-                        ? 'bg-amber-400 text-slate-950 font-bold shadow-md shadow-amber-400/20'
-                        : isInRange
-                        ? 'bg-amber-400/25 text-amber-200'
-                        : isToday
-                        ? 'border border-amber-400/50 text-white font-bold bg-white/5'
-                        : 'text-slate-300 hover:bg-white/10 hover:text-white'}"
-                      title="{item.dateStr}{hasEvents ? ' (has events)' : ''}"
-                    >
-                      <span>{item.day}</span>
-                      {#if hasEvents && !isSingleSelected && !isStart && !isEnd}
-                        <span class="absolute bottom-0.5 h-1 w-1 rounded-full bg-amber-400"></span>
-                      {/if}
-                    </button>
-                  {/if}
-                {/each}
-              </div>
-
-              <!-- Calendar legend & hint -->
-              <div class="pt-2 border-t border-white/6 flex items-center justify-between text-[10px] text-slate-400 px-1">
-                <span class="flex items-center gap-1.5">
-                  <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-                  Events scheduled
-                </span>
-                <span class="text-slate-500">
-                  {dateFilterMode === 'range' ? 'Select 2 dates' : 'Click to filter'}
-                </span>
-              </div>
-            </div>
-          </div>
+          {@render filterSections(false)}
         </div>
       </aside>
     </div>
   </main>
 </PageShell>
+
+<!-- Mobile Bottom Sheet / Swipe-up Card (Mobile only) -->
+{#if mobileFiltersOpen}
+  <div class="lg:hidden fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="Filters">
+    <!-- Backdrop Overlay -->
+    <div
+      class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity animate-fade-in"
+      onclick={closeMobileFilters}
+      role="button"
+      tabindex="0"
+      aria-label="Close filters backdrop"
+      onkeydown={(e) => e.key === 'Escape' && closeMobileFilters()}
+    ></div>
+
+    <!-- Swipe-up Card Canvas -->
+    <div
+      class="relative z-10 w-full max-h-[88vh] rounded-t-3xl bg-[#0b0f19] border-t border-white/15 shadow-2xl flex flex-col overflow-hidden animate-sheet-up"
+      style={sheetTransform ? `transform: translateY(${sheetTransform}px); transition: ${isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'};` : ''}
+    >
+      <!-- Swipe Handle Header Area -->
+      <div
+        class="pt-3 pb-1 cursor-grab active:cursor-grabbing flex flex-col items-center justify-center touch-none select-none"
+        ontouchstart={handleTouchStart}
+        ontouchmove={handleTouchMove}
+        ontouchend={handleTouchEnd}
+      >
+        <div class="w-12 h-1.5 rounded-full bg-white/25 hover:bg-white/40 transition"></div>
+      </div>
+
+      <!-- Sheet Top Bar -->
+      <div
+        class="flex items-center justify-between px-5 py-3 border-b border-white/8 touch-none select-none"
+        ontouchstart={handleTouchStart}
+        ontouchmove={handleTouchMove}
+        ontouchend={handleTouchEnd}
+      >
+        <div class="flex items-center gap-2">
+          <SlidersHorizontal size={16} class="text-amber-400" />
+          <h2 class="text-base font-bold text-white tracking-wide">Filters</h2>
+          {#if activeFilterCount > 0}
+            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-black text-slate-950">
+              {activeFilterCount}
+            </span>
+          {/if}
+        </div>
+
+        <div class="flex items-center gap-3">
+          {#if hasActiveFilters}
+            <button
+              type="button"
+              onclick={resetFilters}
+              class="flex items-center gap-1 text-xs font-semibold text-amber-300 hover:text-amber-200 hover:underline transition"
+            >
+              <RotateCcw size={12} />
+              Reset all
+            </button>
+          {/if}
+          <button
+            type="button"
+            onclick={closeMobileFilters}
+            class="h-8 w-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition"
+            aria-label="Close filters"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      <!-- Scrollable Filter Content -->
+      <div class="px-5 py-4 space-y-5 overflow-y-auto overscroll-contain flex-1">
+        {@render filterSections(true)}
+      </div>
+
+      <!-- Bottom Sticky Action Bar -->
+      <div class="p-4 bg-[#070a12] border-t border-white/10 flex items-center gap-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        {#if hasActiveFilters}
+          <Button
+            type="button"
+            variant="outline"
+            onclick={resetFilters}
+            class="border-white/15 text-slate-300 hover:bg-white/5 h-11 px-4 text-xs font-semibold"
+          >
+            Clear
+          </Button>
+        {/if}
+        <Button
+          type="button"
+          onclick={closeMobileFilters}
+          class="flex-1 bg-amber-400 text-slate-950 hover:bg-amber-300 font-bold h-11 text-sm shadow-lg shadow-amber-400/20"
+        >
+          Show {filteredEvents.length} {filteredEvents.length === 1 ? 'Event' : 'Events'}
+        </Button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .events-grid {
@@ -938,6 +1093,7 @@
     line-height: 1.35;
     margin-bottom: 0.45rem;
     display: -webkit-box;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
@@ -947,6 +1103,7 @@
     color: rgba(148, 163, 184, 0.75);
     line-height: 1.6;
     display: -webkit-box;
+    line-clamp: 3;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
@@ -1053,6 +1210,18 @@
   .skeleton-header {
     height: 3px;
     background: rgba(255, 255, 255, 0.08);
+  }
+
+  @keyframes slideUpSheet {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  .animate-sheet-up {
+    animation: slideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 </style>
 

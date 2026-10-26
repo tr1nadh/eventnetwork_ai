@@ -2001,9 +2001,7 @@
 
       stage = "workspace";
       editProfileOpen = false;
-      toast.success("Joined event", {
-        description: "Go to the Network tab to fill your profile & find AI matches.",
-      });
+      toast.success("Event joined");
     } catch (error) {
       toast.error("Could not join event", {
         description:

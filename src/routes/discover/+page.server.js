@@ -6,8 +6,19 @@ export const load = async ({ locals, url, fetch }) => {
   }
 
   const q = url.searchParams.get('q') || '';
+  const format = url.searchParams.get('format') || '';
+  const date = url.searchParams.get('date') || '';
+  const dateStart = url.searchParams.get('date_start') || '';
+  const dateEnd = url.searchParams.get('date_end') || '';
 
-  const res = await fetch(`/api/events?filter=discover&q=${encodeURIComponent(q)}`);
+  const params = new URLSearchParams({ filter: 'discover' });
+  if (q) params.set('q', q);
+  if (format) params.set('format', format);
+  if (date) params.set('date', date);
+  if (dateStart) params.set('date_start', dateStart);
+  if (dateEnd) params.set('date_end', dateEnd);
+
+  const res = await fetch(`/api/events?${params.toString()}`);
 
   if (!res.ok) {
     const data = await res.json().catch(() => null);
@@ -19,6 +30,10 @@ export const load = async ({ locals, url, fetch }) => {
   return {
     user: locals.user,
     events: events ?? [],
-    q
+    q,
+    format,
+    date,
+    dateStart,
+    dateEnd
   };
 };

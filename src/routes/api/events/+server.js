@@ -165,11 +165,49 @@ export async function GET({ url, locals }) {
       }
       events = Array.from(combinedMap.values());
     } else if (filter === 'discover') {
+      // Format filter: 'online' | 'offline' | 'hybrid' | '' (all)
+      const format = url.searchParams.get('format') || '';
+      // Date filter params
+      const date = url.searchParams.get('date') || '';         // single date: YYYY-MM-DD
+      const dateStart = url.searchParams.get('date_start') || ''; // range start: YYYY-MM-DD
+      const dateEnd = url.searchParams.get('date_end') || '';   // range end: YYYY-MM-DD
+
       let query = admin.from('events')
         .select(SELECT_FIELDS);
+
+      // Text search
       if (q) {
         query = query.or(`name.ilike.%${safeQ}%,description.ilike.%${safeQ}%,location.ilike.%${safeQ}%`);
       }
+
+      // Format filter
+      if (format === 'online') {
+        query = query.in('event_format', ['online', 'hybrid']);
+      } else if (format === 'offline') {
+        query = query.in('event_format', ['offline', 'hybrid']);
+      }
+
+      // Date filter: single date — event must span the selected date
+      // (event.start_time <= date+EOD  AND  event.end_time >= date+SOD)
+      if (date) {
+        const dayStart = `${date}T00:00:00.000Z`;
+        const dayEnd   = `${date}T23:59:59.999Z`;
+        // events that overlap the day: start_time <= dayEnd AND end_time >= dayStart
+        query = query.lte('start_time', dayEnd).gte('end_time', dayStart);
+      } else if (dateStart || dateEnd) {
+        // Range: events overlapping [dateStart, dateEnd]
+        if (dateStart) {
+          // event must end on or after range start
+          const rs = `${dateStart}T00:00:00.000Z`;
+          query = query.gte('end_time', rs);
+        }
+        if (dateEnd) {
+          // event must start on or before range end
+          const re = `${dateEnd}T23:59:59.999Z`;
+          query = query.lte('start_time', re);
+        }
+      }
+
       const { data, error: err } = await query.order('start_time', { ascending: false });
       if (err) throw err;
       

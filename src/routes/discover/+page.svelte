@@ -41,14 +41,18 @@
   let signingOut = false;
   let copiedSlug = null;
 
-  // Filter states
-  let filterOnline = false;
-  let filterOffline = false;
-  let dateFilterMode = "all"; // 'all' | 'single' | 'range'
-  let selectedSingleDate = null; // 'YYYY-MM-DD'
-  let rangeStartDate = null; // 'YYYY-MM-DD'
-  let rangeEndDate = null; // 'YYYY-MM-DD'
+  // Filter states — initialised from URL (returned by server)
+  let filterOnline = data.format === 'online';
+  let filterOffline = data.format === 'offline';
+  // Determine date mode from URL params
+  let dateFilterMode = data.date ? 'single' : (data.dateStart || data.dateEnd ? 'range' : 'all');
+  let selectedSingleDate = data.date || null;     // 'YYYY-MM-DD'
+  let rangeStartDate = data.dateStart || null;    // 'YYYY-MM-DD'
+  let rangeEndDate = data.dateEnd || null;         // 'YYYY-MM-DD'
   let mobileFiltersOpen = false;
+
+  // Debounce timer for date changes (calendar taps shouldn't each fire a navigation)
+  let filterTimeout;
 
   // Mobile Bottom Sheet Swipe gestures
   let touchStartY = 0;
@@ -137,44 +141,15 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
-  // Pre-calculate event dates for calendar indicators
+  // Pre-calculate event dates for calendar indicators (from already-filtered server results)
   $: eventDatesSet = new Set(
     (data.events || [])
       .map((e) => getEventDateStr(e))
       .filter(Boolean)
   );
 
-  // Filtered events
-  $: filteredEvents = (data.events || []).filter((event) => {
-    // 1. Format filter
-    const fmt = event.event_format || "offline";
-    if (filterOnline && !filterOffline) {
-      if (fmt !== "online" && fmt !== "hybrid") return false;
-    } else if (filterOffline && !filterOnline) {
-      if (fmt !== "offline" && fmt !== "hybrid") return false;
-    }
-
-    // 2. Date filter
-    const evStart = getEventDateStr(event);
-    const evEnd = getEventEndDateStr(event) || evStart;
-
-    if (dateFilterMode === "single" && selectedSingleDate) {
-      if (!evStart) return false;
-      if (selectedSingleDate < evStart || selectedSingleDate > evEnd) {
-        return false;
-      }
-    } else if (dateFilterMode === "range") {
-      if (!evStart) return false;
-      if (rangeStartDate && evEnd < rangeStartDate) {
-        return false;
-      }
-      if (rangeEndDate && evStart > rangeEndDate) {
-        return false;
-      }
-    }
-
-    return true;
-  });
+  // Events are pre-filtered server-side; expose directly
+  $: filteredEvents = data.events || [];
 
   $: onlineCount = (data.events || []).filter((e) => e.event_format === "online" || e.event_format === "hybrid").length;
   $: offlineCount = (data.events || []).filter((e) => !e.event_format || e.event_format === "offline" || e.event_format === "hybrid").length;
@@ -191,6 +166,31 @@
     (dateFilterMode === "single" && selectedSingleDate ? 1 : 0) +
     (dateFilterMode === "range" && (rangeStartDate || rangeEndDate) ? 1 : 0);
 
+  /** Pushes current filter state into the URL, triggering a server re-fetch */
+  function applyFilters() {
+    const params = new URLSearchParams(window.location.search);
+    // Format
+    const fmt = filterOnline && !filterOffline ? 'online' : (!filterOnline && filterOffline ? 'offline' : '');
+    if (fmt) params.set('format', fmt);
+    else params.delete('format');
+    // Date
+    params.delete('date');
+    params.delete('date_start');
+    params.delete('date_end');
+    if (dateFilterMode === 'single' && selectedSingleDate) {
+      params.set('date', selectedSingleDate);
+    } else if (dateFilterMode === 'range') {
+      if (rangeStartDate) params.set('date_start', rangeStartDate);
+      if (rangeEndDate) params.set('date_end', rangeEndDate);
+    }
+    goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+  }
+
+  function applyFiltersDebounced() {
+    clearTimeout(filterTimeout);
+    filterTimeout = setTimeout(applyFilters, 300);
+  }
+
   function resetFilters() {
     filterOnline = false;
     filterOffline = false;
@@ -198,6 +198,12 @@
     selectedSingleDate = null;
     rangeStartDate = null;
     rangeEndDate = null;
+    const params = new URLSearchParams(window.location.search);
+    params.delete('format');
+    params.delete('date');
+    params.delete('date_start');
+    params.delete('date_end');
+    goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 
   function handleDateClick(dateStr) {
@@ -224,6 +230,12 @@
       dateFilterMode = "single";
       selectedSingleDate = dateStr;
     }
+    // Only fire navigation when selection is complete
+    const isComplete =
+      dateFilterMode === 'all' ||
+      (dateFilterMode === 'single' && (selectedSingleDate || true)) ||
+      (dateFilterMode === 'range' && rangeStartDate && rangeEndDate);
+    if (isComplete) applyFiltersDebounced();
   }
 
   function prevMonth() {
@@ -295,6 +307,7 @@
       rangeStartDate = null;
       rangeEndDate = null;
     }
+    applyFilters();
   }
 
   function getCalendarGrid(year, month) {
@@ -405,6 +418,7 @@
             type="checkbox"
             id="{isMobile ? 'm-' : ''}filter-online"
             bind:checked={filterOnline}
+            onchange={applyFilters}
             class="sr-only"
           />
           <div class="flex items-center gap-2 text-xs font-semibold text-white">
@@ -437,6 +451,7 @@
             type="checkbox"
             id="{isMobile ? 'm-' : ''}filter-offline"
             bind:checked={filterOffline}
+            onchange={applyFilters}
             class="sr-only"
           />
           <div class="flex items-center gap-2 text-xs font-semibold text-white">
@@ -478,6 +493,7 @@
           dateFilterMode = 'single';
           rangeStartDate = null;
           rangeEndDate = null;
+          applyFilters();
         }}
         class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition {dateFilterMode === 'single'
           ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
@@ -492,6 +508,7 @@
         onclick={() => {
           dateFilterMode = 'range';
           selectedSingleDate = null;
+          applyFilters();
         }}
         class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition {dateFilterMode === 'range'
           ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
@@ -539,7 +556,7 @@
         </span>
         <button
           type="button"
-          onclick={() => { selectedSingleDate = null; dateFilterMode = 'all'; }}
+          onclick={() => { selectedSingleDate = null; dateFilterMode = 'all'; applyFilters(); }}
           class="text-amber-300 hover:text-white"
           aria-label="Clear selected date"
         >
@@ -559,7 +576,7 @@
         </span>
         <button
           type="button"
-          onclick={() => { rangeStartDate = null; rangeEndDate = null; dateFilterMode = 'all'; }}
+          onclick={() => { rangeStartDate = null; rangeEndDate = null; dateFilterMode = 'all'; applyFilters(); }}
           class="text-amber-300 hover:text-white shrink-0"
           aria-label="Clear date range"
         >
@@ -724,7 +741,7 @@
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">
             <Globe size={12} />
             Online
-            <button onclick={() => filterOnline = false} class="hover:text-white" aria-label="Remove online filter">
+            <button onclick={() => { filterOnline = false; applyFilters(); }} class="hover:text-white" aria-label="Remove online filter">
               <X size={12} />
             </button>
           </span>
@@ -734,7 +751,7 @@
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-400/10 text-amber-300 border border-amber-400/20">
             <MapPin size={12} />
             Offline
-            <button onclick={() => filterOffline = false} class="hover:text-white" aria-label="Remove offline filter">
+            <button onclick={() => { filterOffline = false; applyFilters(); }} class="hover:text-white" aria-label="Remove offline filter">
               <X size={12} />
             </button>
           </span>
@@ -744,7 +761,7 @@
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-400/10 text-amber-300 border border-amber-400/20">
             <Calendar size={12} />
             Date: {formatShortDate(selectedSingleDate)}
-            <button onclick={() => { selectedSingleDate = null; dateFilterMode = 'all'; }} class="hover:text-white" aria-label="Remove date filter">
+            <button onclick={() => { selectedSingleDate = null; dateFilterMode = 'all'; applyFilters(); }} class="hover:text-white" aria-label="Remove date filter">
               <X size={12} />
             </button>
           </span>
@@ -754,7 +771,7 @@
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-400/10 text-amber-300 border border-amber-400/20">
             <CalendarDays size={12} />
             Range: {rangeStartDate ? formatShortDate(rangeStartDate) : '...'} - {rangeEndDate ? formatShortDate(rangeEndDate) : '...'}
-            <button onclick={() => { rangeStartDate = null; rangeEndDate = null; dateFilterMode = 'all'; }} class="hover:text-white" aria-label="Remove date range filter">
+            <button onclick={() => { rangeStartDate = null; rangeEndDate = null; dateFilterMode = 'all'; applyFilters(); }} class="hover:text-white" aria-label="Remove date range filter">
               <X size={12} />
             </button>
           </span>
@@ -889,7 +906,7 @@
               </div>
             {/each}
           </div>
-        {:else if data.events.length > 0}
+        {:else if hasActiveFilters}
           <!-- Empty filter state -->
           <div
             class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed"

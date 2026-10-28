@@ -21,6 +21,11 @@
     X,
     ChevronLeft,
     ChevronRight,
+    Users,
+    GraduationCap,
+    Briefcase,
+    Flame,
+    Clock,
   } from "@lucide/svelte";
   import { onDestroy } from "svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
@@ -50,6 +55,19 @@
   let rangeStartDate = data.dateStart || null;    // 'YYYY-MM-DD'
   let rangeEndDate = data.dateEnd || null;         // 'YYYY-MM-DD'
   let mobileFiltersOpen = false;
+  let desktopFiltersOpen = false;
+
+  function openDesktopFilters() {
+    desktopFiltersOpen = true;
+  }
+
+  function closeDesktopFilters() {
+    desktopFiltersOpen = false;
+  }
+
+  function toggleDesktopFilters() {
+    desktopFiltersOpen = !desktopFiltersOpen;
+  }
 
   // Debounce timer for date changes (calendar taps shouldn't each fire a navigation)
   let filterTimeout;
@@ -102,7 +120,7 @@
   }
 
   $: if (typeof document !== "undefined") {
-    if (mobileFiltersOpen) {
+    if (mobileFiltersOpen || desktopFiltersOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -141,6 +159,99 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
+  // Categories Definition
+  const CATEGORIES = [
+    { id: 'all', label: 'All Events', icon: Flame },
+    { id: 'tech', label: 'Tech & AI', icon: Sparkles, match: /ai|tech|code|developer|software|python|data|web|cloud|dev|engineering/i },
+    { id: 'networking', label: 'Networking', icon: Users, match: /network|meetup|mixer|connect|social|community|hangout/i },
+    { id: 'workshops', label: 'Workshops', icon: GraduationCap, match: /workshop|masterclass|learn|bootcamp|hands-on|course|training/i },
+    { id: 'business', label: 'Startups & Business', icon: Briefcase, match: /startup|founder|pitch|venture|invest|business|demo|saas/i },
+    { id: 'online', label: 'Virtual Only', icon: Globe, matchFormat: 'online' },
+    { id: 'offline', label: 'In-Person', icon: MapPin, matchFormat: 'offline' },
+  ];
+
+  let selectedCategory = 'all';
+
+  function matchesCategory(event, catId) {
+    if (catId === 'all') return true;
+    const cat = CATEGORIES.find(c => c.id === catId);
+    if (!cat) return true;
+    if (cat.matchFormat) {
+      if (cat.matchFormat === 'online') return event.event_format === 'online' || event.event_format === 'hybrid';
+      if (cat.matchFormat === 'offline') return !event.event_format || event.event_format === 'offline' || event.event_format === 'hybrid';
+    }
+    if (cat.match) {
+      const text = `${event.name || ''} ${event.description || ''} ${event.location || ''}`;
+      return cat.match.test(text);
+    }
+    return true;
+  }
+
+  function getEventStatus(event) {
+    if (event.start_time) {
+      const now = new Date();
+      const start = new Date(event.start_time);
+      const end = event.end_time ? new Date(event.end_time) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
+      if (now >= start && now <= end) return "live";
+      if (now < start) return "upcoming";
+      return "past";
+    }
+    return "upcoming";
+  }
+
+  function getRelativeTimeLabel(startTime) {
+    if (!startTime) return "Upcoming";
+    const now = new Date();
+    const start = new Date(startTime);
+    if (isNaN(start.getTime())) return "Upcoming";
+    const diffMs = start.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return "Happening now";
+    
+    const diffMins = Math.round(diffMs / (1000 * 60));
+    const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 60) return `In ${diffMins}m`;
+    if (diffHours < 24) {
+      const isToday = now.getDate() === start.getDate() && 
+                      now.getMonth() === start.getMonth() && 
+                      now.getFullYear() === start.getFullYear();
+      if (isToday) {
+        return `Today • ${start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+      }
+      return `In ${diffHours}h`;
+    }
+    if (diffDays === 1) {
+      return `Tomorrow • ${start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+    }
+    if (diffDays < 7) {
+      return `${start.toLocaleDateString("en-US", { weekday: "short" })} • ${start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+    }
+    return start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  function getLiveDurationLabel(startTime) {
+    if (!startTime) return "Live Now";
+    const now = new Date();
+    const start = new Date(startTime);
+    if (isNaN(start.getTime())) return "Live Now";
+    const elapsedMinutes = Math.max(1, Math.round((now.getTime() - start.getTime()) / (1000 * 60)));
+    if (elapsedMinutes < 60) return `Started ${elapsedMinutes}m ago`;
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    return `Started ${elapsedHours}h ago`;
+  }
+
+  // Horizontal Scroll Rail Refs & Navigation
+  let liveRailRef = null;
+  let upcomingRailRef = null;
+
+  function scrollRail(element, direction) {
+    if (!element) return;
+    const distance = 340;
+    element.scrollBy({ left: direction * distance, behavior: "smooth" });
+  }
+
   // Pre-calculate event dates for calendar indicators (from already-filtered server results)
   $: eventDatesSet = new Set(
     (data.events || [])
@@ -151,16 +262,45 @@
   // Events are pre-filtered server-side; expose directly
   $: filteredEvents = data.events || [];
 
+  // Filter events by selected category (instant client response)
+  $: categoryFilteredEvents = filteredEvents.filter((e) => matchesCategory(e, selectedCategory));
+
+  // Category counts based on server-filtered results
+  $: categoryCounts = CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = filteredEvents.filter((e) => matchesCategory(e, cat.id)).length;
+    return acc;
+  }, {});
+
+  // Live events (currently in session)
+  $: liveEvents = categoryFilteredEvents.filter((e) => getEventStatus(e) === "live");
+
+  // Upcoming events (chronologically ordered: nearest first)
+  $: upcomingEvents = categoryFilteredEvents
+    .filter((e) => getEventStatus(e) === "upcoming")
+    .sort((a, b) => new Date(a.start_time || a.created_at) - new Date(b.start_time || b.created_at));
+
+  // Browse All Grid events
+  $: browseAllEvents = categoryFilteredEvents;
+
+  // Filtered mode indicator (active search or calendar date active)
+  $: isFilteredMode = Boolean(
+    searchQuery ||
+    (dateFilterMode === "single" && selectedSingleDate) ||
+    (dateFilterMode === "range" && (rangeStartDate || rangeEndDate))
+  );
+
   $: onlineCount = (data.events || []).filter((e) => e.event_format === "online" || e.event_format === "hybrid").length;
   $: offlineCount = (data.events || []).filter((e) => !e.event_format || e.event_format === "offline" || e.event_format === "hybrid").length;
 
   $: hasActiveFilters =
+    selectedCategory !== 'all' ||
     filterOnline ||
     filterOffline ||
     (dateFilterMode === "single" && selectedSingleDate) ||
     (dateFilterMode === "range" && (rangeStartDate || rangeEndDate));
 
   $: activeFilterCount =
+    (selectedCategory !== 'all' ? 1 : 0) +
     (filterOnline ? 1 : 0) +
     (filterOffline ? 1 : 0) +
     (dateFilterMode === "single" && selectedSingleDate ? 1 : 0) +
@@ -192,6 +332,7 @@
   }
 
   function resetFilters() {
+    selectedCategory = 'all';
     filterOnline = false;
     filterOffline = false;
     dateFilterMode = "all";
@@ -665,6 +806,15 @@
   </div>
 {/snippet}
 
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === 'Escape') {
+      if (desktopFiltersOpen) closeDesktopFilters();
+      if (mobileFiltersOpen) closeMobileFilters();
+    }
+  }}
+/>
+
 <svelte:head>
   <title>Discover Events | Evenai</title>
   <meta
@@ -706,7 +856,7 @@
           />
         </form>
 
-        <!-- Mobile Filter Button (lg:hidden) -> Opens Bottom Canvas -->
+        <!-- Mobile Filter Button (lg:hidden) -> Opens Bottom Sheet -->
         <button
           type="button"
           onclick={openMobileFilters}
@@ -722,13 +872,58 @@
             </span>
           {/if}
         </button>
+
+        <!-- Desktop Filter Button (hidden lg:flex) -> Opens Right-Side Off-Canvas -->
+        <button
+          type="button"
+          onclick={openDesktopFilters}
+          class="hidden lg:flex items-center gap-2 px-3.5 h-10 rounded-xl border text-xs font-semibold transition select-none shrink-0 {desktopFiltersOpen || activeFilterCount > 0
+            ? 'bg-amber-400/15 border-amber-400/40 text-amber-300 shadow-sm shadow-amber-400/10'
+            : 'border-white/10 bg-white/5 text-white hover:bg-white/10 hover:border-white/20'}"
+          aria-haspopup="dialog"
+          aria-expanded={desktopFiltersOpen}
+        >
+          <SlidersHorizontal size={14} class="text-amber-400" />
+          <span>Filters</span>
+          {#if activeFilterCount > 0}
+            <span class="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] font-black text-slate-950">
+              {activeFilterCount}
+            </span>
+          {/if}
+        </button>
       </div>
 
       <div class="text-xs sm:text-sm font-semibold text-ink-300">
-        Showing {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'}
-        {#if filteredEvents.length !== data.events.length}
+        Showing {browseAllEvents.length} {browseAllEvents.length === 1 ? 'event' : 'events'}
+        {#if browseAllEvents.length !== data.events.length}
           <span class="text-xs text-ink-400 font-normal">(filtered from {data.events.length})</span>
         {/if}
+      </div>
+    </div>
+
+    <!-- Category Horizontal Scroll Bar -->
+    <div class="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div class="flex items-center gap-2 overflow-x-auto pb-2 pt-0.5 scrollbar-none scroll-smooth">
+        {#each CATEGORIES as cat (cat.id)}
+          {@const Icon = cat.icon}
+          <button
+            type="button"
+            onclick={() => selectedCategory = cat.id}
+            class="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all duration-150 select-none {selectedCategory === cat.id
+              ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-400/20 font-bold'
+              : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
+          >
+            <Icon size={14} class={selectedCategory === cat.id ? 'text-slate-950' : 'text-amber-400'} />
+            <span>{cat.label}</span>
+            <span
+              class="text-[10px] px-1.5 py-0.2 rounded-full font-bold {selectedCategory === cat.id
+                ? 'bg-slate-950/20 text-slate-950'
+                : 'bg-white/8 text-slate-400'}"
+            >
+              {categoryCounts[cat.id] || 0}
+            </span>
+          </button>
+        {/each}
       </div>
     </div>
 
@@ -736,6 +931,17 @@
     {#if hasActiveFilters}
       <div class="mb-5 flex flex-wrap items-center gap-2 animate-fade-in p-2.5 rounded-xl bg-white/3 border border-white/8">
         <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Active:</span>
+
+        {#if selectedCategory !== 'all'}
+          {@const cat = CATEGORIES.find(c => c.id === selectedCategory)}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-400/15 text-amber-300 border border-amber-400/30">
+            <Sparkles size={12} />
+            Category: {cat ? cat.label : selectedCategory}
+            <button onclick={() => selectedCategory = 'all'} class="hover:text-white" aria-label="Remove category filter">
+              <X size={12} />
+            </button>
+          </span>
+        {/if}
 
         {#if filterOnline}
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">
@@ -787,201 +993,541 @@
       </div>
     {/if}
 
-    <!-- 2-Column Layout: Left Events Grid + Right Filters Sidebar -->
-    <div class="flex flex-col lg:flex-row items-start gap-8">
-      <!-- Left Column: Events -->
-      <div class="flex-1 min-w-0 w-full animate-slide-up-delay-1">
-        {#if $navigating}
-          <!-- Skeleton card grid -->
-          <div class="events-grid">
-            {#each Array(6) as _}
-              <div class="glass rounded-2xl border border-white/8 animate-pulse event-card-skeleton">
-                <div class="skeleton-header"></div>
-                <div class="p-5 space-y-3">
-                  <div class="h-5 w-3/4 rounded-lg bg-white/10"></div>
-                  <div class="h-3.5 w-full rounded-lg bg-white/5"></div>
-                  <div class="h-3.5 w-4/5 rounded-lg bg-white/5"></div>
-                </div>
-                <div class="p-5 pt-0 flex items-center justify-between">
-                  <div class="h-6 w-24 rounded-full bg-white/8"></div>
-                  <div class="h-8 w-20 rounded-lg bg-white/10"></div>
-                </div>
-              </div>
-            {/each}
+    {#if !isFilteredMode}
+      <!-- Section 1: 🔴 Live Events Rail (Auto-collapses when 0) -->
+      {#if liveEvents.length > 0}
+        <section class="mb-10 animate-fade-in">
+          <div class="flex items-center justify-between mb-3.5 px-1">
+            <div class="flex items-center gap-2.5">
+              <span class="relative flex h-2.5 w-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+              </span>
+              <h2 class="text-base sm:text-lg font-black text-white tracking-wide uppercase flex items-center gap-2">
+                Happening Now
+                <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 normal-case">
+                  {liveEvents.length} {liveEvents.length === 1 ? 'event' : 'events'} live
+                </span>
+              </h2>
+            </div>
+
+            <!-- Desktop Scroll Chevrons -->
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                onclick={() => scrollRail(liveRailRef, -1)}
+                class="h-8 w-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition"
+                aria-label="Scroll live events left"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                onclick={() => scrollRail(liveRailRef, 1)}
+                class="h-8 w-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition"
+                aria-label="Scroll live events right"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
-        {:else if filteredEvents.length}
-          <div class="events-grid">
-            {#each filteredEvents as event}
-              <div class="event-card glass card-hover rounded-2xl border border-amber-400/15">
-                <!-- Card top accent bar -->
-                <div class="card-accent accent-discover"></div>
 
-                <!-- Card body -->
-                <div class="card-body">
-                  <!-- Badges header -->
-                  <div class="flex flex-wrap items-center gap-1.5 mb-3">
-                    {#if event.event_format}
-                      <span class="format-badge">
-                        {#if event.event_format === 'online'}
-                          <Globe size={10} class="text-cyan-400" /> Online
-                        {:else if event.event_format === 'hybrid'}
-                          <Globe size={10} class="text-amber-400" /> Hybrid
-                        {:else}
-                          <MapPin size={10} class="text-amber-400" /> Offline
-                        {/if}
-                      </span>
-                    {/if}
+          <!-- Live Rail Horizontal Scroll Container -->
+          <div
+            bind:this={liveRailRef}
+            class="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0"
+          >
+            {#each liveEvents as event (event.id)}
+              <div class="snap-start shrink-0 w-[290px] sm:w-[330px] rounded-2xl glass border border-rose-500/30 hover:border-rose-500/60 transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-lg shadow-rose-950/20 hover:shadow-rose-950/40 hover:-translate-y-1">
+                <div class="h-1 w-full bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500"></div>
 
-                    {#if event.created_by === data.user?.id}
-                      <span class="hosting-badge">
-                        <Crown size={10} class="text-amber-300" />
-                        Hosting
+                <div class="p-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between gap-1.5 mb-2.5">
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                        <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                        </span>
+                        Live Now
                       </span>
-                    {:else if event.joined}
-                      <span class="joined-badge">
-                        <CheckCheck size={10} class="text-emerald-400" />
-                        Joined
-                      </span>
-                    {/if}
 
-                    {#if event.is_approval_required}
-                      <span class="approval-badge" title="Approval required by host">
-                        <Lock size={10} class="text-amber-300" />
-                        Approval
+                      <span class="text-[10px] font-medium text-rose-300/80 flex items-center gap-1">
+                        <Clock size={11} />
+                        {getLiveDurationLabel(event.start_time)}
                       </span>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-1.5 mb-2">
+                      {#if event.event_format}
+                        <span class="format-badge">
+                          {#if event.event_format === 'online'}
+                            <Globe size={10} class="text-cyan-400" /> Online
+                          {:else if event.event_format === 'hybrid'}
+                            <Globe size={10} class="text-amber-400" /> Hybrid
+                          {:else}
+                            <MapPin size={10} class="text-amber-400" /> Offline
+                          {/if}
+                        </span>
+                      {/if}
+
+                      {#if event.created_by === data.user?.id}
+                        <span class="hosting-badge">
+                          <Crown size={10} class="text-amber-300" /> Hosting
+                        </span>
+                      {:else if event.joined}
+                        <span class="joined-badge">
+                          <CheckCheck size={10} class="text-emerald-400" /> Joined
+                        </span>
+                      {/if}
+                    </div>
+
+                    <h3 class="text-sm font-bold text-white line-clamp-1">
+                      {event.name}
+                    </h3>
+
+                    <p class="text-xs text-ink-400 line-clamp-2 mt-1 leading-relaxed">
+                      {event.description ?? "No description added yet."}
+                    </p>
+
+                    {#if event.location}
+                      <p class="mt-2 text-[11px] text-ink-400 flex items-center gap-1 truncate">
+                        <MapPin size={11} class="text-rose-400 shrink-0" />
+                        <span class="truncate">{event.location}</span>
+                      </p>
                     {/if}
                   </div>
 
-                  <!-- Title -->
-                  <h2 class="card-title">{event.name}</h2>
-
-                  <!-- Description -->
-                  <p class="card-desc">
-                    {event.description ?? "No description added yet."}
-                  </p>
-
-                  {#if event.location}
-                    <p class="mt-2 text-[11px] text-ink-400 flex items-center gap-1 truncate">
-                      <MapPin size={11} class="text-amber-400 shrink-0" />
-                      <span class="truncate">{event.location}</span>
-                    </p>
-                  {/if}
-                </div>
-
-                <!-- Card footer -->
-                <div class="card-footer">
-                  <div class="card-meta">
-                    <span class="meta-date">
-                      <CalendarClock size={11} />
-                      {event.start_time ? formatEventDateRange(event.start_time, event.end_time) : new Date(event.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
+                  <div class="mt-4 pt-3 border-t border-white/8 flex items-center justify-between gap-2">
                     <button
-                      id="copy-link-{event.slug}"
                       onclick={() => copySlug(event.slug)}
                       class="copy-btn"
                       title="Copy event link"
                     >
                       {#if copiedSlug === event.slug}
-                        <CheckCheck size={11} class="text-emerald-400" />
-                        Copied!
+                        <CheckCheck size={11} class="text-emerald-400" /> Copied!
                       {:else}
-                        <Copy size={11} />
-                        /{event.slug}
+                        <Copy size={11} /> /{event.slug}
                       {/if}
                     </button>
+
+                    <Button
+                      onclick={() => goto(`/event/${event.slug}`)}
+                      class="bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs px-3 py-1.5 h-auto shadow-md shadow-rose-500/20 gap-1.5"
+                    >
+                      <span>Join Now</span>
+                      <ArrowRight size={13} />
+                    </Button>
                   </div>
-                  <Button
-                    id="open-event-{event.slug}"
-                    onclick={() => goto(`/event/${event.slug}`)}
-                    class="card-view-btn gap-1.5 text-xs px-3 py-1.5 h-auto"
-                  >
-                    View
-                    <ArrowRight size={13} />
-                  </Button>
                 </div>
               </div>
             {/each}
           </div>
-        {:else if hasActiveFilters}
-          <!-- Empty filter state -->
-          <div
-            class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed"
-          >
-            <div
-              class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20"
-            >
-              <SlidersHorizontal class="text-amber-300" size={22} />
-            </div>
-            <h2 class="text-xl font-bold text-white mb-2">No matching events</h2>
-            <p class="text-sm text-ink-400 max-w-sm mx-auto mb-6">
-              No events match your current filter criteria. Try clearing or expanding your format or date filters.
-            </p>
-            <Button
-              onclick={resetFilters}
-              class="bg-amber-400 text-slate-950 hover:bg-amber-300 font-bold text-xs"
-            >
-              <RotateCcw size={13} class="mr-1.5" />
-              Reset Filters
-            </Button>
-          </div>
-        {:else}
-          <!-- Empty state -->
-          <div
-            class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed"
-          >
-            <div
-              class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20"
-            >
-              <Compass class="text-amber-300" size={22} />
-            </div>
-            <h2 class="text-xl font-bold text-white mb-2">No events found</h2>
-            <p class="text-sm text-ink-400 max-w-xs mx-auto mb-6">
-              There are no public events matching your search or active on the platform at the moment.
-            </p>
-          </div>
-        {/if}
-      </div>
+        </section>
+      {/if}
 
-      <!-- Desktop Right Column: Filters Sidebar (hidden on mobile, visible on lg+) -->
-      <aside class="hidden lg:block w-full lg:w-80 xl:w-88 shrink-0">
-        <div class="glass rounded-2xl border border-white/10 p-5 shadow-2xl sticky top-6 space-y-5 bg-[#0b0f19]/90 backdrop-blur-xl">
-          <!-- Filters Header -->
-          <div class="flex items-center justify-between border-b border-white/8 pb-3.5">
+      <!-- Section 2: 🚀 Upcoming Events Rail -->
+      {#if upcomingEvents.length > 0}
+        <section class="mb-10 animate-fade-in">
+          <div class="flex items-center justify-between mb-3.5 px-1">
             <div class="flex items-center gap-2">
-              <SlidersHorizontal size={16} class="text-amber-400" />
-              <h2 class="text-sm font-bold text-white tracking-wide uppercase">Filters</h2>
-              {#if activeFilterCount > 0}
-                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-black text-slate-950">
-                  {activeFilterCount}
+              <CalendarClock size={18} class="text-amber-400" />
+              <h2 class="text-base sm:text-lg font-black text-white tracking-wide uppercase flex items-center gap-2">
+                Upcoming Events
+                <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20 normal-case">
+                  {upcomingEvents.length}
                 </span>
-              {/if}
+              </h2>
             </div>
-            {#if hasActiveFilters}
+
+            <!-- Desktop Scroll Chevrons -->
+            <div class="flex items-center gap-1.5">
               <button
                 type="button"
-                onclick={resetFilters}
-                class="flex items-center gap-1 text-[11px] font-semibold text-amber-300 hover:text-amber-200 hover:underline transition"
+                onclick={() => scrollRail(upcomingRailRef, -1)}
+                class="h-8 w-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition"
+                aria-label="Scroll upcoming events left"
               >
-                <RotateCcw size={11} />
-                Reset all
+                <ChevronLeft size={16} />
               </button>
-            {/if}
+              <button
+                type="button"
+                onclick={() => scrollRail(upcomingRailRef, 1)}
+                class="h-8 w-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition"
+                aria-label="Scroll upcoming events right"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
 
-          {@render filterSections(false)}
+          <!-- Upcoming Rail Horizontal Scroll Container -->
+          <div
+            bind:this={upcomingRailRef}
+            class="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0"
+          >
+            {#each upcomingEvents as event (event.id)}
+              <div class="snap-start shrink-0 w-[290px] sm:w-[330px] rounded-2xl glass border border-amber-400/20 hover:border-amber-400/40 transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-lg shadow-black/40 hover:-translate-y-1">
+                <div class="h-1 w-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500"></div>
+
+                <div class="p-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between gap-1.5 mb-2.5">
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                        <CalendarClock size={11} class="text-amber-400" />
+                        {getRelativeTimeLabel(event.start_time)}
+                      </span>
+
+                      {#if event.event_format}
+                        <span class="format-badge">
+                          {#if event.event_format === 'online'}
+                            <Globe size={10} class="text-cyan-400" /> Online
+                          {:else if event.event_format === 'hybrid'}
+                            <Globe size={10} class="text-amber-400" /> Hybrid
+                          {:else}
+                            <MapPin size={10} class="text-amber-400" /> Offline
+                          {/if}
+                        </span>
+                      {/if}
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-1.5 mb-2">
+                      {#if event.created_by === data.user?.id}
+                        <span class="hosting-badge">
+                          <Crown size={10} class="text-amber-300" /> Hosting
+                        </span>
+                      {:else if event.joined}
+                        <span class="joined-badge">
+                          <CheckCheck size={10} class="text-emerald-400" /> Joined
+                        </span>
+                      {/if}
+
+                      {#if event.is_approval_required}
+                        <span class="approval-badge" title="Approval required by host">
+                          <Lock size={10} class="text-amber-300" /> Approval
+                        </span>
+                      {/if}
+                    </div>
+
+                    <h3 class="text-sm font-bold text-white line-clamp-1">
+                      {event.name}
+                    </h3>
+
+                    <p class="text-xs text-ink-400 line-clamp-2 mt-1 leading-relaxed">
+                      {event.description ?? "No description added yet."}
+                    </p>
+
+                    <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-amber-200/90 truncate">
+                      <CalendarClock size={12} class="text-amber-400 shrink-0" />
+                      <span class="truncate">
+                        {event.start_time ? formatEventDateRange(event.start_time, event.end_time) : new Date(event.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+
+                    {#if event.location}
+                      <p class="mt-1 text-[11px] text-ink-400 flex items-center gap-1 truncate">
+                        <MapPin size={11} class="text-amber-400 shrink-0" />
+                        <span class="truncate">{event.location}</span>
+                      </p>
+                    {/if}
+                  </div>
+
+                  <div class="mt-4 pt-3 border-t border-white/8 flex items-center justify-between gap-2">
+                    <button
+                      onclick={() => copySlug(event.slug)}
+                      class="copy-btn"
+                      title="Copy event link"
+                    >
+                      {#if copiedSlug === event.slug}
+                        <CheckCheck size={11} class="text-emerald-400" /> Copied!
+                      {:else}
+                        <Copy size={11} /> /{event.slug}
+                      {/if}
+                    </button>
+
+                    <Button
+                      onclick={() => goto(`/event/${event.slug}`)}
+                      class="card-view-btn gap-1 text-xs px-3 py-1.5 h-auto"
+                    >
+                      <span>View</span>
+                      <ArrowRight size={13} />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </section>
+      {/if}
+    {/if}
+
+    <!-- Explore All Events / Filter Results Header -->
+    <div class="mb-5 flex items-center justify-between {(!isFilteredMode && (liveEvents.length > 0 || upcomingEvents.length > 0)) ? 'border-t border-white/8 pt-8' : ''}">
+      <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          {#if isFilteredMode}
+            <SlidersHorizontal size={20} class="text-amber-400" />
+            Filter & Search Results
+          {:else}
+            <Compass size={20} class="text-amber-400" />
+            Explore All Events
+          {/if}
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
+            {browseAllEvents.length}
+          </span>
+        </h2>
+        <p class="text-xs text-ink-400 mt-0.5">
+          {#if isFilteredMode}
+            Showing events matching your search or date filters
+          {:else}
+            Browse all events or refine by date and format using the sidebar
+          {/if}
+        </p>
+      </div>
+    </div>
+
+    <!-- Events Grid Container (Full-width on desktop) -->
+    <div class="w-full animate-slide-up-delay-1">
+      {#if $navigating}
+        <!-- Skeleton card grid -->
+        <div class="events-grid">
+          {#each Array(6) as _}
+            <div class="glass rounded-2xl border border-white/8 animate-pulse event-card-skeleton">
+              <div class="skeleton-header"></div>
+              <div class="p-5 space-y-3">
+                <div class="h-5 w-3/4 rounded-lg bg-white/10"></div>
+                <div class="h-3.5 w-full rounded-lg bg-white/5"></div>
+                <div class="h-3.5 w-4/5 rounded-lg bg-white/5"></div>
+              </div>
+              <div class="p-5 pt-0 flex items-center justify-between">
+                <div class="h-6 w-24 rounded-full bg-white/8"></div>
+                <div class="h-8 w-20 rounded-lg bg-white/10"></div>
+              </div>
+            </div>
+          {/each}
         </div>
-      </aside>
+      {:else if browseAllEvents.length}
+        <div class="events-grid">
+          {#each browseAllEvents as event (event.id)}
+            <div class="event-card glass card-hover rounded-2xl border border-amber-400/15">
+              <!-- Card top accent bar -->
+              <div class="card-accent accent-discover"></div>
+
+              <!-- Card body -->
+              <div class="card-body">
+                <!-- Badges header -->
+                <div class="flex flex-wrap items-center gap-1.5 mb-3">
+                  {#if event.event_format}
+                    <span class="format-badge">
+                      {#if event.event_format === 'online'}
+                        <Globe size={10} class="text-cyan-400" /> Online
+                      {:else if event.event_format === 'hybrid'}
+                        <Globe size={10} class="text-amber-400" /> Hybrid
+                      {:else}
+                        <MapPin size={10} class="text-amber-400" /> Offline
+                      {/if}
+                    </span>
+                  {/if}
+
+                  {#if event.created_by === data.user?.id}
+                    <span class="hosting-badge">
+                      <Crown size={10} class="text-amber-300" />
+                      Hosting
+                    </span>
+                  {:else if event.joined}
+                    <span class="joined-badge">
+                      <CheckCheck size={10} class="text-emerald-400" />
+                      Joined
+                    </span>
+                  {/if}
+
+                  {#if event.is_approval_required}
+                    <span class="approval-badge" title="Approval required by host">
+                      <Lock size={10} class="text-amber-300" />
+                      Approval
+                    </span>
+                  {/if}
+                </div>
+
+                <!-- Title -->
+                <h2 class="card-title">{event.name}</h2>
+
+                <!-- Description -->
+                <p class="card-desc">
+                  {event.description ?? "No description added yet."}
+                </p>
+
+                {#if event.location}
+                  <p class="mt-2 text-[11px] text-ink-400 flex items-center gap-1 truncate">
+                    <MapPin size={11} class="text-amber-400 shrink-0" />
+                    <span class="truncate">{event.location}</span>
+                  </p>
+                {/if}
+              </div>
+
+              <!-- Card footer -->
+              <div class="card-footer">
+                <div class="card-meta">
+                  <span class="meta-date">
+                    <CalendarClock size={11} />
+                    {event.start_time ? formatEventDateRange(event.start_time, event.end_time) : new Date(event.created_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <button
+                    id="copy-link-{event.slug}"
+                    onclick={() => copySlug(event.slug)}
+                    class="copy-btn"
+                    title="Copy event link"
+                  >
+                    {#if copiedSlug === event.slug}
+                      <CheckCheck size={11} class="text-emerald-400" />
+                      Copied!
+                    {:else}
+                      <Copy size={11} />
+                      /{event.slug}
+                    {/if}
+                  </button>
+                </div>
+                <Button
+                  id="open-event-{event.slug}"
+                  onclick={() => goto(`/event/${event.slug}`)}
+                  class="card-view-btn gap-1.5 text-xs px-3 py-1.5 h-auto"
+                >
+                  View
+                  <ArrowRight size={13} />
+                </Button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {:else if hasActiveFilters}
+        <!-- Empty filter state -->
+        <div
+          class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed"
+        >
+          <div
+            class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20"
+          >
+            <SlidersHorizontal class="text-amber-300" size={22} />
+          </div>
+          <h2 class="text-xl font-bold text-white mb-2">No matching events</h2>
+          <p class="text-sm text-ink-400 max-w-sm mx-auto mb-6">
+            No events match your current filter criteria. Try clearing or expanding your category, format, or date filters.
+          </p>
+          <Button
+            onclick={resetFilters}
+            class="bg-amber-400 text-slate-950 hover:bg-amber-300 font-bold text-xs"
+          >
+            <RotateCcw size={13} class="mr-1.5" />
+            Reset All Filters
+          </Button>
+        </div>
+      {:else}
+        <!-- Empty state -->
+        <div
+          class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed"
+        >
+          <div
+            class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20"
+          >
+            <Compass class="text-amber-300" size={22} />
+          </div>
+          <h2 class="text-xl font-bold text-white mb-2">No events found</h2>
+          <p class="text-sm text-ink-400 max-w-xs mx-auto mb-6">
+            There are no public events matching your search or active on the platform at the moment.
+          </p>
+        </div>
+      {/if}
     </div>
   </main>
 </PageShell>
 
+<!-- Desktop Right-Side Off-Canvas Drawer (Desktop only: lg+) -->
+{#if desktopFiltersOpen}
+  <div class="hidden lg:block fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label="Filters">
+    <!-- Backdrop Overlay -->
+    <div
+      class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-fade-in cursor-pointer z-[100]"
+      onclick={closeDesktopFilters}
+      role="button"
+      tabindex="0"
+      aria-label="Close filters backdrop"
+      onkeydown={(e) => e.key === 'Escape' && closeDesktopFilters()}
+    ></div>
+
+    <!-- Off-Canvas Drawer (Slide-in from Right) -->
+    <div
+      class="fixed inset-y-0 right-0 z-[101] w-[400px] max-w-[90vw] bg-[#0b0f19] border-l border-white/12 shadow-2xl flex flex-col overflow-hidden animate-drawer-right"
+    >
+      <!-- Drawer Header -->
+      <div class="flex items-center justify-between px-6 py-4.5 border-b border-white/8 bg-[#070a12]/90 backdrop-blur-md">
+        <div class="flex items-center gap-2.5">
+          <SlidersHorizontal size={18} class="text-amber-400" />
+          <h2 class="text-base font-bold text-white tracking-wide uppercase">Filters</h2>
+          {#if activeFilterCount > 0}
+            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-black text-slate-950">
+              {activeFilterCount}
+            </span>
+          {/if}
+        </div>
+
+        <div class="flex items-center gap-3">
+          {#if hasActiveFilters}
+            <button
+              type="button"
+              onclick={resetFilters}
+              class="flex items-center gap-1 text-xs font-semibold text-amber-300 hover:text-amber-200 hover:underline transition"
+            >
+              <RotateCcw size={12} />
+              Reset all
+            </button>
+          {/if}
+          <button
+            type="button"
+            onclick={closeDesktopFilters}
+            class="h-8 w-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition"
+            aria-label="Close filters drawer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      <!-- Drawer Scrollable Filter Content -->
+      <div class="px-6 py-5 space-y-6 overflow-y-auto overscroll-contain flex-1">
+        {@render filterSections(false)}
+      </div>
+
+      <!-- Drawer Bottom Sticky Action Bar -->
+      <div class="p-5 bg-[#070a12] border-t border-white/10 flex items-center gap-3">
+        {#if hasActiveFilters}
+          <Button
+            type="button"
+            variant="outline"
+            onclick={resetFilters}
+            class="border-white/15 text-slate-300 hover:bg-white/5 h-11 px-4 text-xs font-semibold"
+          >
+            Clear
+          </Button>
+        {/if}
+        <Button
+          type="button"
+          onclick={closeDesktopFilters}
+          class="flex-1 bg-amber-400 text-slate-950 hover:bg-amber-300 font-bold h-11 text-sm shadow-lg shadow-amber-400/20"
+        >
+          Show {filteredEvents.length} {filteredEvents.length === 1 ? 'Event' : 'Events'}
+        </Button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <!-- Mobile Bottom Sheet / Swipe-up Card (Mobile only) -->
 {#if mobileFiltersOpen}
-  <div class="lg:hidden fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="Filters">
+  <div class="lg:hidden fixed inset-0 z-[100] flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="Filters">
     <!-- Backdrop Overlay -->
     <div
       class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity animate-fade-in"
@@ -1076,6 +1622,14 @@
 {/if}
 
 <style>
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   .events-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1227,6 +1781,18 @@
   .skeleton-header {
     height: 3px;
     background: rgba(255, 255, 255, 0.08);
+  }
+
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  .animate-drawer-right {
+    animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   @keyframes slideUpSheet {

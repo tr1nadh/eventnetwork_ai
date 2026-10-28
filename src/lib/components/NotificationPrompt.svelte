@@ -1,4 +1,4 @@
-﻿<script>
+<script>
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { BellOff, Bell, X } from '@lucide/svelte';
@@ -125,7 +125,7 @@
   .popover-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 9998;
+    z-index: 39;
   }
 
   /* ── Wrapper ── */
@@ -133,7 +133,7 @@
     position: fixed;
     top: 1rem;
     right: 1rem;
-    z-index: 9999;
+    z-index: 40;
   }
 
   @media (max-width: 767px) {

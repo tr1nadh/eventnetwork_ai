@@ -21,13 +21,11 @@
     X,
     ChevronLeft,
     ChevronRight,
-    Users,
-    GraduationCap,
-    Briefcase,
     Flame,
     Clock,
+    Radio,
   } from "@lucide/svelte";
-  import { onDestroy } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
   import { createSupabaseBrowserClient } from "$lib/supabase/client";
@@ -159,32 +157,49 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
-  // Categories Definition
-  const CATEGORIES = [
-    { id: 'all', label: 'All Events', icon: Flame },
-    { id: 'tech', label: 'Tech & AI', icon: Sparkles, match: /ai|tech|code|developer|software|python|data|web|cloud|dev|engineering/i },
-    { id: 'networking', label: 'Networking', icon: Users, match: /network|meetup|mixer|connect|social|community|hangout/i },
-    { id: 'workshops', label: 'Workshops', icon: GraduationCap, match: /workshop|masterclass|learn|bootcamp|hands-on|course|training/i },
-    { id: 'business', label: 'Startups & Business', icon: Briefcase, match: /startup|founder|pitch|venture|invest|business|demo|saas/i },
-    { id: 'online', label: 'Virtual Only', icon: Globe, matchFormat: 'online' },
-    { id: 'offline', label: 'In-Person', icon: MapPin, matchFormat: 'offline' },
-  ];
+  // 4 Status Filter Pills State: 'all' | 'live' | 'upcoming' | 'completed'
+  let selectedStatus = 'all';
+  let pillsScrollRef;
+  let canScrollLeft = false;
+  let canScrollRight = false;
 
-  let selectedCategory = 'all';
+  function updatePillsScrollState() {
+    if (!pillsScrollRef) return;
+    const { scrollLeft, scrollWidth, clientWidth } = pillsScrollRef;
+    canScrollLeft = scrollLeft > 8;
+    canScrollRight = scrollLeft < scrollWidth - clientWidth - 8;
+  }
 
-  function matchesCategory(event, catId) {
-    if (catId === 'all') return true;
-    const cat = CATEGORIES.find(c => c.id === catId);
-    if (!cat) return true;
-    if (cat.matchFormat) {
-      if (cat.matchFormat === 'online') return event.event_format === 'online' || event.event_format === 'hybrid';
-      if (cat.matchFormat === 'offline') return !event.event_format || event.event_format === 'offline' || event.event_format === 'hybrid';
-    }
-    if (cat.match) {
-      const text = `${event.name || ''} ${event.description || ''} ${event.location || ''}`;
-      return cat.match.test(text);
-    }
-    return true;
+  function scrollPills(direction) {
+    if (!pillsScrollRef) return;
+    const scrollAmount = 160;
+    pillsScrollRef.scrollBy({
+      left: direction === 'right' ? scrollAmount : -scrollAmount,
+      behavior: 'smooth'
+    });
+  }
+
+  onMount(() => {
+    updatePillsScrollState();
+    const timer = setTimeout(updatePillsScrollState, 150);
+    window.addEventListener('resize', updatePillsScrollState);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updatePillsScrollState);
+    };
+  });
+
+  // Pagination state
+  const PAGE_SIZE = 9;
+  let visibleLimit = PAGE_SIZE;
+
+  // Reset pagination limit when status tab or filters change
+  $: if (selectedStatus || searchQuery || filterOnline || filterOffline || selectedSingleDate || rangeStartDate || rangeEndDate) {
+    visibleLimit = PAGE_SIZE;
+  }
+
+  function loadMore() {
+    visibleLimit += PAGE_SIZE;
   }
 
   function getEventStatus(event) {
@@ -194,7 +209,7 @@
       const end = event.end_time ? new Date(event.end_time) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
       if (now >= start && now <= end) return "live";
       if (now < start) return "upcoming";
-      return "past";
+      return "completed";
     }
     return "upcoming";
   }
@@ -242,16 +257,6 @@
     return `Started ${elapsedHours}h ago`;
   }
 
-  // Horizontal Scroll Rail Refs & Navigation
-  let liveRailRef = null;
-  let upcomingRailRef = null;
-
-  function scrollRail(element, direction) {
-    if (!element) return;
-    const distance = 340;
-    element.scrollBy({ left: direction * distance, behavior: "smooth" });
-  }
-
   // Pre-calculate event dates for calendar indicators (from already-filtered server results)
   $: eventDatesSet = new Set(
     (data.events || [])
@@ -262,25 +267,34 @@
   // Events are pre-filtered server-side; expose directly
   $: filteredEvents = data.events || [];
 
-  // Filter events by selected category (instant client response)
-  $: categoryFilteredEvents = filteredEvents.filter((e) => matchesCategory(e, selectedCategory));
+  // Group events by status
+  $: liveEvents = filteredEvents.filter((e) => getEventStatus(e) === "live");
 
-  // Category counts based on server-filtered results
-  $: categoryCounts = CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = filteredEvents.filter((e) => matchesCategory(e, cat.id)).length;
-    return acc;
-  }, {});
-
-  // Live events (currently in session)
-  $: liveEvents = categoryFilteredEvents.filter((e) => getEventStatus(e) === "live");
-
-  // Upcoming events (chronologically ordered: nearest first)
-  $: upcomingEvents = categoryFilteredEvents
+  $: upcomingEvents = filteredEvents
     .filter((e) => getEventStatus(e) === "upcoming")
     .sort((a, b) => new Date(a.start_time || a.created_at) - new Date(b.start_time || b.created_at));
 
-  // Browse All Grid events
-  $: browseAllEvents = categoryFilteredEvents;
+  $: completedEvents = filteredEvents
+    .filter((e) => getEventStatus(e) === "completed")
+    .sort((a, b) => new Date(b.end_time || b.start_time || b.created_at) - new Date(a.end_time || a.start_time || a.created_at));
+
+  // "All" view priority ordering: Live first -> Upcoming chronologically -> Completed last
+  $: allSortedEvents = [
+    ...liveEvents,
+    ...upcomingEvents,
+    ...completedEvents
+  ];
+
+  // Current list based on selected pill
+  $: currentStatusEvents =
+    selectedStatus === 'live' ? liveEvents :
+    selectedStatus === 'upcoming' ? upcomingEvents :
+    selectedStatus === 'completed' ? completedEvents :
+    allSortedEvents;
+
+  // Paginated slice
+  $: paginatedEvents = currentStatusEvents.slice(0, visibleLimit);
+  $: hasMore = visibleLimit < currentStatusEvents.length;
 
   // Filtered mode indicator (active search or calendar date active)
   $: isFilteredMode = Boolean(
@@ -293,14 +307,14 @@
   $: offlineCount = (data.events || []).filter((e) => !e.event_format || e.event_format === "offline" || e.event_format === "hybrid").length;
 
   $: hasActiveFilters =
-    selectedCategory !== 'all' ||
+    selectedStatus !== 'all' ||
     filterOnline ||
     filterOffline ||
     (dateFilterMode === "single" && selectedSingleDate) ||
     (dateFilterMode === "range" && (rangeStartDate || rangeEndDate));
 
   $: activeFilterCount =
-    (selectedCategory !== 'all' ? 1 : 0) +
+    (selectedStatus !== 'all' ? 1 : 0) +
     (filterOnline ? 1 : 0) +
     (filterOffline ? 1 : 0) +
     (dateFilterMode === "single" && selectedSingleDate ? 1 : 0) +
@@ -332,7 +346,7 @@
   }
 
   function resetFilters() {
-    selectedCategory = 'all';
+    selectedStatus = 'all';
     filterOnline = false;
     filterOffline = false;
     dateFilterMode = "all";
@@ -894,37 +908,147 @@
       </div>
 
       <div class="text-xs sm:text-sm font-semibold text-ink-300">
-        Showing {browseAllEvents.length} {browseAllEvents.length === 1 ? 'event' : 'events'}
-        {#if browseAllEvents.length !== data.events.length}
+        Showing {paginatedEvents.length} of {currentStatusEvents.length} {currentStatusEvents.length === 1 ? 'event' : 'events'}
+        {#if currentStatusEvents.length !== data.events.length}
           <span class="text-xs text-ink-400 font-normal">(filtered from {data.events.length})</span>
         {/if}
       </div>
     </div>
 
-    <!-- Category Horizontal Scroll Bar -->
-    <div class="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
-      <div class="flex items-center gap-2 overflow-x-auto pb-2 pt-0.5 scrollbar-none scroll-smooth">
-        {#each CATEGORIES as cat (cat.id)}
-          {@const Icon = cat.icon}
+    <!-- 4 Status Filter Pills with Horizontal Scroll & Slight Affordance Indication -->
+    <div class="relative mb-6">
+      <div
+        bind:this={pillsScrollRef}
+        onscroll={updatePillsScrollState}
+        class="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-none select-none scroll-smooth"
+      >
+        <!-- 1. All -->
+        <button
+          type="button"
+          onclick={(e) => {
+            selectedStatus = 'all';
+            e.currentTarget?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }}
+          class="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-150 {selectedStatus === 'all'
+            ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-400/20 font-bold'
+            : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
+        >
+          <Flame size={14} class={selectedStatus === 'all' ? 'text-slate-950' : 'text-amber-400'} />
+          <span>All</span>
+          <span
+            class="text-[10px] px-1.5 py-0.5 rounded-full font-bold {selectedStatus === 'all'
+              ? 'bg-slate-950/20 text-slate-950'
+              : 'bg-white/8 text-slate-400'}"
+          >
+            {allSortedEvents.length}
+          </span>
+        </button>
+
+        <!-- 2. Live -->
+        <button
+          type="button"
+          onclick={(e) => {
+            selectedStatus = 'live';
+            e.currentTarget?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }}
+          class="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-150 {selectedStatus === 'live'
+            ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/25 font-bold'
+            : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
+        >
+          {#if liveEvents.length > 0}
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 {selectedStatus === 'live' ? 'bg-white' : 'bg-rose-500'}"></span>
+            </span>
+          {:else}
+            <span class="h-2 w-2 rounded-full bg-slate-500"></span>
+          {/if}
+          <span>Live</span>
+          <span
+            class="text-[10px] px-1.5 py-0.5 rounded-full font-bold {selectedStatus === 'live'
+              ? 'bg-white/20 text-white'
+              : liveEvents.length > 0 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/8 text-slate-400'}"
+          >
+            {liveEvents.length}
+          </span>
+        </button>
+
+        <!-- 3. Upcoming -->
+        <button
+          type="button"
+          onclick={(e) => {
+            selectedStatus = 'upcoming';
+            e.currentTarget?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }}
+          class="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-150 {selectedStatus === 'upcoming'
+            ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-400/20 font-bold'
+            : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
+        >
+          <CalendarClock size={14} class={selectedStatus === 'upcoming' ? 'text-slate-950' : 'text-amber-400'} />
+          <span>Upcoming</span>
+          <span
+            class="text-[10px] px-1.5 py-0.5 rounded-full font-bold {selectedStatus === 'upcoming'
+              ? 'bg-slate-950/20 text-slate-950'
+              : 'bg-white/8 text-slate-400'}"
+          >
+            {upcomingEvents.length}
+          </span>
+        </button>
+
+        <!-- 4. Completed -->
+        <button
+          type="button"
+          onclick={(e) => {
+            selectedStatus = 'completed';
+            e.currentTarget?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }}
+          class="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-150 {selectedStatus === 'completed'
+            ? 'bg-slate-200 text-slate-950 border-slate-200 shadow-md shadow-white/10 font-bold'
+            : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
+        >
+          <CheckCheck size={14} class={selectedStatus === 'completed' ? 'text-slate-950' : 'text-slate-400'} />
+          <span>Completed</span>
+          <span
+            class="text-[10px] px-1.5 py-0.5 rounded-full font-bold {selectedStatus === 'completed'
+              ? 'bg-slate-950/20 text-slate-950'
+              : 'bg-white/8 text-slate-400'}"
+          >
+            {completedEvents.length}
+          </span>
+        </button>
+      </div>
+
+      <!-- Left Edge Indication & Quick-Scroll Arrow (Mobile only) -->
+      {#if canScrollLeft}
+        <div
+          class="absolute left-0 top-0 bottom-1 w-12 bg-gradient-to-r from-[#060c1a] via-[#060c1a]/85 to-transparent flex items-center justify-start sm:hidden pointer-events-none transition-opacity duration-200 z-10"
+        >
           <button
             type="button"
-            onclick={() => selectedCategory = cat.id}
-            class="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all duration-150 select-none {selectedCategory === cat.id
-              ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-400/20 font-bold'
-              : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
+            onclick={() => scrollPills('left')}
+            class="pointer-events-auto h-6 w-6 rounded-full bg-slate-900/90 border border-white/15 backdrop-blur-md flex items-center justify-center text-amber-300 shadow-md shadow-black/60 transition active:scale-95"
+            aria-label="Scroll left"
           >
-            <Icon size={14} class={selectedCategory === cat.id ? 'text-slate-950' : 'text-amber-400'} />
-            <span>{cat.label}</span>
-            <span
-              class="text-[10px] px-1.5 py-0.2 rounded-full font-bold {selectedCategory === cat.id
-                ? 'bg-slate-950/20 text-slate-950'
-                : 'bg-white/8 text-slate-400'}"
-            >
-              {categoryCounts[cat.id] || 0}
-            </span>
+            <ChevronLeft size={13} />
           </button>
-        {/each}
-      </div>
+        </div>
+      {/if}
+
+      <!-- Right Edge Indication & Quick-Scroll Arrow (Mobile only) -->
+      {#if canScrollRight}
+        <div
+          class="absolute right-0 top-0 bottom-1 w-12 bg-gradient-to-l from-[#060c1a] via-[#060c1a]/85 to-transparent flex items-center justify-end sm:hidden pointer-events-none transition-opacity duration-200 z-10"
+        >
+          <button
+            type="button"
+            onclick={() => scrollPills('right')}
+            class="pointer-events-auto h-6 w-6 rounded-full bg-slate-900/90 border border-white/15 backdrop-blur-md flex items-center justify-center text-amber-300 shadow-md shadow-black/60 transition active:scale-95"
+            aria-label="Scroll right to see completed events"
+          >
+            <ChevronRight size={13} />
+          </button>
+        </div>
+      {/if}
     </div>
 
     <!-- Active Filter Tags Bar -->
@@ -932,12 +1056,11 @@
       <div class="mb-5 flex flex-wrap items-center gap-2 animate-fade-in p-2.5 rounded-xl bg-white/3 border border-white/8">
         <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Active:</span>
 
-        {#if selectedCategory !== 'all'}
-          {@const cat = CATEGORIES.find(c => c.id === selectedCategory)}
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-400/15 text-amber-300 border border-amber-400/30">
-            <Sparkles size={12} />
-            Category: {cat ? cat.label : selectedCategory}
-            <button onclick={() => selectedCategory = 'all'} class="hover:text-white" aria-label="Remove category filter">
+        {#if selectedStatus !== 'all'}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-400/15 text-amber-300 border border-amber-400/30 capitalize">
+            <Flame size={12} />
+            Status: {selectedStatus}
+            <button onclick={() => selectedStatus = 'all'} class="hover:text-white" aria-label="Remove status filter">
               <X size={12} />
             </button>
           </span>
@@ -993,294 +1116,44 @@
       </div>
     {/if}
 
-    {#if !isFilteredMode}
-      <!-- Section 1: 🔴 Live Events Rail (Auto-collapses when 0) -->
-      {#if liveEvents.length > 0}
-        <section class="mb-10 animate-fade-in">
-          <div class="flex items-center justify-between mb-3.5 px-1">
-            <div class="flex items-center gap-2.5">
-              <span class="relative flex h-2.5 w-2.5">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
-              </span>
-              <h2 class="text-base sm:text-lg font-black text-white tracking-wide uppercase flex items-center gap-2">
-                Happening Now
-                <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 normal-case">
-                  {liveEvents.length} {liveEvents.length === 1 ? 'event' : 'events'} live
-                </span>
-              </h2>
-            </div>
-
-            <!-- Desktop Scroll Chevrons -->
-            <div class="flex items-center gap-1.5">
-              <button
-                type="button"
-                onclick={() => scrollRail(liveRailRef, -1)}
-                class="h-8 w-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition"
-                aria-label="Scroll live events left"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                type="button"
-                onclick={() => scrollRail(liveRailRef, 1)}
-                class="h-8 w-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition"
-                aria-label="Scroll live events right"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-
-          <!-- Live Rail Horizontal Scroll Container -->
-          <div
-            bind:this={liveRailRef}
-            class="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0"
-          >
-            {#each liveEvents as event (event.id)}
-              <div class="snap-start shrink-0 w-[290px] sm:w-[330px] rounded-2xl glass border border-rose-500/30 hover:border-rose-500/60 transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-lg shadow-rose-950/20 hover:shadow-rose-950/40 hover:-translate-y-1">
-                <div class="h-1 w-full bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500"></div>
-
-                <div class="p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div class="flex items-center justify-between gap-1.5 mb-2.5">
-                      <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                        <span class="relative flex h-2 w-2">
-                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                          <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                        </span>
-                        Live Now
-                      </span>
-
-                      <span class="text-[10px] font-medium text-rose-300/80 flex items-center gap-1">
-                        <Clock size={11} />
-                        {getLiveDurationLabel(event.start_time)}
-                      </span>
-                    </div>
-
-                    <div class="flex flex-wrap items-center gap-1.5 mb-2">
-                      {#if event.event_format}
-                        <span class="format-badge">
-                          {#if event.event_format === 'online'}
-                            <Globe size={10} class="text-cyan-400" /> Online
-                          {:else if event.event_format === 'hybrid'}
-                            <Globe size={10} class="text-amber-400" /> Hybrid
-                          {:else}
-                            <MapPin size={10} class="text-amber-400" /> Offline
-                          {/if}
-                        </span>
-                      {/if}
-
-                      {#if event.created_by === data.user?.id}
-                        <span class="hosting-badge">
-                          <Crown size={10} class="text-amber-300" /> Hosting
-                        </span>
-                      {:else if event.joined}
-                        <span class="joined-badge">
-                          <CheckCheck size={10} class="text-emerald-400" /> Joined
-                        </span>
-                      {/if}
-                    </div>
-
-                    <h3 class="text-sm font-bold text-white line-clamp-1">
-                      {event.name}
-                    </h3>
-
-                    <p class="text-xs text-ink-400 line-clamp-2 mt-1 leading-relaxed">
-                      {event.description ?? "No description added yet."}
-                    </p>
-
-                    {#if event.location}
-                      <p class="mt-2 text-[11px] text-ink-400 flex items-center gap-1 truncate">
-                        <MapPin size={11} class="text-rose-400 shrink-0" />
-                        <span class="truncate">{event.location}</span>
-                      </p>
-                    {/if}
-                  </div>
-
-                  <div class="mt-4 pt-3 border-t border-white/8 flex items-center justify-between gap-2">
-                    <button
-                      onclick={() => copySlug(event.slug)}
-                      class="copy-btn"
-                      title="Copy event link"
-                    >
-                      {#if copiedSlug === event.slug}
-                        <CheckCheck size={11} class="text-emerald-400" /> Copied!
-                      {:else}
-                        <Copy size={11} /> /{event.slug}
-                      {/if}
-                    </button>
-
-                    <Button
-                      onclick={() => goto(`/event/${event.slug}`)}
-                      class="bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs px-3 py-1.5 h-auto shadow-md shadow-rose-500/20 gap-1.5"
-                    >
-                      <span>Join Now</span>
-                      <ArrowRight size={13} />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            {/each}
-          </div>
-        </section>
-      {/if}
-
-      <!-- Section 2: 🚀 Upcoming Events Rail -->
-      {#if upcomingEvents.length > 0}
-        <section class="mb-10 animate-fade-in">
-          <div class="flex items-center justify-between mb-3.5 px-1">
-            <div class="flex items-center gap-2">
-              <CalendarClock size={18} class="text-amber-400" />
-              <h2 class="text-base sm:text-lg font-black text-white tracking-wide uppercase flex items-center gap-2">
-                Upcoming Events
-                <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20 normal-case">
-                  {upcomingEvents.length}
-                </span>
-              </h2>
-            </div>
-
-            <!-- Desktop Scroll Chevrons -->
-            <div class="flex items-center gap-1.5">
-              <button
-                type="button"
-                onclick={() => scrollRail(upcomingRailRef, -1)}
-                class="h-8 w-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition"
-                aria-label="Scroll upcoming events left"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                type="button"
-                onclick={() => scrollRail(upcomingRailRef, 1)}
-                class="h-8 w-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition"
-                aria-label="Scroll upcoming events right"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-
-          <!-- Upcoming Rail Horizontal Scroll Container -->
-          <div
-            bind:this={upcomingRailRef}
-            class="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0"
-          >
-            {#each upcomingEvents as event (event.id)}
-              <div class="snap-start shrink-0 w-[290px] sm:w-[330px] rounded-2xl glass border border-amber-400/20 hover:border-amber-400/40 transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-lg shadow-black/40 hover:-translate-y-1">
-                <div class="h-1 w-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500"></div>
-
-                <div class="p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div class="flex items-center justify-between gap-1.5 mb-2.5">
-                      <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30">
-                        <CalendarClock size={11} class="text-amber-400" />
-                        {getRelativeTimeLabel(event.start_time)}
-                      </span>
-
-                      {#if event.event_format}
-                        <span class="format-badge">
-                          {#if event.event_format === 'online'}
-                            <Globe size={10} class="text-cyan-400" /> Online
-                          {:else if event.event_format === 'hybrid'}
-                            <Globe size={10} class="text-amber-400" /> Hybrid
-                          {:else}
-                            <MapPin size={10} class="text-amber-400" /> Offline
-                          {/if}
-                        </span>
-                      {/if}
-                    </div>
-
-                    <div class="flex flex-wrap items-center gap-1.5 mb-2">
-                      {#if event.created_by === data.user?.id}
-                        <span class="hosting-badge">
-                          <Crown size={10} class="text-amber-300" /> Hosting
-                        </span>
-                      {:else if event.joined}
-                        <span class="joined-badge">
-                          <CheckCheck size={10} class="text-emerald-400" /> Joined
-                        </span>
-                      {/if}
-
-                      {#if event.is_approval_required}
-                        <span class="approval-badge" title="Approval required by host">
-                          <Lock size={10} class="text-amber-300" /> Approval
-                        </span>
-                      {/if}
-                    </div>
-
-                    <h3 class="text-sm font-bold text-white line-clamp-1">
-                      {event.name}
-                    </h3>
-
-                    <p class="text-xs text-ink-400 line-clamp-2 mt-1 leading-relaxed">
-                      {event.description ?? "No description added yet."}
-                    </p>
-
-                    <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-amber-200/90 truncate">
-                      <CalendarClock size={12} class="text-amber-400 shrink-0" />
-                      <span class="truncate">
-                        {event.start_time ? formatEventDateRange(event.start_time, event.end_time) : new Date(event.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </span>
-                    </div>
-
-                    {#if event.location}
-                      <p class="mt-1 text-[11px] text-ink-400 flex items-center gap-1 truncate">
-                        <MapPin size={11} class="text-amber-400 shrink-0" />
-                        <span class="truncate">{event.location}</span>
-                      </p>
-                    {/if}
-                  </div>
-
-                  <div class="mt-4 pt-3 border-t border-white/8 flex items-center justify-between gap-2">
-                    <button
-                      onclick={() => copySlug(event.slug)}
-                      class="copy-btn"
-                      title="Copy event link"
-                    >
-                      {#if copiedSlug === event.slug}
-                        <CheckCheck size={11} class="text-emerald-400" /> Copied!
-                      {:else}
-                        <Copy size={11} /> /{event.slug}
-                      {/if}
-                    </button>
-
-                    <Button
-                      onclick={() => goto(`/event/${event.slug}`)}
-                      class="card-view-btn gap-1 text-xs px-3 py-1.5 h-auto"
-                    >
-                      <span>View</span>
-                      <ArrowRight size={13} />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            {/each}
-          </div>
-        </section>
-      {/if}
-    {/if}
-
-    <!-- Explore All Events / Filter Results Header -->
-    <div class="mb-5 flex items-center justify-between {(!isFilteredMode && (liveEvents.length > 0 || upcomingEvents.length > 0)) ? 'border-t border-white/8 pt-8' : ''}">
+    <!-- Status Section Header -->
+    <div class="mb-5 flex items-center justify-between">
       <div>
         <h2 class="text-xl font-bold text-white flex items-center gap-2">
-          {#if isFilteredMode}
+          {#if selectedStatus === 'live'}
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+            </span>
+            Live Now
+          {:else if selectedStatus === 'upcoming'}
+            <CalendarClock size={20} class="text-amber-400" />
+            Upcoming Events
+          {:else if selectedStatus === 'completed'}
+            <CheckCheck size={20} class="text-slate-400" />
+            Completed Events
+          {:else if isFilteredMode}
             <SlidersHorizontal size={20} class="text-amber-400" />
-            Filter & Search Results
+            Search & Filter Results
           {:else}
             <Compass size={20} class="text-amber-400" />
-            Explore All Events
+            All Events
           {/if}
           <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
-            {browseAllEvents.length}
+            {currentStatusEvents.length}
           </span>
         </h2>
         <p class="text-xs text-ink-400 mt-0.5">
-          {#if isFilteredMode}
-            Showing events matching your search or date filters
+          {#if selectedStatus === 'live'}
+            Events currently in progress and accepting live attendees
+          {:else if selectedStatus === 'upcoming'}
+            Scheduled future events ordered by nearest start time
+          {:else if selectedStatus === 'completed'}
+            Past events and completed stages
+          {:else if isFilteredMode}
+            Showing events matching your search or date criteria
           {:else}
-            Browse all events or refine by date and format using the sidebar
+            Showing live, upcoming and completed events in priority order
           {/if}
         </p>
       </div>
@@ -1306,17 +1179,50 @@
             </div>
           {/each}
         </div>
-      {:else if browseAllEvents.length}
+      {:else if paginatedEvents.length}
         <div class="events-grid">
-          {#each browseAllEvents as event (event.id)}
-            <div class="event-card glass card-hover rounded-2xl border border-amber-400/15">
+          {#each paginatedEvents as event (event.id)}
+            {@const status = getEventStatus(event)}
+            <div class="event-card glass card-hover rounded-2xl transition-all duration-200 {status === 'live'
+              ? 'border border-rose-500/35 hover:border-rose-500/60 shadow-lg shadow-rose-950/20'
+              : status === 'completed'
+              ? 'border border-white/8 hover:border-white/20 opacity-85 hover:opacity-100'
+              : 'border border-amber-400/15 hover:border-amber-400/35'}">
               <!-- Card top accent bar -->
-              <div class="card-accent accent-discover"></div>
+              <div class="card-accent {status === 'live'
+                ? 'bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500'
+                : status === 'completed'
+                ? 'bg-slate-700/60'
+                : 'accent-discover'}"></div>
 
               <!-- Card body -->
               <div class="card-body">
                 <!-- Badges header -->
                 <div class="flex flex-wrap items-center gap-1.5 mb-3">
+                  {#if status === 'live'}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                      <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                      </span>
+                      Live Now
+                    </span>
+                    <span class="text-[10px] font-medium text-rose-300/80 flex items-center gap-1">
+                      <Clock size={11} />
+                      {getLiveDurationLabel(event.start_time)}
+                    </span>
+                  {:else if status === 'upcoming'}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                      <CalendarClock size={11} class="text-amber-400" />
+                      {getRelativeTimeLabel(event.start_time)}
+                    </span>
+                  {:else}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-white/5 text-slate-400 border border-white/10">
+                      <CheckCheck size={11} class="text-slate-400" />
+                      Completed
+                    </span>
+                  {/if}
+
                   {#if event.event_format}
                     <span class="format-badge">
                       {#if event.event_format === 'online'}
@@ -1359,7 +1265,7 @@
 
                 {#if event.location}
                   <p class="mt-2 text-[11px] text-ink-400 flex items-center gap-1 truncate">
-                    <MapPin size={11} class="text-amber-400 shrink-0" />
+                    <MapPin size={11} class="{status === 'live' ? 'text-rose-400' : 'text-amber-400'} shrink-0" />
                     <span class="truncate">{event.location}</span>
                   </p>
                 {/if}
@@ -1391,17 +1297,67 @@
                     {/if}
                   </button>
                 </div>
-                <Button
-                  id="open-event-{event.slug}"
-                  onclick={() => goto(`/event/${event.slug}`)}
-                  class="card-view-btn gap-1.5 text-xs px-3 py-1.5 h-auto"
-                >
-                  View
-                  <ArrowRight size={13} />
-                </Button>
+                {#if status === 'live'}
+                  <Button
+                    id="open-event-{event.slug}"
+                    onclick={() => goto(`/event/${event.slug}`)}
+                    class="bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs px-3 py-1.5 h-auto shadow-md shadow-rose-500/20 gap-1.5"
+                  >
+                    <span>Join Now</span>
+                    <ArrowRight size={13} />
+                  </Button>
+                {:else}
+                  <Button
+                    id="open-event-{event.slug}"
+                    onclick={() => goto(`/event/${event.slug}`)}
+                    class="card-view-btn gap-1.5 text-xs px-3 py-1.5 h-auto"
+                  >
+                    <span>View</span>
+                    <ArrowRight size={13} />
+                  </Button>
+                {/if}
               </div>
             </div>
           {/each}
+        </div>
+
+        <!-- Pagination Controls -->
+        {#if hasMore}
+          <div class="mt-10 flex flex-col items-center justify-center gap-3 animate-fade-in">
+            <p class="text-xs text-ink-400">
+              Showing {paginatedEvents.length} of {currentStatusEvents.length} {selectedStatus === 'all' ? '' : selectedStatus} events
+            </p>
+            <Button
+              type="button"
+              onclick={loadMore}
+              class="bg-white/8 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs px-6 py-2.5 h-auto rounded-xl shadow-lg transition flex items-center gap-2"
+            >
+              <span>Load More Events</span>
+              <ArrowRight size={13} />
+            </Button>
+          </div>
+        {:else if currentStatusEvents.length > PAGE_SIZE}
+          <div class="mt-8 text-center text-xs text-ink-500">
+            All {currentStatusEvents.length} events loaded
+          </div>
+        {/if}
+      {:else if selectedStatus === 'live'}
+        <!-- Friendly Empty Live State -->
+        <div class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed">
+          <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20">
+            <Radio class="text-rose-400" size={24} />
+          </div>
+          <h2 class="text-xl font-bold text-white mb-2">No events are live right now</h2>
+          <p class="text-sm text-ink-400 max-w-sm mx-auto mb-6">
+            There are currently no sessions in progress. Check out upcoming events to see what's happening next!
+          </p>
+          <Button
+            onclick={() => selectedStatus = 'upcoming'}
+            class="bg-amber-400 text-slate-950 hover:bg-amber-300 font-bold text-xs"
+          >
+            <CalendarClock size={13} class="mr-1.5" />
+            View Upcoming Events
+          </Button>
         </div>
       {:else if hasActiveFilters}
         <!-- Empty filter state -->
@@ -1415,7 +1371,7 @@
           </div>
           <h2 class="text-xl font-bold text-white mb-2">No matching events</h2>
           <p class="text-sm text-ink-400 max-w-sm mx-auto mb-6">
-            No events match your current filter criteria. Try clearing or expanding your category, format, or date filters.
+            No events match your current filter criteria. Try clearing or expanding your format or date filters.
           </p>
           <Button
             onclick={resetFilters}
@@ -1426,7 +1382,7 @@
           </Button>
         </div>
       {:else}
-        <!-- Empty state -->
+        <!-- Generic empty state -->
         <div
           class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed"
         >
@@ -1437,7 +1393,7 @@
           </div>
           <h2 class="text-xl font-bold text-white mb-2">No events found</h2>
           <p class="text-sm text-ink-400 max-w-xs mx-auto mb-6">
-            There are no public events matching your search or active on the platform at the moment.
+            There are no {selectedStatus === 'all' ? '' : selectedStatus + ' '}events matching your search at the moment.
           </p>
         </div>
       {/if}

@@ -171,6 +171,11 @@ export async function GET({ url, locals }) {
       const date = url.searchParams.get('date') || '';         // single date: YYYY-MM-DD
       const dateStart = url.searchParams.get('date_start') || ''; // range start: YYYY-MM-DD
       const dateEnd = url.searchParams.get('date_end') || '';   // range end: YYYY-MM-DD
+      // 4 Status Pill filter: 'all' | 'live' | 'upcoming' | 'completed'
+      const status = url.searchParams.get('status') || 'all';
+      // Server pagination params
+      const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+      const limit = Math.max(1, parseInt(url.searchParams.get('limit') || '9', 10));
 
       let query = admin.from('events')
         .select(SELECT_FIELDS);
@@ -208,7 +213,7 @@ export async function GET({ url, locals }) {
         }
       }
 
-      const { data, error: err } = await query.order('start_time', { ascending: false });
+      const { data, error: err } = await query;
       if (err) throw err;
       
       const { data: joined, error: jErr } = await admin.from('event_participants')
@@ -217,10 +222,98 @@ export async function GET({ url, locals }) {
         .eq('status', 'joined');
       const joinedIds = !jErr && joined ? joined.map(j => j.event_id) : [];
       
-      events = (data || []).map(e => ({
+      const rawEvents = (data || []).map(e => ({
         ...e,
         joined: joinedIds.includes(e.id)
       }));
+
+      // Server-side status classification using current server UTC time
+      const now = new Date();
+      function classifyEvent(e) {
+        const start = new Date(e.start_time || e.created_at);
+        const end = e.end_time ? new Date(e.end_time) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
+        if (now >= start && now <= end) return 'live';
+        if (now < start) return 'upcoming';
+        return 'completed';
+      }
+
+      const liveEvents = [];
+      const upcomingEvents = [];
+      const completedEvents = [];
+      const eventDatesSet = new Set();
+
+      for (const e of rawEvents) {
+        const s = classifyEvent(e);
+        e.status = s; // Attach server-evaluated status
+
+        if (e.start_time) {
+          const d = new Date(e.start_time);
+          if (!isNaN(d.getTime())) {
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            eventDatesSet.add(dateStr);
+          }
+        }
+
+        if (s === 'live') {
+          liveEvents.push(e);
+        } else if (s === 'upcoming') {
+          upcomingEvents.push(e);
+        } else {
+          completedEvents.push(e);
+        }
+      }
+
+      // Sort upcoming events chronologically (soonest start first)
+      upcomingEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      // Sort completed events reverse-chronologically (most recently ended first)
+      completedEvents.sort((a, b) => new Date(b.end_time || b.start_time) - new Date(a.end_time || a.start_time));
+      // Sort live events (soonest ending first)
+      liveEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+      const counts = {
+        all: rawEvents.length,
+        live: liveEvents.length,
+        upcoming: upcomingEvents.length,
+        completed: completedEvents.length
+      };
+
+      const onlineCount = rawEvents.filter(e => e.event_format === 'online' || e.event_format === 'hybrid').length;
+      const offlineCount = rawEvents.filter(e => !e.event_format || e.event_format === 'offline' || e.event_format === 'hybrid').length;
+
+      // Select target events for chosen status
+      let targetEvents = [];
+      if (status === 'live') {
+        targetEvents = liveEvents;
+      } else if (status === 'upcoming') {
+        targetEvents = upcomingEvents;
+      } else if (status === 'completed') {
+        targetEvents = completedEvents;
+      } else {
+        // 'all': Priority ordering: Live -> Upcoming -> Completed
+        targetEvents = [...liveEvents, ...upcomingEvents, ...completedEvents];
+      }
+
+      // Server-side pagination slice
+      const offset = (page - 1) * limit;
+      const paginatedEvents = targetEvents.slice(offset, offset + limit);
+      const total = targetEvents.length;
+      const hasMore = offset + limit < total;
+
+      return json({
+        events: paginatedEvents,
+        pagination: {
+          page,
+          limit,
+          total,
+          hasMore
+        },
+        counts,
+        formatCounts: {
+          online: onlineCount,
+          offline: offlineCount
+        },
+        eventDates: Array.from(eventDatesSet)
+      });
     }
 
     events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));

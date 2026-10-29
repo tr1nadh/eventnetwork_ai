@@ -189,20 +189,56 @@
     };
   });
 
-  // Pagination state
+  // Server pagination & reactive state
   const PAGE_SIZE = 9;
-  let visibleLimit = PAGE_SIZE;
+  let loadingMore = false;
 
-  // Reset pagination limit when status tab or filters change
-  $: if (selectedStatus || searchQuery || filterOnline || filterOffline || selectedSingleDate || rangeStartDate || rangeEndDate) {
-    visibleLimit = PAGE_SIZE;
+  $: selectedStatus = data.status || 'all';
+  $: eventsList = data.events || [];
+  $: pagination = data.pagination || { page: 1, limit: PAGE_SIZE, total: (data.events || []).length, hasMore: false };
+  $: counts = data.counts || { all: 0, live: 0, upcoming: 0, completed: 0 };
+  $: eventDatesSet = new Set(data.eventDates || []);
+  $: onlineCount = data.formatCounts?.online ?? 0;
+  $: offlineCount = data.formatCounts?.offline ?? 0;
+
+  async function loadMore() {
+    if (loadingMore || !pagination.hasMore) return;
+    loadingMore = true;
+    try {
+      const nextPage = (pagination.page || 1) + 1;
+      const params = new URLSearchParams(window.location.search);
+      params.set('filter', 'discover');
+      params.set('status', selectedStatus);
+      params.set('page', String(nextPage));
+      params.set('limit', String(PAGE_SIZE));
+      if (searchQuery) params.set('q', searchQuery);
+
+      const res = await fetch(`/api/events?${params.toString()}`);
+      if (res.ok) {
+        const result = await res.json();
+        eventsList = [...eventsList, ...(result.events || [])];
+        pagination = result.pagination;
+      } else {
+        toast.error("Could not load more events.");
+      }
+    } catch {
+      toast.error("Network error loading more events.");
+    } finally {
+      loadingMore = false;
+    }
   }
 
-  function loadMore() {
-    visibleLimit += PAGE_SIZE;
+  function setStatus(status, e) {
+    if (selectedStatus === status) return;
+    selectedStatus = status;
+    if (e?.currentTarget) {
+      e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+    applyFilters();
   }
 
   function getEventStatus(event) {
+    if (event.status) return event.status;
     if (event.start_time) {
       const now = new Date();
       const start = new Date(event.start_time);
@@ -257,54 +293,12 @@
     return `Started ${elapsedHours}h ago`;
   }
 
-  // Pre-calculate event dates for calendar indicators (from already-filtered server results)
-  $: eventDatesSet = new Set(
-    (data.events || [])
-      .map((e) => getEventDateStr(e))
-      .filter(Boolean)
-  );
-
-  // Events are pre-filtered server-side; expose directly
-  $: filteredEvents = data.events || [];
-
-  // Group events by status
-  $: liveEvents = filteredEvents.filter((e) => getEventStatus(e) === "live");
-
-  $: upcomingEvents = filteredEvents
-    .filter((e) => getEventStatus(e) === "upcoming")
-    .sort((a, b) => new Date(a.start_time || a.created_at) - new Date(b.start_time || b.created_at));
-
-  $: completedEvents = filteredEvents
-    .filter((e) => getEventStatus(e) === "completed")
-    .sort((a, b) => new Date(b.end_time || b.start_time || b.created_at) - new Date(a.end_time || a.start_time || a.created_at));
-
-  // "All" view priority ordering: Live first -> Upcoming chronologically -> Completed last
-  $: allSortedEvents = [
-    ...liveEvents,
-    ...upcomingEvents,
-    ...completedEvents
-  ];
-
-  // Current list based on selected pill
-  $: currentStatusEvents =
-    selectedStatus === 'live' ? liveEvents :
-    selectedStatus === 'upcoming' ? upcomingEvents :
-    selectedStatus === 'completed' ? completedEvents :
-    allSortedEvents;
-
-  // Paginated slice
-  $: paginatedEvents = currentStatusEvents.slice(0, visibleLimit);
-  $: hasMore = visibleLimit < currentStatusEvents.length;
-
   // Filtered mode indicator (active search or calendar date active)
   $: isFilteredMode = Boolean(
     searchQuery ||
     (dateFilterMode === "single" && selectedSingleDate) ||
     (dateFilterMode === "range" && (rangeStartDate || rangeEndDate))
   );
-
-  $: onlineCount = (data.events || []).filter((e) => e.event_format === "online" || e.event_format === "hybrid").length;
-  $: offlineCount = (data.events || []).filter((e) => !e.event_format || e.event_format === "offline" || e.event_format === "hybrid").length;
 
   $: hasActiveFilters =
     selectedStatus !== 'all' ||
@@ -323,6 +317,12 @@
   /** Pushes current filter state into the URL, triggering a server re-fetch */
   function applyFilters() {
     const params = new URLSearchParams(window.location.search);
+    // Status
+    if (selectedStatus && selectedStatus !== 'all') {
+      params.set('status', selectedStatus);
+    } else {
+      params.delete('status');
+    }
     // Format
     const fmt = filterOnline && !filterOffline ? 'online' : (!filterOnline && filterOffline ? 'offline' : '');
     if (fmt) params.set('format', fmt);
@@ -337,6 +337,8 @@
       if (rangeStartDate) params.set('date_start', rangeStartDate);
       if (rangeEndDate) params.set('date_end', rangeEndDate);
     }
+    // Reset page on filter changes
+    params.delete('page');
     goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 
@@ -354,10 +356,12 @@
     rangeStartDate = null;
     rangeEndDate = null;
     const params = new URLSearchParams(window.location.search);
+    params.delete('status');
     params.delete('format');
     params.delete('date');
     params.delete('date_start');
     params.delete('date_end');
+    params.delete('page');
     goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 
@@ -908,9 +912,9 @@
       </div>
 
       <div class="text-xs sm:text-sm font-semibold text-ink-300">
-        Showing {paginatedEvents.length} of {currentStatusEvents.length} {currentStatusEvents.length === 1 ? 'event' : 'events'}
-        {#if currentStatusEvents.length !== data.events.length}
-          <span class="text-xs text-ink-400 font-normal">(filtered from {data.events.length})</span>
+        Showing {eventsList.length} of {pagination.total} {pagination.total === 1 ? 'event' : 'events'}
+        {#if counts.all !== pagination.total}
+          <span class="text-xs text-ink-400 font-normal">(filtered from {counts.all})</span>
         {/if}
       </div>
     </div>
@@ -925,10 +929,7 @@
         <!-- 1. All -->
         <button
           type="button"
-          onclick={(e) => {
-            selectedStatus = 'all';
-            e.currentTarget?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-          }}
+          onclick={(e) => setStatus('all', e)}
           class="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-150 {selectedStatus === 'all'
             ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-400/20 font-bold'
             : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
@@ -940,22 +941,19 @@
               ? 'bg-slate-950/20 text-slate-950'
               : 'bg-white/8 text-slate-400'}"
           >
-            {allSortedEvents.length}
+            {counts.all}
           </span>
         </button>
 
         <!-- 2. Live -->
         <button
           type="button"
-          onclick={(e) => {
-            selectedStatus = 'live';
-            e.currentTarget?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-          }}
+          onclick={(e) => setStatus('live', e)}
           class="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-150 {selectedStatus === 'live'
             ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/25 font-bold'
             : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
         >
-          {#if liveEvents.length > 0}
+          {#if counts.live > 0}
             <span class="relative flex h-2 w-2">
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2 w-2 {selectedStatus === 'live' ? 'bg-white' : 'bg-rose-500'}"></span>
@@ -967,19 +965,16 @@
           <span
             class="text-[10px] px-1.5 py-0.5 rounded-full font-bold {selectedStatus === 'live'
               ? 'bg-white/20 text-white'
-              : liveEvents.length > 0 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/8 text-slate-400'}"
+              : counts.live > 0 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-white/8 text-slate-400'}"
           >
-            {liveEvents.length}
+            {counts.live}
           </span>
         </button>
 
         <!-- 3. Upcoming -->
         <button
           type="button"
-          onclick={(e) => {
-            selectedStatus = 'upcoming';
-            e.currentTarget?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-          }}
+          onclick={(e) => setStatus('upcoming', e)}
           class="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-150 {selectedStatus === 'upcoming'
             ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-400/20 font-bold'
             : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
@@ -991,17 +986,14 @@
               ? 'bg-slate-950/20 text-slate-950'
               : 'bg-white/8 text-slate-400'}"
           >
-            {upcomingEvents.length}
+            {counts.upcoming}
           </span>
         </button>
 
         <!-- 4. Completed -->
         <button
           type="button"
-          onclick={(e) => {
-            selectedStatus = 'completed';
-            e.currentTarget?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-          }}
+          onclick={(e) => setStatus('completed', e)}
           class="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-150 {selectedStatus === 'completed'
             ? 'bg-slate-200 text-slate-950 border-slate-200 shadow-md shadow-white/10 font-bold'
             : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/8 hover:text-white hover:border-white/15'}"
@@ -1013,7 +1005,7 @@
               ? 'bg-slate-950/20 text-slate-950'
               : 'bg-white/8 text-slate-400'}"
           >
-            {completedEvents.length}
+            {counts.completed}
           </span>
         </button>
       </div>
@@ -1140,7 +1132,7 @@
             All Events
           {/if}
           <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
-            {currentStatusEvents.length}
+            {pagination.total}
           </span>
         </h2>
         <p class="text-xs text-ink-400 mt-0.5">
@@ -1179,10 +1171,10 @@
             </div>
           {/each}
         </div>
-      {:else if paginatedEvents.length}
+      {:else if eventsList.length}
         <div class="events-grid">
-          {#each paginatedEvents as event (event.id)}
-            {@const status = getEventStatus(event)}
+          {#each eventsList as event (event.id)}
+            {@const status = event.status || getEventStatus(event)}
             <div class="event-card glass card-hover rounded-2xl transition-all duration-200 {status === 'live'
               ? 'border border-rose-500/35 hover:border-rose-500/60 shadow-lg shadow-rose-950/20'
               : status === 'completed'
@@ -1322,26 +1314,32 @@
         </div>
 
         <!-- Pagination Controls -->
-        {#if hasMore}
+        {#if pagination.hasMore}
           <div class="mt-10 flex flex-col items-center justify-center gap-3 animate-fade-in">
             <p class="text-xs text-ink-400">
-              Showing {paginatedEvents.length} of {currentStatusEvents.length} {selectedStatus === 'all' ? '' : selectedStatus} events
+              Showing {eventsList.length} of {pagination.total} {selectedStatus === 'all' ? '' : selectedStatus} events
             </p>
             <Button
               type="button"
               onclick={loadMore}
+              disabled={loadingMore}
               class="bg-white/8 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs px-6 py-2.5 h-auto rounded-xl shadow-lg transition flex items-center gap-2"
             >
-              <span>Load More Events</span>
-              <ArrowRight size={13} />
+              {#if loadingMore}
+                <div class="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
+                <span>Loading more...</span>
+              {:else}
+                <span>Load More Events</span>
+                <ArrowRight size={13} />
+              {/if}
             </Button>
           </div>
-        {:else if currentStatusEvents.length > PAGE_SIZE}
+        {:else if pagination.total > PAGE_SIZE}
           <div class="mt-8 text-center text-xs text-ink-500">
-            All {currentStatusEvents.length} events loaded
+            All {pagination.total} events loaded
           </div>
         {/if}
-      {:else if selectedStatus === 'live'}
+      {:else if selectedStatus === 'live' && counts.live === 0}
         <!-- Friendly Empty Live State -->
         <div class="glass rounded-2xl p-12 text-center border border-white/8 border-dashed">
           <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20">
@@ -1352,7 +1350,7 @@
             There are currently no sessions in progress. Check out upcoming events to see what's happening next!
           </p>
           <Button
-            onclick={() => selectedStatus = 'upcoming'}
+            onclick={() => setStatus('upcoming')}
             class="bg-amber-400 text-slate-950 hover:bg-amber-300 font-bold text-xs"
           >
             <CalendarClock size={13} class="mr-1.5" />
@@ -1474,7 +1472,7 @@
           onclick={closeDesktopFilters}
           class="flex-1 bg-amber-400 text-slate-950 hover:bg-amber-300 font-bold h-11 text-sm shadow-lg shadow-amber-400/20"
         >
-          Show {filteredEvents.length} {filteredEvents.length === 1 ? 'Event' : 'Events'}
+          Show {counts.all} {counts.all === 1 ? 'Event' : 'Events'}
         </Button>
       </div>
     </div>
@@ -1570,7 +1568,7 @@
           onclick={closeMobileFilters}
           class="flex-1 bg-amber-400 text-slate-950 hover:bg-amber-300 font-bold h-11 text-sm shadow-lg shadow-amber-400/20"
         >
-          Show {filteredEvents.length} {filteredEvents.length === 1 ? 'Event' : 'Events'}
+          Show {counts.all} {counts.all === 1 ? 'Event' : 'Events'}
         </Button>
       </div>
     </div>

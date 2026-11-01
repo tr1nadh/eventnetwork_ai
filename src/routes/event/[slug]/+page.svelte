@@ -571,6 +571,12 @@
 
   let signingOut = false;
   let joining = false;
+  // Approval-required state
+  $: isRequested = data.isRequested ?? false;
+  let attendeeStatusFilter = 'joined'; // 'joined' | 'waitlisted'
+  let requestsList = [];
+  let loadingRequests = false;
+  $: pendingRequestsCount = requestsList.length;
   let savingProfile = false;
   let pageLoading = true; // Start true so skeleton UI shows until mounted
   let refreshingMatches = false;
@@ -1807,7 +1813,7 @@
     loadingAttendees = true;
     try {
       const q = encodeURIComponent(query.trim());
-      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}`, {
+      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}&status=${attendeeStatusFilter}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch attendees");
@@ -2011,6 +2017,57 @@
     }
   }
 
+  async function fetchRequests() {
+    const eventIdOrSlug = data.event?.id || data.event?.slug || '';
+    if (!eventIdOrSlug) return;
+    loadingRequests = true;
+    try {
+      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&status=waitlisted`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch requests');
+      const { attendees } = await res.json();
+      requestsList = attendees || [];
+    } catch (e) {
+      toast.error('Could not load join requests');
+    } finally {
+      loadingRequests = false;
+    }
+  }
+
+  async function approveRequest(userId) {
+    try {
+      const res = await fetch('/api/events/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: currentEvent.id, user_id: userId, action: 'approve' }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to approve');
+      requestsList = requestsList.filter((r) => r.user_id !== userId);
+      toast.success('Request approved');
+      fetchAttendees(); // refresh joined list
+    } catch (e) {
+      toast.error(e.message || 'Could not approve request');
+    }
+  }
+
+  async function rejectRequest(userId) {
+    try {
+      const res = await fetch('/api/events/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: currentEvent.id, user_id: userId, action: 'reject' }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to reject');
+      requestsList = requestsList.filter((r) => r.user_id !== userId);
+      toast.info('Request rejected');
+    } catch (e) {
+      toast.error(e.message || 'Could not reject request');
+    }
+  }
+
   async function signOut() {
     signingOut = true;
     await supabase.auth.signOut();
@@ -2061,22 +2118,29 @@
         );
       }
 
-      // Immediately switch reactive state so the member workspace and tabs show up without requiring refresh
-      data.isParticipant = true;
-      data = { ...data, isParticipant: true };
-      if (currentEvent) {
-        currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
-        currentEvent = { ...currentEvent };
-      }
-      activeTab.set('details');
-      stage = "workspace";
-      editProfileOpen = false;
-      toast.success("Event joined");
+      const joinResult = await res.json();
 
-      // Fetch member data and invalidate server-side load in background
-      fetchAllConnections();
-      fetchAttendees();
-      await invalidateAll();
+      if (joinResult.status === 'waitlisted') {
+        // Approval required — show pending state, don't enter workspace
+        data = { ...data, isRequested: true };
+        toast.info("Request sent! Waiting for host approval.", { duration: 5000 });
+      } else {
+        // Immediately switch reactive state so the member workspace shows without requiring refresh
+        data = { ...data, isParticipant: true, isRequested: false };
+        if (currentEvent) {
+          currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
+          currentEvent = { ...currentEvent };
+        }
+        activeTab.set('details');
+        stage = "workspace";
+        editProfileOpen = false;
+        toast.success("Event joined");
+
+        // Fetch member data and invalidate server-side load in background
+        fetchAllConnections();
+        fetchAttendees();
+        await invalidateAll();
+      }
     } catch (error) {
       toast.error("Could not join event", {
         description:
@@ -2423,7 +2487,11 @@
             </div>
 
             <div class="flex flex-wrap gap-4 pt-2">
-              {#if !data.isParticipant}
+              {#if isRequested}
+                <div class="flex items-center gap-2 text-amber-400 font-semibold">
+                  <Clock size={18} /> Request Pending
+                </div>
+              {:else if !data.isParticipant && !data.isOrganizer}
                 <Button
                   id="join-event-btn"
                   onclick={joinEvent}
@@ -2432,10 +2500,10 @@
                 >
                   {#if joining}
                     <LoaderCircle size={18} class="animate-spin" />
-                    Redirecting…
+                    Joining…
                   {:else}
                     <LogIn size={18} />
-                    {#if data.user}Join event{:else}Join with Google{/if}
+                    {#if data.user}{currentEvent.is_approval_required ? 'Request to Join' : 'Join event'}{:else}Join with Google{/if}
                   {/if}
                 </Button>
               {:else if data.isOrganizer}
@@ -3031,257 +3099,267 @@
           <!-- ═══════════════════════════════════════════════════════════════════ -->
           <!-- ══ WORKSPACE FOR PARTICIPANTS & ORGANIZERS                       ══ -->
           <!-- ═══════════════════════════════════════════════════════════════════ -->
-          <div
-            class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10 relative"
-          >
-            <div class="flex flex-col items-center gap-6">
-              <div class="space-y-3 text-center">
-                <div class="flex flex-wrap items-center justify-center gap-2">
-                  {#if data.isOrganizer}
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger
-                        class="inline-flex items-center gap-2 rounded-xl bg-white/6 px-3.5 py-1.5 border border-white/10 text-xs font-bold shadow-lg transition-all hover:bg-white/10 hover:border-amber-400/40 focus-visible:outline-none"
-                      >
-                        {#if ownerViewMode === 'organizer'}
-                          <Crown size={14} class="text-amber-400" />
-                          <span class="text-amber-300">Host</span>
-                        {:else}
-                          <Eye size={14} class="text-cyan-400" />
-                          <span class="text-cyan-300">Attendee</span>
-                        {/if}
-                        <ChevronDown size={14} class="text-ink-400 ml-0.5" />
-                      </DropdownMenu.Trigger>
-
-                      <DropdownMenu.Content class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-50">
-                        <DropdownMenu.Label class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5">
-                          View Mode
-                        </DropdownMenu.Label>
-                        <DropdownMenu.Separator class="my-1 border-white/10" />
-                        <DropdownMenu.Item
-                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'organizer' ? 'bg-amber-400/15 text-amber-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
-                          onSelect={() => {
-                            ownerViewMode = 'organizer';
-                            activeTab.set('analytics');
-                          }}
-                        >
-                          <Crown size={15} class="text-amber-400 shrink-0" />
-                          <span>Host</span>
-                        </DropdownMenu.Item>
-
-                        <DropdownMenu.Item
-                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'attendee' ? 'bg-cyan-400/15 text-cyan-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
-                          onSelect={() => {
-                            ownerViewMode = 'attendee';
-                            activeTab.set('details');
-                          }}
-                        >
-                          <Eye size={15} class="text-cyan-400 shrink-0" />
-                          <span>Attendee</span>
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Root>
-                  {:else if data.isParticipant}
-                    <Badge
-                      variant="secondary"
-                      class="gap-1.5 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
-                    >
-                      <CheckCheck size={14} class="text-emerald-400" />
-                      Joined
-                    </Badge>
-                  {:else}
-                    <!-- Join button moved below date & time block -->
-                  {/if}
-
-                  {#if currentEvent.event_format}
-                    <Badge
-                      variant="secondary"
-                      class="gap-1.5 border-white/10 bg-white/5 text-ink-300 text-xs font-semibold capitalize px-3 py-1.5"
-                    >
-                      {#if currentEvent.event_format === 'online'}
-                        <Globe size={14} class="text-cyan-400" /> Online
-                      {:else if currentEvent.event_format === 'hybrid'}
-                        <Globe size={14} class="text-amber-400" /> Hybrid
-                      {:else}
-                        <MapPin size={14} class="text-amber-400" /> Offline
-                      {/if}
-                    </Badge>
-                  {/if}
-
-                  {#if currentEvent.is_approval_required}
-                    <Badge
-                      variant="secondary"
-                      class="gap-1.5 border-amber-400/20 bg-amber-400/8 text-amber-200 text-xs font-semibold px-3 py-1.5"
-                    >
-                      <Lock size={14} class="text-amber-400" /> Approval Required
-                    </Badge>
-                  {/if}
-                </div>
-
-                <h1
-                  class="text-4xl sm:text-5xl font-black tracking-tight text-white"
-                >
-                  {currentEvent.name}
-                </h1>
-
-                {#if liveSessions.length > 0}
-                  <div class="mt-4 w-full" transition:slide>
-                    <!-- Desktop: left/right button carousel -->
-                    <div class="hidden sm:flex items-center justify-center gap-3">
-                      {#if liveSessions.length > 1}
-                        <button
-                          onclick={() => liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length}
-                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
-                          aria-label="Previous live session"
-                        >
-                          <ChevronLeft size={16} />
-                        </button>
-                      {/if}
-
-                      {#key liveSlideIndex}
-                        {@const session = liveSessions[liveSlideIndex]}
-                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in max-w-sm">
-                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
-                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                          </div>
-                          <div class="flex flex-col text-left min-w-0">
-                            <div class="flex items-center gap-2">
-                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
-                              {#if liveSessions.length > 1}
-                                <span class="text-[10px] text-emerald-400/60 font-semibold">{liveSlideIndex + 1}/{liveSessions.length}</span>
-                              {/if}
-                            </div>
-                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
-                          </div>
-                          {#if session.location && currentEvent.is_venue_enabled}
-                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
-                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
-                              <button
-                                onclick={() => jumpToVenueLocation(session.location)}
-                                class="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline flex items-center gap-1 transition-colors"
-                              >
-                                <MapPin size={10} /> {session.location}
-                              </button>
-                            </div>
-                          {:else if session.location}
-                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
-                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
-                              <span class="text-xs font-semibold text-emerald-300 flex items-center gap-1">
-                                <MapPin size={10} /> {session.location}
-                              </span>
-                            </div>
-                          {/if}
-                        </div>
-                      {/key}
-
-                      {#if liveSessions.length > 1}
-                        <button
-                          onclick={() => liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length}
-                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
-                          aria-label="Next live session"
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                      {/if}
-                    </div>
-
-                    <!-- Mobile: swipeable card + dots below -->
-                    <div
-                      class="flex sm:hidden flex-col items-center gap-3"
-                      role="region"
-                      aria-label="Live sessions"
-                      ontouchstart={(e) => { liveSwipeStartX = e.touches[0].clientX; }}
-                      ontouchend={(e) => {
-                        const dx = e.changedTouches[0].clientX - liveSwipeStartX;
-                        if (Math.abs(dx) > 40) {
-                          if (dx < 0) liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length;
-                          else liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length;
-                        }
-                      }}
-                    >
-                      {#key liveSlideIndex}
-                        {@const session = liveSessions[liveSlideIndex]}
-                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in w-full max-w-sm">
-                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
-                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                          </div>
-                          <div class="flex flex-col text-left min-w-0 flex-1">
-                            <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
-                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
-                            {#if session.location}
-                              <span class="text-[11px] text-emerald-300/80 flex items-center gap-1 mt-0.5">
-                                <MapPin size={9} /> {session.location}
-                              </span>
-                            {/if}
-                          </div>
-                        </div>
-                      {/key}
-
-                      {#if liveSessions.length > 1}
-                        <div class="flex items-center gap-1.5">
-                          {#each liveSessions as _, i}
-                            <button
-                              onclick={() => liveSlideIndex = i}
-                              aria-label="Go to session {i + 1}"
-                              class="h-1.5 rounded-full transition-all duration-300 {liveSlideIndex === i ? 'w-4 bg-emerald-400' : 'w-1.5 bg-emerald-400/30'}"
-                            ></button>
-                          {/each}
-                        </div>
-                      {/if}
-                    </div>
-                  </div>
-                {/if}
-
-                {#if nextSession}
-                  <div class="flex justify-center mt-2 animate-fade-in" transition:slide>
-                    <div class="inline-flex items-center gap-3 rounded-2xl border px-4 py-2 backdrop-blur-md shadow-lg
-                      {isEndingSoon
-                        ? 'border-orange-500/25 bg-orange-500/10 shadow-orange-500/5'
-                        : 'border-amber-400/20 bg-amber-400/8 shadow-amber-400/5'}">
-                      <div class="relative flex h-3 w-3 items-center justify-center">
-                        {#if isEndingSoon}
-                          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-60"></span>
-                          <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-400"></span>
-                        {:else}
-                          <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-80"></span>
-                        {/if}
-                      </div>
-                      <div class="flex flex-col text-left">
-                        <span class="text-[10px] font-bold uppercase tracking-widest {isEndingSoon ? 'text-orange-400' : 'text-amber-400'}">Coming Up Next</span>
-                        <span class="text-sm font-semibold {isEndingSoon ? 'text-orange-200' : 'text-amber-200'}">{nextSession.title}</span>
-                        <span class="text-[11px] {isEndingSoon ? 'text-orange-300/70' : 'text-amber-300/70'} flex items-center gap-1 mt-0.5">
-                          <Clock size={9} />
-                          {new Date(nextSession.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                          {#if nextSession.location}
-                            <span class="opacity-50">·</span>
-                            <MapPin size={9} /> {nextSession.location}
-                          {/if}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                {/if}
-
-                <!-- Join button below date & time block -->
-                {#if !data.isOrganizer && !data.isParticipant}
-                  <div class="flex justify-center pt-4">
-                    <Button
-                      id="join-event-btn"
-                      onclick={joinEvent}
-                      disabled={joining}
-                      class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all"
-                    >
-                      {#if joining}
-                        <LoaderCircle size={16} class="animate-spin" />
-                        Joining…
-                      {:else}
-                        <LogIn size={16} />
-                        {#if data.user}Join Event{:else}Join with Google{/if}
-                      {/if}
-                    </Button>
-                  </div>
-                {/if}
+          <div
+            class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10 relative"
+          >
+            <div class="flex flex-col items-center gap-6">
+              <div class="space-y-3 text-center">
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                  {#if data.isOrganizer}
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger
+                        class="inline-flex items-center gap-2 rounded-xl bg-white/6 px-3.5 py-1.5 border border-white/10 text-xs font-bold shadow-lg transition-all hover:bg-white/10 hover:border-amber-400/40 focus-visible:outline-none"
+                      >
+                        {#if ownerViewMode === 'organizer'}
+                          <Crown size={14} class="text-amber-400" />
+                          <span class="text-amber-300">Host</span>
+                        {:else}
+                          <Eye size={14} class="text-cyan-400" />
+                          <span class="text-cyan-300">Attendee</span>
+                        {/if}
+                        <ChevronDown size={14} class="text-ink-400 ml-0.5" />
+                      </DropdownMenu.Trigger>
+
+                      <DropdownMenu.Content class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-50">
+                        <DropdownMenu.Label class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5">
+                          View Mode
+                        </DropdownMenu.Label>
+                        <DropdownMenu.Separator class="my-1 border-white/10" />
+                        <DropdownMenu.Item
+                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'organizer' ? 'bg-amber-400/15 text-amber-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          onSelect={() => {
+                            ownerViewMode = 'organizer';
+                            activeTab.set('analytics');
+                          }}
+                        >
+                          <Crown size={15} class="text-amber-400 shrink-0" />
+                          <span>Host</span>
+                        </DropdownMenu.Item>
+
+                        <DropdownMenu.Item
+                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'attendee' ? 'bg-cyan-400/15 text-cyan-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          onSelect={() => {
+                            ownerViewMode = 'attendee';
+                            activeTab.set('details');
+                          }}
+                        >
+                          <Eye size={15} class="text-cyan-400 shrink-0" />
+                          <span>Attendee</span>
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Root>
+                  {:else if data.isParticipant}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
+                    >
+                      <CheckCheck size={14} class="text-emerald-400" />
+                      Joined
+                    </Badge>
+                  {:else}
+                    <!-- Join button moved below date & time block -->
+                  {/if}
+
+                  {#if currentEvent.event_format}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-white/10 bg-white/5 text-ink-300 text-xs font-semibold capitalize px-3 py-1.5"
+                    >
+                      {#if currentEvent.event_format === 'online'}
+                        <Globe size={14} class="text-cyan-400" /> Online
+                      {:else if currentEvent.event_format === 'hybrid'}
+                        <Globe size={14} class="text-amber-400" /> Hybrid
+                      {:else}
+                        <MapPin size={14} class="text-amber-400" /> Offline
+                      {/if}
+                    </Badge>
+                  {/if}
+
+                  {#if currentEvent.is_approval_required}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-amber-400/20 bg-amber-400/8 text-amber-200 text-xs font-semibold px-3 py-1.5"
+                    >
+                      <Lock size={14} class="text-amber-400" /> Approval Required
+                    </Badge>
+                  {/if}
+                </div>
+
+                <h1
+                  class="text-4xl sm:text-5xl font-black tracking-tight text-white"
+                >
+                  {currentEvent.name}
+                </h1>
+
+                {#if liveSessions.length > 0}
+                  <div class="mt-4 w-full" transition:slide>
+                    <!-- Desktop: left/right button carousel -->
+                    <div class="hidden sm:flex items-center justify-center gap-3">
+                      {#if liveSessions.length > 1}
+                        <button
+                          onclick={() => liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length}
+                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
+                          aria-label="Previous live session"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                      {/if}
+
+                      {#key liveSlideIndex}
+                        {@const session = liveSessions[liveSlideIndex]}
+                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in max-w-sm">
+                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                          </div>
+                          <div class="flex flex-col text-left min-w-0">
+                            <div class="flex items-center gap-2">
+                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
+                              {#if liveSessions.length > 1}
+                                <span class="text-[10px] text-emerald-400/60 font-semibold">{liveSlideIndex + 1}/{liveSessions.length}</span>
+                              {/if}
+                            </div>
+                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
+                          </div>
+                          {#if session.location && currentEvent.is_venue_enabled}
+                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
+                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
+                              <button
+                                onclick={() => jumpToVenueLocation(session.location)}
+                                class="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline flex items-center gap-1 transition-colors"
+                              >
+                                <MapPin size={10} /> {session.location}
+                              </button>
+                            </div>
+                          {:else if session.location}
+                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
+                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
+                              <span class="text-xs font-semibold text-emerald-300 flex items-center gap-1">
+                                <MapPin size={10} /> {session.location}
+                              </span>
+                            </div>
+                          {/if}
+                        </div>
+                      {/key}
+
+                      {#if liveSessions.length > 1}
+                        <button
+                          onclick={() => liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length}
+                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
+                          aria-label="Next live session"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      {/if}
+                    </div>
+
+                    <!-- Mobile: swipeable card + dots below -->
+                    <div
+                      class="flex sm:hidden flex-col items-center gap-3"
+                      role="region"
+                      aria-label="Live sessions"
+                      ontouchstart={(e) => { liveSwipeStartX = e.touches[0].clientX; }}
+                      ontouchend={(e) => {
+                        const dx = e.changedTouches[0].clientX - liveSwipeStartX;
+                        if (Math.abs(dx) > 40) {
+                          if (dx < 0) liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length;
+                          else liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length;
+                        }
+                      }}
+                    >
+                      {#key liveSlideIndex}
+                        {@const session = liveSessions[liveSlideIndex]}
+                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in w-full max-w-sm">
+                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                          </div>
+                          <div class="flex flex-col text-left min-w-0 flex-1">
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
+                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
+                            {#if session.location}
+                              <span class="text-[11px] text-emerald-300/80 flex items-center gap-1 mt-0.5">
+                                <MapPin size={9} /> {session.location}
+                              </span>
+                            {/if}
+                          </div>
+                        </div>
+                      {/key}
+
+                      {#if liveSessions.length > 1}
+                        <div class="flex items-center gap-1.5">
+                          {#each liveSessions as _, i}
+                            <button
+                              onclick={() => liveSlideIndex = i}
+                              aria-label="Go to session {i + 1}"
+                              class="h-1.5 rounded-full transition-all duration-300 {liveSlideIndex === i ? 'w-4 bg-emerald-400' : 'w-1.5 bg-emerald-400/30'}"
+                            ></button>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
+
+                {#if nextSession}
+                  <div class="flex justify-center mt-2 animate-fade-in" transition:slide>
+                    <div class="inline-flex items-center gap-3 rounded-2xl border px-4 py-2 backdrop-blur-md shadow-lg
+                      {isEndingSoon
+                        ? 'border-orange-500/25 bg-orange-500/10 shadow-orange-500/5'
+                        : 'border-amber-400/20 bg-amber-400/8 shadow-amber-400/5'}">
+                      <div class="relative flex h-3 w-3 items-center justify-center">
+                        {#if isEndingSoon}
+                          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-60"></span>
+                          <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-400"></span>
+                        {:else}
+                          <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-80"></span>
+                        {/if}
+                      </div>
+                      <div class="flex flex-col text-left">
+                        <span class="text-[10px] font-bold uppercase tracking-widest {isEndingSoon ? 'text-orange-400' : 'text-amber-400'}">Coming Up Next</span>
+                        <span class="text-sm font-semibold {isEndingSoon ? 'text-orange-200' : 'text-amber-200'}">{nextSession.title}</span>
+                        <span class="text-[11px] {isEndingSoon ? 'text-orange-300/70' : 'text-amber-300/70'} flex items-center gap-1 mt-0.5">
+                          <Clock size={9} />
+                          {new Date(nextSession.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          {#if nextSession.location}
+                            <span class="opacity-50">·</span>
+                            <MapPin size={9} /> {nextSession.location}
+                          {/if}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Join button below date & time block -->
+                {#if !data.isOrganizer && !data.isParticipant}
+                  <div class="flex justify-center pt-4">
+                    {#if isRequested}
+                      <Button
+                        disabled
+                        class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400/20 text-amber-300 rounded-xl border border-amber-400/30 cursor-default"
+                      >
+                        <Clock size={16} />
+                        Request Pending
+                      </Button>
+                    {:else}
+                      <Button
+                        id="join-event-btn"
+                        onclick={joinEvent}
+                        disabled={joining}
+                        class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all"
+                      >
+                        {#if joining}
+                          <LoaderCircle size={16} class="animate-spin" />
+                          Joining…
+                        {:else}
+                          <LogIn size={16} />
+                          {#if data.user}{currentEvent.is_approval_required ? 'Request to Join' : 'Join Event'}{:else}Join with Google{/if}
+                        {/if}
+                      </Button>
+                    {/if}
+                  </div>
+                {/if}
               </div>
             </div>
           </div>
@@ -3322,6 +3400,22 @@
                     {/if}</span
                   >
                 </Tabs.Trigger>
+
+                {#if currentEvent.is_approval_required}
+                  <Tabs.Trigger
+                    value="requests"
+                    onclick={() => { if (requestsList.length === 0) fetchRequests(); }}
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
+                  >
+                    <Clock size={16} />
+                    <span class="flex items-center gap-1.5">
+                      Requests
+                      {#if pendingRequestsCount > 0}
+                        <span class="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">{pendingRequestsCount}</span>
+                      {/if}
+                    </span>
+                  </Tabs.Trigger>
+                {/if}
 
                 <Tabs.Trigger
                   value="timeline"
@@ -3670,11 +3764,33 @@
                 <div>
                   <div class="flex items-center gap-2 mb-1">
                     <Users size={18} class="text-indigo-400" />
-                    <h2 class="text-xl font-bold text-white">Joined Attendees</h2>
+                    <h2 class="text-xl font-bold text-white">
+                      {#if currentEvent.is_approval_required && data.isOrganizer && ownerViewMode === 'organizer'}
+                        {attendeeStatusFilter === 'waitlisted' ? 'Pending Requests' : 'Joined Attendees'}
+                      {:else}
+                        Joined Attendees
+                      {/if}
+                    </h2>
                   </div>
                   <p class="text-xs text-ink-400">
                     Explore all members who have joined {currentEvent.name} and build your network.
                   </p>
+                  {#if currentEvent.is_approval_required && data.isOrganizer && ownerViewMode === 'organizer'}
+                    <div class="flex gap-2 mt-3">
+                      <button
+                        onclick={() => { attendeeStatusFilter = 'joined'; fetchAttendees(); }}
+                        class="px-3 py-1 rounded-full text-xs font-semibold border transition-all {attendeeStatusFilter === 'joined' ? 'bg-emerald-400/15 text-emerald-300 border-emerald-400/30' : 'border-white/10 text-ink-400 hover:text-white'}"
+                      >
+                        <CheckCheck size={11} class="inline-block mr-1" />Joined
+                      </button>
+                      <button
+                        onclick={() => { attendeeStatusFilter = 'waitlisted'; fetchAttendees(); }}
+                        class="px-3 py-1 rounded-full text-xs font-semibold border transition-all {attendeeStatusFilter === 'waitlisted' ? 'bg-amber-400/15 text-amber-300 border-amber-400/30' : 'border-white/10 text-ink-400 hover:text-white'}"
+                      >
+                        <Clock size={11} class="inline-block mr-1" />Pending
+                      </button>
+                    </div>
+                  {/if}
                 </div>
 
                 <div class="flex items-center gap-3 w-full sm:w-auto">
@@ -3882,6 +3998,105 @@
               {/if}
             </div>
           </Tabs.Content>
+
+          <!-- Requests tab — only shown to organizer when approval required -->
+          {#if currentEvent.is_approval_required && data.isOrganizer && ownerViewMode === 'organizer'}
+            <Tabs.Content value="requests" class="mt-4">
+              <div class="space-y-6">
+                <div class="glass rounded-2xl border border-white/8 p-5 sm:p-6">
+                  <div class="flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                      <div class="flex items-center gap-2 mb-1">
+                        <Clock size={18} class="text-amber-400" />
+                        <h2 class="text-xl font-bold text-white">Join Requests</h2>
+                      </div>
+                      <p class="text-xs text-ink-400">Approve or reject pending attendee requests for {currentEvent.name}.</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      class="border-white/10 text-ink-300 hover:text-white hover:bg-white/10"
+                      onclick={fetchRequests}
+                      disabled={loadingRequests}
+                    >
+                      <RefreshCw size={14} class={loadingRequests ? 'animate-spin' : ''} />
+                      Refresh
+                    </Button>
+                  </div>
+                </div>
+
+                {#if loadingRequests && !requestsList.length}
+                  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {#each Array(3) as _}
+                      <div class="glass rounded-2xl border border-white/8 p-5 space-y-4 animate-pulse">
+                        <div class="flex items-center gap-3">
+                          <div class="h-12 w-12 rounded-full bg-white/10"></div>
+                          <div class="space-y-2 flex-1">
+                            <div class="h-4 w-28 rounded bg-white/10"></div>
+                            <div class="h-3 w-20 rounded bg-white/10"></div>
+                          </div>
+                        </div>
+                        <div class="flex gap-2">
+                          <div class="h-9 rounded bg-white/10 flex-1"></div>
+                          <div class="h-9 rounded bg-white/10 flex-1"></div>
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                {:else if requestsList.length === 0}
+                  <div class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center">
+                    <div class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                      <CheckCheck size={28} class="text-ink-500" />
+                    </div>
+                    <h3 class="text-white font-bold mb-1">No pending requests</h3>
+                    <p class="text-sm text-ink-400 max-w-sm">All join requests have been reviewed, or no new requests have come in.</p>
+                    <Button variant="outline" size="sm" class="mt-4 border-white/10 text-ink-300 hover:text-white" onclick={fetchRequests}>
+                      Check again
+                    </Button>
+                  </div>
+                {:else}
+                  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {#each requestsList as requester (requester.user_id)}
+                      <div class="glass rounded-2xl border border-amber-400/15 p-5 space-y-4 hover:border-amber-400/30 transition-colors">
+                        <div class="flex items-start gap-3">
+                          <div class="h-11 w-11 rounded-full bg-gradient-to-br from-amber-400/20 to-white/5 border border-white/10 flex items-center justify-center shrink-0 text-lg font-bold text-amber-300">
+                            {requester.name?.charAt(0)?.toUpperCase() ?? '?'}
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <p class="font-semibold text-white text-sm truncate">{requester.name}</p>
+                            <p class="text-xs text-ink-400 truncate">{requester.role}</p>
+                          </div>
+                          <span class="shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">Pending</span>
+                        </div>
+                        {#if requester.about}
+                          <p class="text-xs text-ink-400 line-clamp-2">{requester.about}</p>
+                        {/if}
+                        <div class="flex gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            class="flex-1 h-9 text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/50"
+                            onclick={() => approveRequest(requester.user_id)}
+                          >
+                            <CheckCheck size={13} />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            class="flex-1 h-9 text-xs font-semibold border-white/10 text-ink-400 hover:text-rose-300 hover:border-rose-400/30 hover:bg-rose-400/10"
+                            onclick={() => rejectRequest(requester.user_id)}
+                          >
+                            <X size={13} />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </Tabs.Content>
+          {/if}
 
           <!-- Analytics tab -->
           <Tabs.Content value="analytics" class="mt-4">

@@ -197,6 +197,7 @@ export const load = async ({ params, locals }) => {
   }
 
   let isParticipant = false;
+  let isRequested = false;
   if (locals.user && data) {
     // Retrieve participant row
     const { data: participantData, error: participantError } = await admin
@@ -206,8 +207,10 @@ export const load = async ({ params, locals }) => {
       .eq('user_id', locals.user.id)
       .maybeSingle();
 
-    if (participantData && participantData.status === 'joined') {
+    if (participantData?.status === 'joined') {
       isParticipant = true;
+    } else if (participantData?.status === 'waitlisted') {
+      isRequested = true;
     }
   }
 
@@ -292,6 +295,7 @@ export const load = async ({ params, locals }) => {
     user: locals.user,
     isOrganizer,
     isParticipant,
+    isRequested,
     networkProfile,
     analytics: isOrganizer ? await loadOrganizerAnalytics(admin, data.id) : null
   };

@@ -72,12 +72,21 @@ export async function GET({ url, cookies }) {
     const realEventId = eventData.id;
     const hostUserId = eventData.created_by;
 
-    // 1. Fetch joined participants from event_participants schema table
-    const { data: participants, error: partError } = await admin
+    // 1. Fetch participants from event_participants schema table
+    // Support ?status=joined|requested|all filter (default: joined)
+    const statusFilter = url.searchParams.get('status') || 'joined';
+
+    let participantsQuery = admin
       .from('event_participants')
       .select('user_id, status, joined_at, checked_in_at')
-      .eq('event_id', realEventId)
-      .eq('status', 'joined');
+      .eq('event_id', realEventId);
+
+    if (statusFilter === 'joined' || statusFilter === 'waitlisted') {
+      participantsQuery = participantsQuery.eq('status', statusFilter);
+    }
+    // statusFilter === 'all': no status filter applied
+
+    const { data: participants, error: partError } = await participantsQuery;
 
     if (partError) {
       console.error('Error fetching event_participants:', partError);

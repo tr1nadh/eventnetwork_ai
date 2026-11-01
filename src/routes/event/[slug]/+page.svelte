@@ -1850,13 +1850,25 @@
     }
   }
 
-  $: if ($activeTab === "attendees" && !attendeesList.length && !loadingAttendees) {
-    fetchAttendees();
+  let lastSeenTab = "";
+  $: if ($activeTab === "attendees" && lastSeenTab !== "attendees") {
+    lastSeenTab = "attendees";
+    if (!attendeesList.length && !loadingAttendees) {
+      fetchAttendees();
+    }
+  } else if ($activeTab !== "attendees") {
+    lastSeenTab = $activeTab;
   }
 
   // Auto-sync connections when Network tab is selected
-  $: if ($activeTab === "network" && data.isParticipant && !loadingConnections) {
-    fetchAllConnections();
+  let lastSeenNetworkTab = "";
+  $: if ($activeTab === "network" && data.isParticipant && lastSeenNetworkTab !== "network") {
+    lastSeenNetworkTab = "network";
+    if (!loadingConnections) {
+      fetchAllConnections();
+    }
+  } else if ($activeTab !== "network") {
+    lastSeenNetworkTab = $activeTab;
   }
 
   // Redirect legacy tab values to network (only when networking is enabled)

@@ -521,6 +521,11 @@
     }
   }
 
+  function openEvent(slug) {
+    const from = window.location.pathname + window.location.search;
+    goto(`/event/${slug}?from=${encodeURIComponent(from)}`);
+  }
+
   let searchTimeout;
 
   function handleInput() {
@@ -1292,7 +1297,7 @@
                 {#if status === 'live'}
                   <Button
                     id="open-event-{event.slug}"
-                    onclick={() => goto(`/event/${event.slug}`)}
+                    onclick={() => openEvent(event.slug)}
                     class="bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs px-3 py-1.5 h-auto shadow-md shadow-rose-500/20 gap-1.5"
                   >
                     <span>Join Now</span>
@@ -1301,7 +1306,7 @@
                 {:else}
                   <Button
                     id="open-event-{event.slug}"
-                    onclick={() => goto(`/event/${event.slug}`)}
+                    onclick={() => openEvent(event.slug)}
                     class="card-view-btn gap-1.5 text-xs px-3 py-1.5 h-auto"
                   >
                     <span>View</span>

@@ -1,6 +1,7 @@
 <script>
   import { slide, fade, fly } from "svelte/transition";
-  import { goto, invalidateAll } from "$app/navigation";
+  import { goto, invalidateAll, afterNavigate } from "$app/navigation";
+  import { page } from "$app/stores";
   import {
     ArrowLeft,
     ArrowRight,
@@ -313,10 +314,65 @@
     }
   }
 
+  // ── Dynamic Back Navigation ──
+  let backUrl = "/events";
+  let backLabel = "Back to events";
+
+  function parseBackOrigin(source) {
+    if (!source) return;
+    try {
+      const decoded = decodeURIComponent(source);
+      if (decoded === "discover" || decoded.startsWith("/discover")) {
+        backUrl = decoded.startsWith("/") ? decoded : "/discover";
+        backLabel = "Back to discover";
+        try { sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl); } catch (_) {}
+      } else if (decoded === "events" || decoded.startsWith("/events")) {
+        backUrl = decoded.startsWith("/") ? decoded : "/events";
+        backLabel = "Back to events";
+        try { sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl); } catch (_) {}
+      } else if (decoded === "dashboard" || decoded.startsWith("/dashboard")) {
+        backUrl = decoded.startsWith("/") ? decoded : "/dashboard";
+        backLabel = "Back to dashboard";
+        try { sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl); } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  $: if ($page?.url) {
+    const fromParam = $page.url.searchParams.get("from");
+    if (fromParam) {
+      parseBackOrigin(fromParam);
+    }
+  }
+
+  afterNavigate(({ from }) => {
+    if (from?.url) {
+      parseBackOrigin(from.url.pathname + from.url.search);
+    }
+  });
+
+  function handleBack() {
+    goto(backUrl);
+  }
+
   let timeInterval;
   let currentTime = new Date();
 
   onMount(() => {
+    try {
+      const fromParam = new URLSearchParams(window.location.search).get("from");
+      if (fromParam) {
+        parseBackOrigin(fromParam);
+      } else {
+        const saved = sessionStorage.getItem(`event_back_${data.event?.slug}`);
+        if (saved) {
+          parseBackOrigin(saved);
+        } else if (document.referrer) {
+          const ref = new URL(document.referrer);
+          parseBackOrigin(ref.pathname + ref.search);
+        }
+      }
+    } catch (_) {}
     // Hide page loading indicator once mounted
     pageLoading = false;
     
@@ -2295,11 +2351,12 @@
   <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
     <div class="mb-6 animate-slide-up">
       <button
-        onclick={() => goto("/events")}
-        class="inline-flex items-center gap-2 text-sm font-semibold text-ink-500 transition hover:text-white"
+        id="back-navigation-btn"
+        onclick={handleBack}
+        class="inline-flex items-center gap-2 text-sm font-semibold text-ink-500 transition hover:text-white cursor-pointer"
       >
         <ArrowLeft size={16} />
-        Back to events
+        {backLabel}
       </button>
     </div>
 

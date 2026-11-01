@@ -131,6 +131,11 @@
     }
   }
 
+  function openEvent(slug) {
+    const from = window.location.pathname + window.location.search;
+    goto(`/event/${slug}?from=${encodeURIComponent(from)}`);
+  }
+
   function applyFilter(f) {
     const params = new URLSearchParams(window.location.search);
     params.set("filter", f);
@@ -405,7 +410,7 @@
                 </div>
                 <Button
                   id="open-event-{event.slug}"
-                  onclick={() => goto(`/event/${event.slug}`)}
+                  onclick={() => openEvent(event.slug)}
                   class="card-view-btn gap-1.5 text-xs px-3 py-1.5 h-auto"
                 >
                   View

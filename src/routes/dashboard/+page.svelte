@@ -177,7 +177,7 @@
               </p>
 
               <Button
-                href={`/event/${event.slug}`}
+                href={`/event/${event.slug}?from=/dashboard`}
                 variant="outline"
                 class="w-full mt-auto border-white/10 bg-white/5 hover:bg-white/10 text-white group"
               >

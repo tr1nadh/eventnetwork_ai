@@ -2037,33 +2037,50 @@
 
   async function approveRequest(userId) {
     try {
+      const targetEventId = currentEvent?.id || data?.event?.id || currentEvent?.slug || data?.event?.slug;
       const res = await fetch('/api/events/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: currentEvent.id, user_id: userId, action: 'approve' }),
+        body: JSON.stringify({ event_id: targetEventId, user_id: userId, action: 'approve' }),
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('Failed to approve');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || errJson.error || 'Failed to approve');
+      }
       requestsList = requestsList.filter((r) => r.user_id !== userId);
+      attendeesList = attendeesList.filter((a) => a.user_id !== userId);
+      if (currentEvent) {
+        currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
+        currentEvent = { ...currentEvent };
+      }
       toast.success('Request approved');
       fetchAttendees(); // refresh joined list
     } catch (e) {
+      console.error('Approve error:', e);
       toast.error(e.message || 'Could not approve request');
     }
   }
 
   async function rejectRequest(userId) {
     try {
+      const targetEventId = currentEvent?.id || data?.event?.id || currentEvent?.slug || data?.event?.slug;
       const res = await fetch('/api/events/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: currentEvent.id, user_id: userId, action: 'reject' }),
+        body: JSON.stringify({ event_id: targetEventId, user_id: userId, action: 'reject' }),
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('Failed to reject');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || errJson.error || 'Failed to reject');
+      }
       requestsList = requestsList.filter((r) => r.user_id !== userId);
+      attendeesList = attendeesList.filter((a) => a.user_id !== userId);
       toast.info('Request rejected');
+      fetchAttendees();
     } catch (e) {
+      console.error('Reject error:', e);
       toast.error(e.message || 'Could not reject request');
     }
   }
@@ -3941,7 +3958,26 @@
 
                       <!-- Action Button -->
                       <div class="pt-2 border-t border-white/6">
-                        {#if attendee.is_current_user}
+                        {#if attendeeStatusFilter === 'waitlisted' && data.isOrganizer && ownerViewMode === 'organizer'}
+                          <!-- Pending filter: show Allow / Reject instead of connect -->
+                          <div class="flex gap-2">
+                            <Button
+                              size="sm"
+                              class="flex-1 gap-1.5 h-8 text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/50"
+                              onclick={() => approveRequest(attendee.user_id)}
+                            >
+                              <CheckCheck size={13} /> Allow
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              class="flex-1 gap-1.5 h-8 text-xs font-semibold border-white/10 text-ink-400 hover:text-rose-300 hover:border-rose-400/30 hover:bg-rose-400/10"
+                              onclick={() => rejectRequest(attendee.user_id)}
+                            >
+                              <X size={13} /> Reject
+                            </Button>
+                          </div>
+                        {:else if attendee.is_current_user}
                           <Badge
                             variant="outline"
                             class="w-full justify-center py-2 text-ink-400 border-white/10 text-xs"

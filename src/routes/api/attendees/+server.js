@@ -95,8 +95,8 @@ export async function GET({ url, cookies }) {
 
     const participantUserIds = (participants || []).map((p) => p.user_id);
 
-    // Include host if not in participants list
-    if (hostUserId && !participantUserIds.includes(hostUserId)) {
+    // Include host if not in participants list (skip for waitlisted filter — host is always allowed)
+    if (hostUserId && !participantUserIds.includes(hostUserId) && statusFilter !== 'waitlisted') {
       participantUserIds.push(hostUserId);
     }
 

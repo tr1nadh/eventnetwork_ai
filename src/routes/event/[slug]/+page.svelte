@@ -1,6 +1,6 @@
 <script>
   import { slide, fade, fly } from "svelte/transition";
-  import { goto } from "$app/navigation";
+  import { goto, invalidateAll } from "$app/navigation";
   import {
     ArrowLeft,
     ArrowRight,
@@ -549,6 +549,7 @@
   let editProfileOpen = false;
 
   let currentEvent = data.event;
+  $: currentEvent = data.event;
 
   // Edit & Delete state
   let editEventModalOpen = false;
@@ -1007,6 +1008,11 @@
 
   function jumpToVenueLocation(locationName) {
     if (!locationName) return;
+    // Non-joined users: no venue tab yet, just show toast
+    if (!data.isParticipant && !data.isOrganizer) {
+      toast.info(`Session location: ${locationName}`);
+      return;
+    }
     if (!currentEvent.is_venue_enabled) {
       toast.info(`Location: ${locationName}`);
       return;
@@ -1962,7 +1968,7 @@
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(window.location.pathname + window.location.search)}`,
       },
     });
     if (error)
@@ -1999,9 +2005,22 @@
         );
       }
 
+      // Immediately switch reactive state so the member workspace and tabs show up without requiring refresh
+      data.isParticipant = true;
+      data = { ...data, isParticipant: true };
+      if (currentEvent) {
+        currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
+        currentEvent = { ...currentEvent };
+      }
+      activeTab.set('details');
       stage = "workspace";
       editProfileOpen = false;
       toast.success("Event joined");
+
+      // Fetch member data and invalidate server-side load in background
+      fetchAllConnections();
+      fetchAttendees();
+      await invalidateAll();
     } catch (error) {
       toast.error("Could not join event", {
         description:
@@ -2555,274 +2574,661 @@
       </div>
     {:else}
       <div class="space-y-8 animate-fade-in min-h-[800px]">
-        <!-- Workspace header -->
         {#if pageLoading}
-          <div
-            class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10"
-          >
+          <div class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10">
             <div class="flex flex-col items-center gap-6 animate-pulse">
               <div class="h-8 w-48 bg-ink-400 rounded"></div>
               <div class="h-4 w-96 bg-ink-400 rounded"></div>
             </div>
           </div>
-        {:else}
-          <div
-            class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10 relative"
-          >
-            <div class="flex flex-col items-center gap-6">
-              <div class="space-y-3 text-center">
-                <div class="flex flex-wrap items-center justify-center gap-2">
-                  {#if data.isOrganizer}
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger
-                        class="inline-flex items-center gap-2 rounded-xl bg-white/6 px-3.5 py-1.5 border border-white/10 text-xs font-bold shadow-lg transition-all hover:bg-white/10 hover:border-amber-400/40 focus-visible:outline-none"
-                      >
-                        {#if ownerViewMode === 'organizer'}
-                          <Crown size={14} class="text-amber-400" />
-                          <span class="text-amber-300">Host</span>
-                        {:else}
-                          <Eye size={14} class="text-cyan-400" />
-                          <span class="text-cyan-300">Attendee</span>
-                        {/if}
-                        <ChevronDown size={14} class="text-ink-400 ml-0.5" />
-                      </DropdownMenu.Trigger>
+        {:else if !data.isParticipant && !data.isOrganizer}
+          <!-- ═══════════════════════════════════════════════════════════════════ -->
+          <!-- ══ PUBLIC EVENT LANDING PAGE (VISITING USERS)                     ══ -->
+          <!-- ═══════════════════════════════════════════════════════════════════ -->
+          <div class="space-y-6 sm:space-y-8 animate-fade-in">
 
-                      <DropdownMenu.Content class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-50">
-                        <DropdownMenu.Label class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5">
-                          View Mode
-                        </DropdownMenu.Label>
-                        <DropdownMenu.Separator class="my-1 border-white/10" />
-                        <DropdownMenu.Item
-                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'organizer' ? 'bg-amber-400/15 text-amber-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
-                          onSelect={() => {
-                            ownerViewMode = 'organizer';
-                            activeTab.set('analytics');
-                          }}
-                        >
-                          <Crown size={15} class="text-amber-400 shrink-0" />
-                          <span>Host</span>
-                        </DropdownMenu.Item>
+            <!-- ── Event Hero Banner ── -->
+            <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent backdrop-blur-xl shadow-2xl">
+              <!-- Top accent bar matching status -->
+              <div class="h-1 w-full {isEventLive ? 'bg-gradient-to-r from-emerald-400 via-emerald-300 to-teal-400' : isEventEnded ? 'bg-gradient-to-r from-slate-500 via-slate-400/50 to-transparent' : 'bg-gradient-to-r from-amber-400 via-amber-300 to-orange-400'}"></div>
 
-                        <DropdownMenu.Item
-                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'attendee' ? 'bg-cyan-400/15 text-cyan-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
-                          onSelect={() => {
-                            ownerViewMode = 'attendee';
-                            activeTab.set('details');
-                          }}
-                        >
-                          <Eye size={15} class="text-cyan-400 shrink-0" />
-                          <span>Attendee</span>
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Root>
-                  {:else if data.isParticipant}
-                    <Badge
-                      variant="secondary"
-                      class="gap-1.5 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
-                    >
-                      <CheckCheck size={14} class="text-emerald-400" />
-                      Joined
-                    </Badge>
+              <div class="p-6 sm:p-10 lg:p-12 space-y-6">
+                <!-- Badges Row -->
+                <div class="flex flex-wrap items-center gap-2.5">
+                  {#if isEventLive}
+                    <span class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.25)]">
+                      <span class="relative flex h-2 w-2">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
+                      </span>
+                      Live Now
+                    </span>
+                  {:else if isEventEnded}
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ink-400">
+                      <CheckCheck size={13} />
+                      Event Ended
+                    </span>
                   {:else}
-                    <!-- Join button moved below date & time block -->
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-300">
+                      <CalendarClock size={13} />
+                      Upcoming
+                    </span>
                   {/if}
 
                   {#if currentEvent.event_format}
-                    <Badge
-                      variant="secondary"
-                      class="gap-1.5 border-white/10 bg-white/5 text-ink-300 text-xs font-semibold capitalize px-3 py-1.5"
-                    >
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold capitalize text-ink-300">
                       {#if currentEvent.event_format === 'online'}
-                        <Globe size={14} class="text-cyan-400" /> Online
+                        <Globe size={13} class="text-cyan-400" /> Online Event
                       {:else if currentEvent.event_format === 'hybrid'}
-                        <Globe size={14} class="text-amber-400" /> Hybrid
+                        <Globe size={13} class="text-amber-400" /> Hybrid Event
                       {:else}
-                        <MapPin size={14} class="text-amber-400" /> Offline
+                        <MapPin size={13} class="text-amber-400" /> In-Person Event
                       {/if}
-                    </Badge>
+                    </span>
                   {/if}
 
                   {#if currentEvent.is_approval_required}
-                    <Badge
-                      variant="secondary"
-                      class="gap-1.5 border-amber-400/20 bg-amber-400/8 text-amber-200 text-xs font-semibold px-3 py-1.5"
-                    >
-                      <Lock size={14} class="text-amber-400" /> Approval Required
-                    </Badge>
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/8 px-3 py-1 text-xs font-semibold text-amber-300">
+                      <Lock size={13} /> Host Approval Required
+                    </span>
+                  {/if}
+
+                  {#if currentEvent.attendees_count > 0}
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-ink-300">
+                      <Users size={13} class="text-cyan-400" />
+                      {currentEvent.attendees_count} {currentEvent.attendees_count === 1 ? 'attendee' : 'attendees'}
+                    </span>
                   {/if}
                 </div>
 
-                <h1
-                  class="text-4xl sm:text-5xl font-black tracking-tight text-white"
-                >
+                <!-- Event Title -->
+                <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]">
                   {currentEvent.name}
                 </h1>
 
+                <!-- Live or Next Session Ticker -->
                 {#if liveSessions.length > 0}
-                  <div class="mt-4 w-full" transition:slide>
-                    <!-- Desktop: left/right button carousel -->
-                    <div class="hidden sm:flex items-center justify-center gap-3">
-                      {#if liveSessions.length > 1}
-                        <button
-                          onclick={() => liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length}
-                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
-                          aria-label="Previous live session"
-                        >
-                          <ChevronLeft size={16} />
-                        </button>
-                      {/if}
-
-                      {#key liveSlideIndex}
-                        {@const session = liveSessions[liveSlideIndex]}
-                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in max-w-sm">
-                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
-                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                          </div>
-                          <div class="flex flex-col text-left min-w-0">
-                            <div class="flex items-center gap-2">
-                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
-                              {#if liveSessions.length > 1}
-                                <span class="text-[10px] text-emerald-400/60 font-semibold">{liveSlideIndex + 1}/{liveSessions.length}</span>
-                              {/if}
-                            </div>
-                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
-                          </div>
-                          {#if session.location && currentEvent.is_venue_enabled}
-                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
-                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
-                              <button
-                                onclick={() => jumpToVenueLocation(session.location)}
-                                class="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline flex items-center gap-1 transition-colors"
-                              >
-                                <MapPin size={10} /> {session.location}
-                              </button>
-                            </div>
-                          {:else if session.location}
-                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
-                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
-                              <span class="text-xs font-semibold text-emerald-300 flex items-center gap-1">
-                                <MapPin size={10} /> {session.location}
-                              </span>
-                            </div>
-                          {/if}
-                        </div>
-                      {/key}
-
-                      {#if liveSessions.length > 1}
-                        <button
-                          onclick={() => liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length}
-                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
-                          aria-label="Next live session"
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                      {/if}
-                    </div>
-
-                    <!-- Mobile: swipeable card + dots below -->
-                    <div
-                      class="flex sm:hidden flex-col items-center gap-3"
-                      role="region"
-                      aria-label="Live sessions"
-                      ontouchstart={(e) => { liveSwipeStartX = e.touches[0].clientX; }}
-                      ontouchend={(e) => {
-                        const dx = e.changedTouches[0].clientX - liveSwipeStartX;
-                        if (Math.abs(dx) > 40) {
-                          if (dx < 0) liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length;
-                          else liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length;
-                        }
-                      }}
-                    >
-                      {#key liveSlideIndex}
-                        {@const session = liveSessions[liveSlideIndex]}
-                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in w-full max-w-sm">
-                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
-                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                          </div>
-                          <div class="flex flex-col text-left min-w-0 flex-1">
-                            <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
-                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
-                            {#if session.location}
-                              <span class="text-[11px] text-emerald-300/80 flex items-center gap-1 mt-0.5">
-                                <MapPin size={9} /> {session.location}
-                              </span>
-                            {/if}
-                          </div>
-                        </div>
-                      {/key}
-
-                      {#if liveSessions.length > 1}
-                        <div class="flex items-center gap-1.5">
-                          {#each liveSessions as _, i}
-                            <button
-                              onclick={() => liveSlideIndex = i}
-                              aria-label="Go to session {i + 1}"
-                              class="h-1.5 rounded-full transition-all duration-300 {liveSlideIndex === i ? 'w-4 bg-emerald-400' : 'w-1.5 bg-emerald-400/30'}"
-                            ></button>
-                          {/each}
-                        </div>
-                      {/if}
-                    </div>
+                  <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md">
+                    <span class="relative flex h-2.5 w-2.5">
+                      <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+                    </span>
+                    <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Live Now:</span>
+                    <span class="text-sm font-semibold text-white truncate max-w-xs sm:max-w-md">{liveSessions[0].title}</span>
+                    {#if liveSessions[0].location}
+                      <span class="text-xs text-emerald-300/80 hidden sm:inline-flex items-center gap-1">
+                        • <MapPin size={11} /> {liveSessions[0].location}
+                      </span>
+                    {/if}
                   </div>
-                {/if}
-
-                {#if nextSession}
-                  <div class="flex justify-center mt-2 animate-fade-in" transition:slide>
-                    <div class="inline-flex items-center gap-3 rounded-2xl border px-4 py-2 backdrop-blur-md shadow-lg
-                      {isEndingSoon
-                        ? 'border-orange-500/25 bg-orange-500/10 shadow-orange-500/5'
-                        : 'border-amber-400/20 bg-amber-400/8 shadow-amber-400/5'}">
-                      <div class="relative flex h-3 w-3 items-center justify-center">
-                        {#if isEndingSoon}
-                          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-60"></span>
-                          <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-400"></span>
-                        {:else}
-                          <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-80"></span>
-                        {/if}
-                      </div>
-                      <div class="flex flex-col text-left">
-                        <span class="text-[10px] font-bold uppercase tracking-widest {isEndingSoon ? 'text-orange-400' : 'text-amber-400'}">Coming Up Next</span>
-                        <span class="text-sm font-semibold {isEndingSoon ? 'text-orange-200' : 'text-amber-200'}">{nextSession.title}</span>
-                        <span class="text-[11px] {isEndingSoon ? 'text-orange-300/70' : 'text-amber-300/70'} flex items-center gap-1 mt-0.5">
-                          <Clock size={9} />
-                          {new Date(nextSession.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                          {#if nextSession.location}
-                            <span class="opacity-50">·</span>
-                            <MapPin size={9} /> {nextSession.location}
-                          {/if}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                {/if}
-
-                <!-- Join button below date & time block -->
-                {#if !data.isOrganizer && !data.isParticipant}
-                  <div class="flex justify-center pt-4">
-                    <Button
-                      id="join-event-btn"
-                      onclick={joinEvent}
-                      disabled={joining}
-                      class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all"
-                    >
-                      {#if joining}
-                        <LoaderCircle size={16} class="animate-spin" />
-                        Joining…
-                      {:else}
-                        <LogIn size={16} />
-                        {#if data.user}Join Event{:else}Join with Google{/if}
-                      {/if}
-                    </Button>
+                {:else if nextSession}
+                  <div class="inline-flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/8 px-4 py-2.5 backdrop-blur-md">
+                    <Clock size={14} class="text-amber-400" />
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Next Up:</span>
+                    <span class="text-sm font-semibold text-white truncate max-w-xs sm:max-w-md">{nextSession.title}</span>
+                    <span class="text-xs text-amber-300/70 hidden sm:inline">
+                      • {new Date(nextSession.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    </span>
                   </div>
                 {/if}
               </div>
             </div>
-          </div>
-        {/if}
 
-        {#if data.isParticipant || data.isOrganizer}
+            <!-- ── 2-Column Responsive Layout (Main Details + Sticky RSVP Card) ── -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
+
+              <!-- Left 2 Columns: About + Schedule -->
+              <div class="lg:col-span-2 space-y-6 sm:space-y-8">
+
+                <!-- About Card -->
+                {#if currentEvent.description}
+                  <div class="glass rounded-3xl border border-white/8 p-6 sm:p-8 space-y-4">
+                    <div class="flex items-center gap-2.5 pb-2 border-b border-white/6">
+                      <div class="h-4 w-1 rounded-full bg-gradient-to-b from-amber-400 to-amber-600"></div>
+                      <h2 class="text-base sm:text-lg font-bold text-white tracking-tight">About this Event</h2>
+                    </div>
+                    <div class="text-sm sm:text-base leading-relaxed text-ink-200 whitespace-pre-line font-normal">
+                      {currentEvent.description}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Event Schedule & Agenda -->
+                <div class="glass rounded-3xl border border-white/8 p-6 sm:p-8 space-y-5">
+                  <div class="flex items-center justify-between pb-2 border-b border-white/6">
+                    <div class="flex items-center gap-2.5">
+                      <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-400">
+                        <CalendarClock size={16} />
+                      </div>
+                      <div>
+                        <h2 class="text-base sm:text-lg font-bold text-white tracking-tight">Schedule & Agenda</h2>
+                        <p class="text-xs text-ink-500">{timelineItems.length} {timelineItems.length === 1 ? 'session' : 'sessions'} planned</p>
+                      </div>
+                    </div>
+                    {#if timelineItems.length > 0}
+                      <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-amber-400/25 bg-amber-400/8 text-amber-300">
+                        Agenda
+                      </span>
+                    {/if}
+                  </div>
+
+                  {#if timelineItems.length === 0}
+                    <div class="py-12 text-center space-y-3">
+                      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-ink-500">
+                        <CalendarClock size={24} />
+                      </div>
+                      <p class="text-sm font-semibold text-ink-300">No schedule announced yet</p>
+                      <p class="text-xs text-ink-500 max-w-xs mx-auto">The host hasn't published the agenda sessions yet. Check back soon for the timeline.</p>
+                    </div>
+                  {:else}
+                    <!-- Timeline Rail -->
+                    <div class="relative pt-2">
+                      <div class="absolute left-[27px] top-4 bottom-4 w-px bg-gradient-to-b from-white/15 via-white/8 to-transparent pointer-events-none"></div>
+
+                      <div class="space-y-4">
+                        {#each timelineItems as item, idx (item.id)}
+                          {@const style = getCategoryColor(item.category)}
+                          {@const isLiveNow = item.start_time && item.end_time && new Date(item.start_time) <= currentTime && new Date(item.end_time) >= currentTime}
+                          {@const isPast = item.end_time && new Date(item.end_time) < currentTime}
+
+                          <div class="relative flex gap-4 group">
+                            <!-- Timeline node -->
+                            <div class="relative flex-shrink-0 flex flex-col items-center" style="width: 56px;">
+                              <div class="relative flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-300
+                                {isLiveNow
+                                  ? 'bg-emerald-400/15 border-emerald-400/40 shadow-[0_0_16px_rgba(52,211,153,0.25)]'
+                                  : isPast
+                                  ? 'bg-white/3 border-white/6'
+                                  : 'bg-white/5 border-white/10 group-hover:border-white/20'}">
+                                {#if isLiveNow}
+                                  <span class="absolute inset-0 rounded-2xl animate-ping border border-emerald-400/40 opacity-50"></span>
+                                {/if}
+                                <div class="h-2.5 w-2.5 rounded-full {style.dot} {isLiveNow ? 'shadow-[0_0_8px_currentColor]' : ''} {isPast ? 'opacity-30' : ''}"></div>
+                              </div>
+                            </div>
+
+                            <!-- Session Card -->
+                            <div class="flex-1 min-w-0 pb-1">
+                              <div class="rounded-2xl border p-4 sm:p-5 transition-all duration-200
+                                {isLiveNow
+                                  ? 'border-emerald-400/30 bg-emerald-400/5 shadow-[0_4px_20px_rgba(16,185,129,0.08)]'
+                                  : isPast
+                                  ? 'border-white/6 bg-white/[0.02] opacity-70'
+                                  : 'glass border-white/8 hover:border-white/15 hover:shadow-lg'}">
+
+                                <!-- Top Row: Time + Live + Category -->
+                                <div class="flex flex-wrap items-center gap-2 mb-2">
+                                  <span class="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg">
+                                    <Clock size={11} />
+                                    {formatTimelineTimeRange(item.start_time, item.end_time)}
+                                  </span>
+
+                                  {#if isLiveNow}
+                                    <span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-400/15 border border-emerald-400/30 px-2 py-0.5 rounded-full">
+                                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                      Live Now
+                                    </span>
+                                  {:else if isPast}
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-medium text-ink-500 px-2 py-0.5 rounded-full border border-white/5 bg-white/3">
+                                      <CheckCheck size={10} /> Completed
+                                    </span>
+                                  {/if}
+
+                                  <span class="ml-auto text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border {style.bg} {style.text} {style.border}">
+                                    {item.category || 'General'}
+                                  </span>
+                                </div>
+
+                                <!-- Title -->
+                                <h3 class="text-sm sm:text-base font-bold text-white leading-snug mb-1 {isPast ? 'text-ink-300' : ''}">{item.title}</h3>
+
+                                <!-- Description -->
+                                {#if item.description}
+                                  <p class="text-xs sm:text-sm leading-relaxed text-ink-300/80 mb-3">{item.description}</p>
+                                {/if}
+
+                                <!-- Speaker + Location footer -->
+                                {#if item.speaker_name || item.location}
+                                  <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/6 mt-2">
+                                    {#if item.speaker_name}
+                                      <div class="flex items-center gap-2.5">
+                                        {#if item.speaker_avatar_url}
+                                          <img
+                                            src={item.speaker_avatar_url}
+                                            alt={item.speaker_name}
+                                            class="h-7 w-7 rounded-full object-cover border border-white/20"
+                                          />
+                                        {:else}
+                                          <div class="h-7 w-7 rounded-full {style.bg} border {style.border} flex items-center justify-center text-[10px] font-black {style.text}">
+                                            {item.speaker_name.charAt(0).toUpperCase()}
+                                          </div>
+                                        {/if}
+                                        <div class="leading-tight">
+                                          <p class="text-xs font-bold text-white">{item.speaker_name}</p>
+                                          {#if item.speaker_role}
+                                            <p class="text-[10px] text-ink-400">{item.speaker_role}</p>
+                                          {/if}
+                                        </div>
+                                      </div>
+                                    {/if}
+
+                                    {#if item.location}
+                                      <button
+                                        type="button"
+                                        onclick={() => jumpToVenueLocation(item.location)}
+                                        class="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink-300 hover:text-amber-300 bg-white/4 hover:bg-white/8 transition-colors px-2.5 py-1 rounded-lg border border-white/8"
+                                        title={item.location}
+                                      >
+                                        <MapPin size={11} class="text-amber-400" />
+                                        {item.location}
+                                      </button>
+                                    {/if}
+                                  </div>
+                                {/if}
+                              </div>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+
+              </div>
+
+              <!-- Right 1 Column: Sticky RSVP & Registration Card -->
+              <div class="lg:col-span-1">
+                <div class="sticky top-6 rounded-3xl border border-amber-400/20 bg-gradient-to-b from-amber-400/[0.08] via-white/[0.03] to-white/[0.01] p-6 sm:p-7 backdrop-blur-2xl shadow-2xl space-y-6">
+
+                  <!-- Header & Register Action -->
+                  <div class="space-y-4">
+                    <div class="space-y-1">
+                      <span class="text-[10px] font-black uppercase tracking-widest text-amber-400">RSVP & Access</span>
+                      <h3 class="text-xl font-black text-white tracking-tight">Join this Event</h3>
+                      <p class="text-xs text-ink-400">Get access to live networking, sessions, and real-time updates.</p>
+                    </div>
+
+                    <Button
+                      id="join-event-btn"
+                      onclick={joinEvent}
+                      disabled={joining}
+                      class="w-full h-12 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_24px_rgba(251,191,36,0.3)] hover:shadow-[0_0_32px_rgba(251,191,36,0.5)] transition-all hover:-translate-y-0.5 active:translate-y-0"
+                    >
+                      {#if joining}
+                        <LoaderCircle size={18} class="animate-spin" />
+                        Joining…
+                      {:else}
+                        <LogIn size={18} />
+                        {#if data.user}
+                          Register for Event
+                        {:else}
+                          Sign in to Register
+                        {/if}
+                      {/if}
+                    </Button>
+
+                    <p class="text-[11px] text-center text-ink-500">
+                      {#if currentEvent.is_approval_required}
+                        Host approval required after registration
+                      {:else}
+                        Free registration · Instant confirmation
+                      {/if}
+                    </p>
+                  </div>
+
+                  <div class="h-px w-full bg-white/8"></div>
+
+                  <!-- Key Event Details List -->
+                  <div class="space-y-4">
+                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Event Details</h4>
+
+                    <!-- Date & Time -->
+                    {#if currentEvent.start_time}
+                      <div class="flex items-start gap-3">
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-amber-400">
+                          <CalendarClock size={16} />
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-xs font-semibold text-white">Date & Time</p>
+                          <p class="text-xs text-ink-300 mt-0.5 leading-relaxed">
+                            {formatEventDateRange(currentEvent.start_time, currentEvent.end_time)}
+                          </p>
+                        </div>
+                      </div>
+                    {/if}
+
+                    <!-- Location / Venue -->
+                    <div class="flex items-start gap-3">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-amber-400">
+                        <MapPin size={16} />
+                      </div>
+                      <div class="min-w-0">
+                        <p class="text-xs font-semibold text-white">Location</p>
+                        {#if currentEvent.event_format === 'online'}
+                          <p class="text-xs text-ink-300 mt-0.5">Online Event (Virtual link visible upon joining)</p>
+                        {:else if currentEvent.location}
+                          <p class="text-xs text-ink-300 mt-0.5 leading-relaxed">{currentEvent.location}</p>
+                          <a
+                            href={currentEvent.google_map_url || `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentEvent.location)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 hover:text-amber-300 hover:underline mt-1 transition-colors"
+                          >
+                            Open in Google Maps
+                            <ArrowRight size={10} />
+                          </a>
+                        {:else}
+                          <p class="text-xs text-ink-400 mt-0.5">Location details to be announced</p>
+                        {/if}
+                      </div>
+                    </div>
+
+                    <!-- Attendees Count -->
+                    <div class="flex items-start gap-3">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-cyan-400">
+                        <Users size={16} />
+                      </div>
+                      <div class="min-w-0">
+                        <p class="text-xs font-semibold text-white">Community</p>
+                        <p class="text-xs text-ink-300 mt-0.5">
+                          {currentEvent.attendees_count > 0 ? `${currentEvent.attendees_count} people registered` : 'Be one of the first to join'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="h-px w-full bg-white/8"></div>
+
+                  <!-- Included Highlights -->
+                  <div class="space-y-3">
+                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Included with Your Pass</h4>
+                    <div class="space-y-2 text-xs text-ink-300">
+                      <div class="flex items-center gap-2">
+                        <Check size={14} class="text-amber-400 shrink-0" />
+                        <span>1-on-1 AI-Powered Networking Matches</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <Check size={14} class="text-amber-400 shrink-0" />
+                        <span>Full Interactive Schedule & Live Ticker</span>
+                      </div>
+                      {#if currentEvent.is_venue_enabled}
+                        <div class="flex items-center gap-2">
+                          <Check size={14} class="text-amber-400 shrink-0" />
+                          <span>Venue Map & Navigation</span>
+                        </div>
+                      {/if}
+                      <div class="flex items-center gap-2">
+                        <Check size={14} class="text-amber-400 shrink-0" />
+                        <span>Direct Event Announcements & Alerts</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        {:else}
+          <!-- ═══════════════════════════════════════════════════════════════════ -->
+          <!-- ══ WORKSPACE FOR PARTICIPANTS & ORGANIZERS                       ══ -->
+          <!-- ═══════════════════════════════════════════════════════════════════ -->
+          <div
+            class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10 relative"
+          >
+            <div class="flex flex-col items-center gap-6">
+              <div class="space-y-3 text-center">
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                  {#if data.isOrganizer}
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger
+                        class="inline-flex items-center gap-2 rounded-xl bg-white/6 px-3.5 py-1.5 border border-white/10 text-xs font-bold shadow-lg transition-all hover:bg-white/10 hover:border-amber-400/40 focus-visible:outline-none"
+                      >
+                        {#if ownerViewMode === 'organizer'}
+                          <Crown size={14} class="text-amber-400" />
+                          <span class="text-amber-300">Host</span>
+                        {:else}
+                          <Eye size={14} class="text-cyan-400" />
+                          <span class="text-cyan-300">Attendee</span>
+                        {/if}
+                        <ChevronDown size={14} class="text-ink-400 ml-0.5" />
+                      </DropdownMenu.Trigger>
+
+                      <DropdownMenu.Content class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-50">
+                        <DropdownMenu.Label class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5">
+                          View Mode
+                        </DropdownMenu.Label>
+                        <DropdownMenu.Separator class="my-1 border-white/10" />
+                        <DropdownMenu.Item
+                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'organizer' ? 'bg-amber-400/15 text-amber-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          onSelect={() => {
+                            ownerViewMode = 'organizer';
+                            activeTab.set('analytics');
+                          }}
+                        >
+                          <Crown size={15} class="text-amber-400 shrink-0" />
+                          <span>Host</span>
+                        </DropdownMenu.Item>
+
+                        <DropdownMenu.Item
+                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'attendee' ? 'bg-cyan-400/15 text-cyan-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          onSelect={() => {
+                            ownerViewMode = 'attendee';
+                            activeTab.set('details');
+                          }}
+                        >
+                          <Eye size={15} class="text-cyan-400 shrink-0" />
+                          <span>Attendee</span>
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Root>
+                  {:else if data.isParticipant}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
+                    >
+                      <CheckCheck size={14} class="text-emerald-400" />
+                      Joined
+                    </Badge>
+                  {:else}
+                    <!-- Join button moved below date & time block -->
+                  {/if}
+
+                  {#if currentEvent.event_format}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-white/10 bg-white/5 text-ink-300 text-xs font-semibold capitalize px-3 py-1.5"
+                    >
+                      {#if currentEvent.event_format === 'online'}
+                        <Globe size={14} class="text-cyan-400" /> Online
+                      {:else if currentEvent.event_format === 'hybrid'}
+                        <Globe size={14} class="text-amber-400" /> Hybrid
+                      {:else}
+                        <MapPin size={14} class="text-amber-400" /> Offline
+                      {/if}
+                    </Badge>
+                  {/if}
+
+                  {#if currentEvent.is_approval_required}
+                    <Badge
+                      variant="secondary"
+                      class="gap-1.5 border-amber-400/20 bg-amber-400/8 text-amber-200 text-xs font-semibold px-3 py-1.5"
+                    >
+                      <Lock size={14} class="text-amber-400" /> Approval Required
+                    </Badge>
+                  {/if}
+                </div>
+
+                <h1
+                  class="text-4xl sm:text-5xl font-black tracking-tight text-white"
+                >
+                  {currentEvent.name}
+                </h1>
+
+                {#if liveSessions.length > 0}
+                  <div class="mt-4 w-full" transition:slide>
+                    <!-- Desktop: left/right button carousel -->
+                    <div class="hidden sm:flex items-center justify-center gap-3">
+                      {#if liveSessions.length > 1}
+                        <button
+                          onclick={() => liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length}
+                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
+                          aria-label="Previous live session"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                      {/if}
+
+                      {#key liveSlideIndex}
+                        {@const session = liveSessions[liveSlideIndex]}
+                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in max-w-sm">
+                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                          </div>
+                          <div class="flex flex-col text-left min-w-0">
+                            <div class="flex items-center gap-2">
+                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
+                              {#if liveSessions.length > 1}
+                                <span class="text-[10px] text-emerald-400/60 font-semibold">{liveSlideIndex + 1}/{liveSessions.length}</span>
+                              {/if}
+                            </div>
+                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
+                          </div>
+                          {#if session.location && currentEvent.is_venue_enabled}
+                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
+                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
+                              <button
+                                onclick={() => jumpToVenueLocation(session.location)}
+                                class="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline flex items-center gap-1 transition-colors"
+                              >
+                                <MapPin size={10} /> {session.location}
+                              </button>
+                            </div>
+                          {:else if session.location}
+                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
+                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
+                              <span class="text-xs font-semibold text-emerald-300 flex items-center gap-1">
+                                <MapPin size={10} /> {session.location}
+                              </span>
+                            </div>
+                          {/if}
+                        </div>
+                      {/key}
+
+                      {#if liveSessions.length > 1}
+                        <button
+                          onclick={() => liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length}
+                          class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
+                          aria-label="Next live session"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      {/if}
+                    </div>
+
+                    <!-- Mobile: swipeable card + dots below -->
+                    <div
+                      class="flex sm:hidden flex-col items-center gap-3"
+                      role="region"
+                      aria-label="Live sessions"
+                      ontouchstart={(e) => { liveSwipeStartX = e.touches[0].clientX; }}
+                      ontouchend={(e) => {
+                        const dx = e.changedTouches[0].clientX - liveSwipeStartX;
+                        if (Math.abs(dx) > 40) {
+                          if (dx < 0) liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length;
+                          else liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length;
+                        }
+                      }}
+                    >
+                      {#key liveSlideIndex}
+                        {@const session = liveSessions[liveSlideIndex]}
+                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in w-full max-w-sm">
+                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                          </div>
+                          <div class="flex flex-col text-left min-w-0 flex-1">
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
+                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
+                            {#if session.location}
+                              <span class="text-[11px] text-emerald-300/80 flex items-center gap-1 mt-0.5">
+                                <MapPin size={9} /> {session.location}
+                              </span>
+                            {/if}
+                          </div>
+                        </div>
+                      {/key}
+
+                      {#if liveSessions.length > 1}
+                        <div class="flex items-center gap-1.5">
+                          {#each liveSessions as _, i}
+                            <button
+                              onclick={() => liveSlideIndex = i}
+                              aria-label="Go to session {i + 1}"
+                              class="h-1.5 rounded-full transition-all duration-300 {liveSlideIndex === i ? 'w-4 bg-emerald-400' : 'w-1.5 bg-emerald-400/30'}"
+                            ></button>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
+
+                {#if nextSession}
+                  <div class="flex justify-center mt-2 animate-fade-in" transition:slide>
+                    <div class="inline-flex items-center gap-3 rounded-2xl border px-4 py-2 backdrop-blur-md shadow-lg
+                      {isEndingSoon
+                        ? 'border-orange-500/25 bg-orange-500/10 shadow-orange-500/5'
+                        : 'border-amber-400/20 bg-amber-400/8 shadow-amber-400/5'}">
+                      <div class="relative flex h-3 w-3 items-center justify-center">
+                        {#if isEndingSoon}
+                          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-60"></span>
+                          <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-400"></span>
+                        {:else}
+                          <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-80"></span>
+                        {/if}
+                      </div>
+                      <div class="flex flex-col text-left">
+                        <span class="text-[10px] font-bold uppercase tracking-widest {isEndingSoon ? 'text-orange-400' : 'text-amber-400'}">Coming Up Next</span>
+                        <span class="text-sm font-semibold {isEndingSoon ? 'text-orange-200' : 'text-amber-200'}">{nextSession.title}</span>
+                        <span class="text-[11px] {isEndingSoon ? 'text-orange-300/70' : 'text-amber-300/70'} flex items-center gap-1 mt-0.5">
+                          <Clock size={9} />
+                          {new Date(nextSession.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          {#if nextSession.location}
+                            <span class="opacity-50">·</span>
+                            <MapPin size={9} /> {nextSession.location}
+                          {/if}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Join button below date & time block -->
+                {#if !data.isOrganizer && !data.isParticipant}
+                  <div class="flex justify-center pt-4">
+                    <Button
+                      id="join-event-btn"
+                      onclick={joinEvent}
+                      disabled={joining}
+                      class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all"
+                    >
+                      {#if joining}
+                        <LoaderCircle size={16} class="animate-spin" />
+                        Joining…
+                      {:else}
+                        <LogIn size={16} />
+                        {#if data.user}Join Event{:else}Join with Google{/if}
+                      {/if}
+                    </Button>
+                  </div>
+                {/if}
+              </div>
+            </div>
+          </div>
+
         <Tabs.Root
           value={$activeTab}
           onValueChange={(v) => {

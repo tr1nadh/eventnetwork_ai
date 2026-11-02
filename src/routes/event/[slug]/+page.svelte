@@ -107,6 +107,22 @@
   function eventImageSrc(path) {
     return path ? `/api/events/images?path=${encodeURIComponent(path)}` : "";
   }
+
+  function eventInitial(name) {
+    return String(name || 'E').trim().charAt(0).toUpperCase() || 'E';
+  }
+
+  function eventBannerStyle(name) {
+    let hash = 0;
+    for (const character of String(name || 'Evenai')) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+    const patterns = [
+      'radial-gradient(circle at 12% 18%, rgba(129,140,248,.75) 0 2px, transparent 3px), radial-gradient(circle at 82% 72%, rgba(34,211,238,.55) 0 2px, transparent 3px), linear-gradient(135deg, #172554, #0f172a 55%, #164e63)',
+      'linear-gradient(30deg, rgba(56,189,248,.15) 12%, transparent 12.5%, transparent 87%, rgba(99,102,241,.18) 87.5%), linear-gradient(150deg, rgba(99,102,241,.18) 12%, transparent 12.5%, transparent 87%, rgba(56,189,248,.15) 87.5%), linear-gradient(135deg, #111827, #1e1b4b)',
+      'radial-gradient(ellipse at top left, rgba(168,85,247,.48), transparent 45%), radial-gradient(ellipse at bottom right, rgba(14,165,233,.4), transparent 45%), linear-gradient(135deg, #172554, #111827)',
+      'repeating-linear-gradient(135deg, rgba(56,189,248,.16) 0 2px, transparent 2px 18px), repeating-linear-gradient(45deg, rgba(129,140,248,.12) 0 2px, transparent 2px 18px), linear-gradient(135deg, #172554, #0f172a)'
+    ];
+    return `background-image: ${patterns[hash % patterns.length]}`;
+  }
   let realtimeChannel;
 
   // Announcements State & Reactive Handlers
@@ -2490,7 +2506,7 @@
           {#if currentEvent.event_banner_url}
             <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="h-48 w-full object-cover sm:h-64" />
           {:else}
-            <div class="flex h-48 items-center justify-center gap-3 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 text-indigo-100 sm:h-64">
+            <div class="flex h-48 items-center justify-center gap-3 text-indigo-100 sm:h-64" style={eventBannerStyle(currentEvent.name)}>
               <Calendar size={30} class="text-amber-300" />
               <span class="text-sm font-bold tracking-wide">{currentEvent.event_format === 'online' ? 'Online event' : 'Evenai networking event'}</span>
             </div>
@@ -2509,7 +2525,7 @@
                 {#if currentEvent.event_logo_url}
                   <img src={eventImageSrc(currentEvent.event_logo_url)} alt="" class="h-16 w-16 rounded-2xl object-cover sm:h-20 sm:w-20" />
                 {:else}
-                  <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-200 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20"><Calendar size={28} /></div>
+                  <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-2xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20 sm:text-3xl">{eventInitial(currentEvent.name)}</div>
                 {/if}
                 <h1 class="text-4xl font-black tracking-tight text-white sm:text-6xl">
                 {currentEvent.name}
@@ -2782,7 +2798,7 @@
               {#if currentEvent.event_banner_url}
                 <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="h-44 w-full object-cover sm:h-60" />
               {:else}
-                <div class="flex h-44 items-center justify-center gap-3 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 text-indigo-100 sm:h-60">
+                <div class="flex h-44 items-center justify-center gap-3 text-indigo-100 sm:h-60" style={eventBannerStyle(currentEvent.name)}>
                   <Calendar size={30} class="text-amber-300" />
                   <span class="text-sm font-bold tracking-wide">{currentEvent.event_format === 'online' ? 'Online event' : 'Evenai networking event'}</span>
                 </div>
@@ -2838,7 +2854,7 @@
                   {#if currentEvent.event_logo_url}
                     <img src={eventImageSrc(currentEvent.event_logo_url)} alt="" class="h-16 w-16 shrink-0 rounded-2xl object-cover sm:h-20 sm:w-20" />
                   {:else}
-                    <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-200 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20"><Calendar size={28} /></div>
+                    <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-2xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20 sm:text-3xl">{eventInitial(currentEvent.name)}</div>
                   {/if}
                   <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]">{currentEvent.name}</h1>
                 </div>
@@ -3180,7 +3196,7 @@
             {#if currentEvent.event_banner_url}
               <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="mb-6 h-36 w-full rounded-2xl object-cover sm:h-48" />
             {:else}
-              <div class="mb-6 flex h-36 items-center justify-center gap-3 rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 text-indigo-100 sm:h-48"><Calendar size={28} class="text-amber-300" /><span class="text-sm font-bold tracking-wide">{currentEvent.event_format === 'online' ? 'Online event' : 'Evenai networking event'}</span></div>
+              <div class="mb-6 flex h-36 items-center justify-center gap-3 rounded-2xl text-indigo-100 sm:h-48" style={eventBannerStyle(currentEvent.name)}><Calendar size={28} class="text-amber-300" /><span class="text-sm font-bold tracking-wide">{currentEvent.event_format === 'online' ? 'Online event' : 'Evenai networking event'}</span></div>
             {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
@@ -3262,7 +3278,7 @@
                   {#if currentEvent.event_logo_url}
                     <img src={eventImageSrc(currentEvent.event_logo_url)} alt="" class="h-14 w-14 shrink-0 rounded-2xl object-cover sm:h-16 sm:w-16" />
                   {:else}
-                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-200 ring-1 ring-indigo-300/25 sm:h-16 sm:w-16"><Calendar size={24} /></div>
+                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-16 sm:w-16 sm:text-2xl">{eventInitial(currentEvent.name)}</div>
                   {/if}
                   <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{currentEvent.name}</h1>
                 </div>

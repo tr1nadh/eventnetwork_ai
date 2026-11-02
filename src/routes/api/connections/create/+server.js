@@ -62,15 +62,6 @@ export async function POST({ request, cookies }) {
   // Auto-accept if dummy, else start as pending
   const initialStatus = isDummy ? 'accepted' : 'pending';
 
-  // Preserve which reusable cards were active at the time this connection began.
-  const { data: eventProfiles } = await supabase
-    .from('network_profiles')
-    .select('user_id, network_card_id')
-    .eq('event_id', event_id)
-    .in('user_id', [user.id, receiver_user_id]);
-  const sender_network_card_id = eventProfiles?.find((profile) => profile.user_id === user.id)?.network_card_id ?? null;
-  const receiver_network_card_id = eventProfiles?.find((profile) => profile.user_id === receiver_user_id)?.network_card_id ?? null;
-
   const { data: connection, error: insertErr } = await supabase
     .from('connections')
     .insert({
@@ -78,8 +69,6 @@ export async function POST({ request, cookies }) {
       sender_user_id: user.id,
       receiver_user_id,
       match_id,
-      sender_network_card_id,
-      receiver_network_card_id,
       status: initialStatus,
       updated_at: new Date().toISOString()
     })

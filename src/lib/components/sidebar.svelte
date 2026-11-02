@@ -48,7 +48,7 @@
   $: isDiscover = currentPath === "/discover" || currentPath === "/discover/";
   $: isCreate = currentPath.startsWith("/events/create");
   $: isConnections = currentPath.startsWith("/connections");
-  $: isNetworkCards = currentPath.startsWith("/network-cards");
+  $: isNetworkCards = currentPath.startsWith("/network-card");
 
   onMount(() => {
     if (user) {
@@ -86,9 +86,9 @@
       active: () => isConnections,
     },
     {
-      label: "Network Cards",
+      label: "Network Card",
       icon: ContactRound,
-      href: "/network-cards",
+      href: "/network-card",
       active: () => isNetworkCards,
     },
   ];

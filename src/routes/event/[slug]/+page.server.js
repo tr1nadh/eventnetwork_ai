@@ -214,15 +214,14 @@ export const load = async ({ params, locals }) => {
   const isOrganizer = !!locals.user && data.created_by === locals.user.id;
 
   let networkProfile = null;
-  let networkCards = [];
   let suggestedMatches = [];
   
   if (isParticipant) {
     // Fetch profile and matches in parallel to speed up load time
-    const [profileRes, matchRes, cardsRes] = await Promise.all([
+    const [profileRes, matchRes] = await Promise.all([
       admin
         .from('network_profiles')
-        .select('display_name, what_i_do, looking_for, about_me, network_card_id')
+        .select('display_name, what_i_do, looking_for, about_me')
         .eq('event_id', data.id)
         .eq('user_id', locals.user.id)
         .maybeSingle(),
@@ -232,12 +231,10 @@ export const load = async ({ params, locals }) => {
         .eq('event_id', data.id)
         .eq('user_id', locals.user.id)
         .order('updated_at', { ascending: false })
-      ,admin.from('network_cards').select('id, title, display_name, what_i_do, looking_for, about_me, is_archived').eq('user_id', locals.user.id).eq('is_archived', false).order('updated_at', { ascending: false })
     ]);
 
     const { data: profileData, error: profileError } = profileRes;
     const { data: dbMatches, error: matchError } = matchRes;
-    networkCards = cardsRes.data ?? [];
 
     if (profileError) {
       console.error('Failed to load network profile:', profileError);
@@ -251,7 +248,6 @@ export const load = async ({ params, locals }) => {
       } catch (e) {}
 
       networkProfile = {
-        networkCardId: profileData.network_card_id,
         whoTheyAre: profileData.display_name,
         whatTheyDo: profileData.what_i_do,
         whoTheyWant: lookingForStr,
@@ -297,7 +293,6 @@ export const load = async ({ params, locals }) => {
     isOrganizer,
     isParticipant,
     networkProfile,
-    networkCards,
     analytics: isOrganizer ? await loadOrganizerAnalytics(admin, data.id) : null
   };
 };

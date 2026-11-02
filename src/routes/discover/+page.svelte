@@ -1201,6 +1201,8 @@
                 : 'accent-discover'}"></div>
               {#if event.event_banner_url}
                 <img src={eventImageSrc(event.event_banner_url)} alt="" class="h-28 w-full object-cover" />
+              {:else}
+                <div class="h-28 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950" aria-hidden="true"></div>
               {/if}
 
               <!-- Card body -->

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { ChevronLeft, ChevronRight, Plus, UserRound } from '@lucide/svelte';
+  import { ChevronLeft, ChevronRight, Plus } from '@lucide/svelte';
   import PageShell from '$lib/components/page-shell.svelte';
   import Sidebar from '$lib/components/sidebar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -32,25 +32,22 @@
 <svelte:head><title>Network Cards | Evenai</title></svelte:head>
 <PageShell user={data.user}>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
-  <main class="mx-auto max-w-6xl px-4 pb-10 pt-2 sm:px-6">
-    <div class="mb-8 flex items-start justify-between gap-4">
-      <div><p class="text-sm font-semibold text-violet-300">YOUR NETWORK IDENTITY</p><h1 class="mt-1 text-3xl font-black text-white">Network Cards</h1><p class="mt-2 max-w-2xl text-sm text-ink-400">Create reusable profiles, then choose the right one when you join an event.</p></div>
+  <main class="flex min-h-[calc(100vh-4rem)] flex-col px-4 pb-6 pt-2 sm:px-6">
+    <div class="mb-4 flex justify-end">
       <Button class="shrink-0 gap-2" onclick={() => goto('/network-cards/add-card')}><Plus size={16} /> <span class="hidden sm:inline">Add a new card</span><span class="sm:hidden">Add</span></Button>
     </div>
 
     {#if loading}
       <div class="rounded-3xl border border-white/8 bg-white/[0.03] p-12 text-center text-sm text-ink-400">Loading your cards…</div>
     {:else if cards.length === 0}
-      <section class="overflow-hidden rounded-3xl border border-violet-400/15 bg-[radial-gradient(circle_at_top,#312e8140,transparent_48%),#0d101b] px-5 py-8 sm:px-8 sm:py-10">
-        <div class="mx-auto max-w-xl text-center"><div class="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl border border-violet-400/25 bg-violet-400/10 text-violet-200"><UserRound size={22} /></div><h2 class="text-xl font-bold text-white">One card for every context</h2><p class="mt-2 text-sm leading-6 text-ink-400">Use a different card when you are hiring, building, investing, or simply exploring. Only the card you select is used for event matching.</p></div>
-        <div class="relative mx-auto mt-8 max-w-4xl">
+      <section class="flex flex-1 items-center overflow-hidden">
+        <div class="relative mx-auto w-full max-w-5xl">
           <button class="carousel-arrow left-0 hidden sm:flex" type="button" onclick={() => scrollCards(-1)} aria-label="Previous sample card"><ChevronLeft size={18} /></button>
-          <div bind:this={carousel} class="demo-carousel px-1 pb-3 sm:px-10">
-            {#each demos as card}<article class="demo-card"><div class="flex items-center justify-between"><span class="rounded-full bg-violet-400/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-violet-200">{card.title}</span><span class="flex size-10 items-center justify-center rounded-xl bg-white/8 text-lg font-black text-white">{card.title[0]}</span></div><h3 class="mt-10 text-xl font-bold text-white">{card.name}</h3><p class="mt-3 text-sm leading-6 text-ink-400">{card.role}</p><div class="mt-7 h-px bg-white/8"></div><p class="mt-3 text-xs font-medium text-violet-200">Reusable across events</p></article>{/each}
+          <div bind:this={carousel} class="demo-carousel px-1 py-3 sm:px-12">
+            {#each demos as card}<article class="demo-card"><div class="flex items-center justify-between"><span class="rounded-full bg-violet-400/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-violet-200">{card.title}</span><span class="flex size-10 items-center justify-center rounded-xl bg-white/8 text-lg font-black text-white">{card.title[0]}</span></div><h3 class="mt-10 text-xl font-bold text-white">{card.name}</h3><p class="mt-3 text-sm leading-6 text-ink-400">{card.role}</p></article>{/each}
           </div>
           <button class="carousel-arrow right-0 hidden sm:flex" type="button" onclick={() => scrollCards(1)} aria-label="Next sample card"><ChevronRight size={18} /></button>
         </div>
-        <div class="mt-6 text-center"><Button class="gap-2" onclick={() => goto('/network-cards/add-card')}><Plus size={16} /> Create your first card</Button><p class="mt-3 text-xs text-ink-500">On mobile, swipe through the sample cards.</p></div>
       </section>
     {:else}
       <section><div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{#each cards as card (card.id)}<button type="button" onclick={() => goto(`/network-cards/add-card?card=${card.id}`)} class="group rounded-2xl border border-white/8 bg-white/[0.03] p-5 text-left transition hover:-translate-y-0.5 hover:border-violet-400/35 hover:bg-violet-400/[0.06]"><div class="flex items-start justify-between gap-3"><span class="rounded-full bg-violet-400/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-violet-200">{card.title}</span><span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-400/15 text-base font-black text-violet-100">{card.display_name?.slice(0,1)?.toUpperCase() ?? 'N'}</span></div><h2 class="mt-7 text-lg font-bold text-white">{card.display_name}</h2><p class="mt-2 line-clamp-2 text-sm leading-6 text-ink-400">{card.what_i_do}</p><p class="mt-5 text-xs font-semibold text-violet-200 group-hover:text-violet-100">Edit card →</p></button>{/each}</div></section>

@@ -24,11 +24,11 @@
   let activeConnectionId = null;
   let channel = null;
   let loadVersion = 0;
+  let messagesReady = false;
 
   $: messages = connection?.id ? ($chatMessagesStore[connection.id] ?? []) : [];
   $: if (connection?.id && connection.id !== activeConnectionId) void openChat(connection);
   $: if (!connection?.id && activeConnectionId) resetChat();
-  $: if (connection?.id && !loadingMessages) void queueScroll();
 
   onDestroy(() => cleanupRealtime());
 
@@ -46,7 +46,11 @@
 
   async function queueScroll() {
     await tick();
-    if (messageViewport) messageViewport.scrollTop = messageViewport.scrollHeight;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    if (messageViewport) {
+      const latestPosition = messageViewport.scrollHeight - messageViewport.clientHeight;
+      messageViewport.scrollTop = Math.max(0, latestPosition);
+    }
   }
 
   function cleanupRealtime() {
@@ -64,6 +68,7 @@
     sendingMessage = false;
     loadError = '';
     draftMessage = '';
+    messagesReady = false;
   }
 
   async function openChat(selectedConnection) {
@@ -73,6 +78,7 @@
     loadingMessages = true;
     loadError = '';
     draftMessage = '';
+    messagesReady = false;
 
     try {
       const res = await fetch(`/api/messages?connection_id=${selectedConnection.id}`, { credentials: 'include' });
@@ -89,6 +95,10 @@
           await queueScroll();
         })
         .subscribe();
+      // Reveal the real messages before measuring, then set the scroll position
+      // within the same render cycle so the first visible frame is the latest one.
+      loadingMessages = false;
+      messagesReady = true;
       await queueScroll();
     } catch (err) {
       if (currentLoad === loadVersion) loadError = err instanceof Error ? err.message : 'Could not load messages';
@@ -129,7 +139,7 @@
 </script>
 
 {#if connection}
-  <section class="flex min-h-[calc(100dvh-7.5rem)] flex-col overflow-hidden bg-[#101114] lg:min-h-[620px]">
+  <section class="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#101114] lg:h-full lg:flex-none">
     <header class="border-b border-white/8 bg-gradient-to-r from-cyan-400/10 via-transparent px-5 py-4">
       <div class="flex items-center gap-3">
         <Avatar class="size-11 border border-white/10 bg-white/5">
@@ -153,8 +163,8 @@
       {/if}
     </header>
 
-    <div bind:this={messageViewport} class="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[radial-gradient(circle_at_top,#1b2633_0%,#101114_48%)] px-5 py-5">
-      {#if loadingMessages}
+    <div bind:this={messageViewport} class="message-viewport min-h-0 flex-1 space-y-3 overflow-y-scroll bg-[radial-gradient(circle_at_top,#1b2633_0%,#101114_48%)] px-5 py-5">
+      {#if loadingMessages || (!messagesReady && !loadError)}
         <div class="flex h-full items-center justify-center text-sm text-ink-300"><LoaderCircle size={16} class="mr-2 animate-spin" /> Loading conversation</div>
       {:else if loadError}
         <div class="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">{loadError}</div>
@@ -187,3 +197,15 @@
     </form>
   </section>
 {/if}
+
+<style>
+  .message-viewport {
+    scrollbar-gutter: stable;
+    scrollbar-color: rgba(148, 163, 184, 0.45) rgba(255, 255, 255, 0.04);
+  }
+
+  .message-viewport::-webkit-scrollbar { width: 8px; }
+  .message-viewport::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.04); }
+  .message-viewport::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.45); border-radius: 999px; }
+  .message-viewport::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.7); }
+</style>

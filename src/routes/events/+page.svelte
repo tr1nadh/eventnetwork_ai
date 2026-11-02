@@ -338,8 +338,6 @@
               <div class="card-accent" class:accent-live={status === 'live'} class:accent-upcoming={status === 'upcoming'} class:accent-archived={status === 'archived'}></div>
               {#if event.event_banner_url}
                 <img src={eventImageSrc(event.event_banner_url)} alt="" class="h-28 w-full object-cover" />
-              {:else}
-                <div class="h-28 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950"></div>
               {/if}
 
               <!-- Card body -->

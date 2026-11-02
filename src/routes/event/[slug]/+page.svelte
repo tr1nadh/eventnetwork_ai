@@ -2494,8 +2494,6 @@
           ></div>
           {#if currentEvent.event_banner_url}
             <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="h-48 w-full object-cover sm:h-64" />
-          {:else}
-            <div class="h-48 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 sm:h-64"></div>
           {/if}
           <div class="p-8 sm:p-10 space-y-8">
             <Badge
@@ -2783,8 +2781,6 @@
 
               {#if currentEvent.event_banner_url}
                 <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="h-44 w-full object-cover sm:h-60" />
-              {:else}
-                <div class="h-44 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 sm:h-60"></div>
               {/if}
 
               <div class="p-6 sm:p-10 lg:p-12 space-y-6">
@@ -3178,8 +3174,6 @@
           >
             {#if currentEvent.event_banner_url}
               <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="mb-6 h-36 w-full rounded-2xl object-cover sm:h-48" />
-            {:else}
-              <div class="mb-6 h-36 rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 sm:h-48"></div>
             {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">

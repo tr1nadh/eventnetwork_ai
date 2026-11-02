@@ -129,7 +129,7 @@
 </script>
 
 {#if connection}
-  <section class="flex min-h-[620px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#101114]">
+  <section class="flex min-h-[620px] flex-col overflow-hidden bg-[#101114]">
     <header class="border-b border-white/8 bg-gradient-to-r from-cyan-400/10 via-transparent px-5 py-4">
       <div class="flex items-center gap-3">
         <Avatar class="size-11 border border-white/10 bg-white/5">

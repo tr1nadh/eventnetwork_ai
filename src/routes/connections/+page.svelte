@@ -128,9 +128,8 @@
 
 <PageShell user={data.user}>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
-  <main class="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
-    <div class="mb-6"><h1 class="text-2xl font-bold tracking-tight text-white">Connections</h1><p class="mt-1 text-sm text-ink-400">Your conversations and connections across every event.</p></div>
-    <div class="grid min-h-[680px] overflow-hidden rounded-2xl border border-white/10 bg-[#111216] shadow-2xl lg:grid-cols-[340px_minmax(0,1fr)]">
+  <main class="-mt-8 min-h-screen">
+    <div class="grid min-h-screen overflow-hidden bg-[#111216] lg:grid-cols-[340px_minmax(0,1fr)]">
       <aside class="flex min-h-0 flex-col border-b border-white/10 bg-[#15161a] lg:border-b-0 lg:border-r">
         <div class="border-b border-white/8 p-4">
           <button type="button" onclick={() => { showReceivedRequests = !showReceivedRequests; selectedRequest = null; }} class="flex w-full items-center justify-between rounded-xl border border-cyan-400/15 bg-cyan-400/8 px-3 py-2.5 text-left text-sm text-cyan-100 transition hover:bg-cyan-400/12">
@@ -170,7 +169,7 @@
         </div>
         {#if connectionsHasMore}<div class="border-t border-white/8 p-3"><Button variant="outline" class="w-full border-white/10" disabled={loadingMoreConnections} onclick={loadMoreConnections}>{loadingMoreConnections ? "Loading…" : "Load more"}</Button></div>{/if}
       </aside>
-      <section class="min-h-[620px] bg-[#101114] p-3 sm:p-4">
+      <section class="min-h-[620px] bg-[#101114]">
         {#if selectedConnection}
           <ConnectionChatWindow connection={selectedConnection} currentUserId={data.user?.id} history={selectedHistory} />
         {:else if selectedRequest}

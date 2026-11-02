@@ -133,8 +133,8 @@
 
 <PageShell user={data.user}>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
-  <main class="-mt-8 min-h-[calc(100dvh-3.5rem)] lg:min-h-screen">
-    <div class="grid min-h-[calc(100dvh-3.5rem)] overflow-hidden bg-[#111216] lg:h-screen lg:min-h-0 lg:grid-cols-[340px_minmax(0,1fr)]">
+  <main class="-mt-8 min-h-[calc(100dvh-4.25rem)] lg:min-h-screen">
+    <div class="grid min-h-[calc(100dvh-4.25rem)] overflow-hidden bg-[#111216] lg:h-screen lg:min-h-0 lg:grid-cols-[340px_minmax(0,1fr)]">
       <aside class="{selectedConnection || selectedRequest ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col border-b border-white/10 bg-[#15161a] lg:border-b-0 lg:border-r">
         <div class="min-h-0 flex-1 overflow-y-auto">
           {#if loadingConnections}
@@ -168,7 +168,7 @@
         </div>
         {#if connectionsHasMore}<div class="border-t border-white/8 p-3"><Button variant="outline" class="w-full border-white/10" disabled={loadingMoreConnections} onclick={loadMoreConnections}>{loadingMoreConnections ? "Loading…" : "Load more"}</Button></div>{/if}
       </aside>
-      <section class="{selectedConnection || selectedRequest ? 'flex lg:block' : 'hidden lg:block'} h-[calc(100dvh-3.5rem)] min-h-0 flex-col bg-[#101114] lg:h-full">
+      <section class="{selectedConnection || selectedRequest ? 'flex lg:block' : 'hidden lg:block'} h-[calc(100dvh-4.25rem)] min-h-0 flex-col bg-[#101114] lg:h-full">
         <button type="button" class="flex shrink-0 w-full items-center gap-2 border-b border-white/8 bg-[#15161a] px-4 py-3 text-sm font-medium text-ink-300 hover:bg-white/5 lg:hidden" onclick={returnToPeople}>
           <ArrowLeft size={16} /> People
         </button>
@@ -186,3 +186,11 @@
     </div>
   </main>
 </PageShell>
+
+<style>
+  /* The chat already reserves exactly the mobile navigation height. Avoid the
+     PageShell's additional generic page padding creating an empty strip below it. */
+  @media (max-width: 767px) {
+    :global(.page-content) { padding-bottom: 0 !important; }
+  }
+</style>

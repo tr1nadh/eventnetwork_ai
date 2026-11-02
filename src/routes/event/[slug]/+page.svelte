@@ -386,10 +386,6 @@
 
     if (!data.user?.id) return;
 
-    if (data.isOrganizer && currentEvent?.is_approval_required) {
-      fetchRequests();
-    }
-
     if (data.isParticipant) {
       fetchAllConnections();
       fetchAttendees();
@@ -575,24 +571,7 @@
 
   let signingOut = false;
   let joining = false;
-  // Approval-required state
-  $: isRequested = data.isRequested ?? false;
-  let attendeeStatusFilter = 'joined'; // 'joined' | 'waitlisted'
-  let requestsList = [];
-  let loadingRequests = false;
-  $: pendingRequestsCount = requestsList.length;
-  $: displayedAttendees = (() => {
-    const list = attendeeStatusFilter === 'waitlisted' ? requestsList : attendeesList;
-    if (!attendeeSearchQuery.trim()) return list;
-    const q = attendeeSearchQuery.trim().toLowerCase();
-    return list.filter((a) =>
-      a.name?.toLowerCase().includes(q) ||
-      a.role?.toLowerCase().includes(q) ||
-      a.about?.toLowerCase().includes(q) ||
-      a.looking_for?.toLowerCase().includes(q)
-    );
-  })();
-  $: isCurrentFilterLoading = attendeeStatusFilter === 'waitlisted' ? loadingRequests : loadingAttendees;
+
   let savingProfile = false;
   let pageLoading = true; // Start true so skeleton UI shows until mounted
   let refreshingMatches = false;
@@ -1829,7 +1808,7 @@
     loadingAttendees = true;
     try {
       const q = encodeURIComponent(query.trim());
-      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}&status=joined`, {
+      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch attendees");
@@ -1844,6 +1823,10 @@
 
   function handleAttendeeSearchInput(e) {
     attendeeSearchQuery = e.target.value;
+    if (attendeeSearchTimeout) clearTimeout(attendeeSearchTimeout);
+    attendeeSearchTimeout = setTimeout(() => {
+      fetchAttendees(attendeeSearchQuery);
+    }, 300);
   }
 
   async function handleConnectAttendee(attendee) {
@@ -2041,70 +2024,7 @@
     }
   }
 
-  async function fetchRequests() {
-    const eventIdOrSlug = data.event?.id || data.event?.slug || '';
-    if (!eventIdOrSlug) return;
-    loadingRequests = true;
-    try {
-      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&status=waitlisted`, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to fetch requests');
-      const { attendees } = await res.json();
-      requestsList = attendees || [];
-    } catch (e) {
-      toast.error('Could not load join requests');
-    } finally {
-      loadingRequests = false;
-    }
-  }
 
-  async function approveRequest(userId) {
-    try {
-      const targetEventId = currentEvent?.id || data?.event?.id || currentEvent?.slug || data?.event?.slug;
-      const res = await fetch('/api/events/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: targetEventId, user_id: userId, action: 'approve' }),
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || errJson.error || 'Failed to approve');
-      }
-      requestsList = requestsList.filter((r) => r.user_id !== userId);
-      if (currentEvent) {
-        currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
-        currentEvent = { ...currentEvent };
-      }
-      toast.success('Request approved');
-      fetchAttendees(); // refresh joined list in background
-    } catch (e) {
-      console.error('Approve error:', e);
-      toast.error(e.message || 'Could not approve request');
-    }
-  }
-
-  async function rejectRequest(userId) {
-    try {
-      const targetEventId = currentEvent?.id || data?.event?.id || currentEvent?.slug || data?.event?.slug;
-      const res = await fetch('/api/events/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: targetEventId, user_id: userId, action: 'reject' }),
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || errJson.error || 'Failed to reject');
-      }
-      requestsList = requestsList.filter((r) => r.user_id !== userId);
-      toast.info('Request rejected');
-    } catch (e) {
-      console.error('Reject error:', e);
-      toast.error(e.message || 'Could not reject request');
-    }
-  }
 
   async function signOut() {
     signingOut = true;
@@ -2156,29 +2076,22 @@
         );
       }
 
-      const joinResult = await res.json();
-
-      if (joinResult.status === 'waitlisted') {
-        // Approval required — show pending state, don't enter workspace
-        data = { ...data, isRequested: true };
-        toast.info("Request sent! Waiting for host approval.", { duration: 5000 });
-      } else {
-        // Immediately switch reactive state so the member workspace shows without requiring refresh
-        data = { ...data, isParticipant: true, isRequested: false };
-        if (currentEvent) {
-          currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
-          currentEvent = { ...currentEvent };
-        }
-        activeTab.set('details');
-        stage = "workspace";
-        editProfileOpen = false;
-        toast.success("Event joined");
-
-        // Fetch member data and invalidate server-side load in background
-        fetchAllConnections();
-        fetchAttendees();
-        await invalidateAll();
+      // Immediately switch reactive state so the member workspace shows without requiring refresh
+      data.isParticipant = true;
+      data = { ...data, isParticipant: true };
+      if (currentEvent) {
+        currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
+        currentEvent = { ...currentEvent };
       }
+      activeTab.set('details');
+      stage = "workspace";
+      editProfileOpen = false;
+      toast.success("Event joined");
+
+      // Fetch member data and invalidate server-side load in background
+      fetchAllConnections();
+      fetchAttendees();
+      await invalidateAll();
     } catch (error) {
       toast.error("Could not join event", {
         description:
@@ -2525,11 +2438,7 @@
             </div>
 
             <div class="flex flex-wrap gap-4 pt-2">
-              {#if isRequested}
-                <div class="flex items-center gap-2 text-amber-400 font-semibold">
-                  <Clock size={18} /> Request Pending
-                </div>
-              {:else if !data.isParticipant && !data.isOrganizer}
+              {#if !data.isParticipant && !data.isOrganizer}
                 <Button
                   id="join-event-btn"
                   onclick={joinEvent}
@@ -2541,7 +2450,7 @@
                     Joining…
                   {:else}
                     <LogIn size={18} />
-                    {#if data.user}{currentEvent.is_approval_required ? 'Request to Join' : 'Join event'}{:else}Join with Google{/if}
+                    {#if data.user}Join event{:else}Join with Google{/if}
                   {/if}
                 </Button>
               {:else if data.isOrganizer}
@@ -2790,11 +2699,7 @@
                     </span>
                   {/if}
 
-                  {#if currentEvent.is_approval_required}
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/8 px-3 py-1 text-xs font-semibold text-amber-300">
-                      <Lock size={13} /> Host Approval Required
-                    </span>
-                  {/if}
+
 
                   {#if currentEvent.attendees_count > 0}
                     <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-ink-300">
@@ -3031,11 +2936,7 @@
                     </Button>
 
                     <p class="text-[11px] text-center text-ink-500">
-                      {#if currentEvent.is_approval_required}
-                        Host approval required after registration
-                      {:else}
-                        Free registration · Instant confirmation
-                      {/if}
+                      Free registration · Instant confirmation
                     </p>
                   </div>
 
@@ -3213,14 +3114,7 @@
                     </Badge>
                   {/if}
 
-                  {#if currentEvent.is_approval_required}
-                    <Badge
-                      variant="secondary"
-                      class="gap-1.5 border-amber-400/20 bg-amber-400/8 text-amber-200 text-xs font-semibold px-3 py-1.5"
-                    >
-                      <Lock size={14} class="text-amber-400" /> Approval Required
-                    </Badge>
-                  {/if}
+
                 </div>
 
                 <h1
@@ -3372,30 +3266,20 @@
                 <!-- Join button below date & time block -->
                 {#if !data.isOrganizer && !data.isParticipant}
                   <div class="flex justify-center pt-4">
-                    {#if isRequested}
-                      <Button
-                        disabled
-                        class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400/20 text-amber-300 rounded-xl border border-amber-400/30 cursor-default"
-                      >
-                        <Clock size={16} />
-                        Request Pending
-                      </Button>
-                    {:else}
-                      <Button
-                        id="join-event-btn"
-                        onclick={joinEvent}
-                        disabled={joining}
-                        class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all"
-                      >
-                        {#if joining}
-                          <LoaderCircle size={16} class="animate-spin" />
-                          Joining…
-                        {:else}
-                          <LogIn size={16} />
-                          {#if data.user}{currentEvent.is_approval_required ? 'Request to Join' : 'Join Event'}{:else}Join with Google{/if}
-                        {/if}
-                      </Button>
-                    {/if}
+                    <Button
+                      id="join-event-btn"
+                      onclick={joinEvent}
+                      disabled={joining}
+                      class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all"
+                    >
+                      {#if joining}
+                        <LoaderCircle size={16} class="animate-spin" />
+                        Joining…
+                      {:else}
+                        <LogIn size={16} />
+                        {#if data.user}Join Event{:else}Join with Google{/if}
+                      {/if}
+                    </Button>
                   </div>
                 {/if}
               </div>
@@ -3430,18 +3314,13 @@
                   class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
                 >
                   <Users size={16} />
-                  <span class="flex items-center gap-1.5">
-                    Attendees
-                    {#if currentEvent.is_approval_required && pendingRequestsCount > 0}
-                      <span class="rounded-full bg-amber-400 text-slate-950 px-1.5 py-0.5 text-[10px] font-black shadow-sm flex items-center gap-1">
-                        <Clock size={10} class="inline" />{pendingRequestsCount}
-                      </span>
-                    {:else if attendeesList.length || currentEvent.attendees_count}
-                      <span class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">
-                        {attendeesList.length || currentEvent.attendees_count}
-                      </span>
-                    {/if}
-                  </span>
+                  <span class="flex items-center gap-1.5"
+                    >Attendees {#if attendeesList.length || currentEvent.attendees_count}<span
+                        class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300"
+                        >{attendeesList.length || currentEvent.attendees_count}</span
+                      >
+                    {/if}</span
+                  >
                 </Tabs.Trigger>
 
                 <Tabs.Trigger
@@ -3575,11 +3454,7 @@
                       </span>
                     {/if}
 
-                    {#if currentEvent.is_approval_required}
-                      <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/8 px-3 py-1 text-[11px] font-semibold text-amber-300">
-                        <Lock size={12} /> Approval Required
-                      </span>
-                    {/if}
+
                   </div>
 
                   <!-- About section -->
@@ -3791,41 +3666,11 @@
                 <div>
                   <div class="flex items-center gap-2 mb-1">
                     <Users size={18} class="text-indigo-400" />
-                    <h2 class="text-xl font-bold text-white">
-                      {#if currentEvent.is_approval_required && data.isOrganizer && ownerViewMode === 'organizer'}
-                        {attendeeStatusFilter === 'waitlisted' ? 'Pending Requests' : 'Joined Attendees'}
-                      {:else}
-                        Joined Attendees
-                      {/if}
-                    </h2>
+                    <h2 class="text-xl font-bold text-white">Joined Attendees</h2>
                   </div>
                   <p class="text-xs text-ink-400">
                     Explore all members who have joined {currentEvent.name} and build your network.
                   </p>
-                  {#if currentEvent.is_approval_required && data.isOrganizer && ownerViewMode === 'organizer'}
-                    <div class="flex gap-2 mt-3">
-                      <button
-                        type="button"
-                        onclick={() => { attendeeStatusFilter = 'joined'; }}
-                        class="px-3 py-1 rounded-full text-xs font-semibold border transition-all {attendeeStatusFilter === 'joined' ? 'bg-emerald-400/15 text-emerald-300 border-emerald-400/30' : 'border-white/10 text-ink-400 hover:text-white'}"
-                      >
-                        <CheckCheck size={11} class="inline-block mr-1" />Joined
-                        {#if attendeesList.length > 0}
-                          <span class="ml-1 text-[10px] opacity-70">({attendeesList.length})</span>
-                        {/if}
-                      </button>
-                      <button
-                        type="button"
-                        onclick={() => { attendeeStatusFilter = 'waitlisted'; fetchRequests(); }}
-                        class="px-3 py-1 rounded-full text-xs font-semibold border transition-all {attendeeStatusFilter === 'waitlisted' ? 'bg-amber-400/15 text-amber-300 border-amber-400/30' : 'border-white/10 text-ink-400 hover:text-white'}"
-                      >
-                        <Clock size={11} class="inline-block mr-1" />Pending
-                        {#if pendingRequestsCount > 0}
-                          <span class="ml-1.5 bg-amber-400 text-slate-950 rounded-full px-1.5 py-0.2 text-[10px] font-black">{pendingRequestsCount}</span>
-                        {/if}
-                      </button>
-                    </div>
-                  {/if}
                 </div>
 
                 <div class="flex items-center gap-3 w-full sm:w-auto">
@@ -3846,26 +3691,20 @@
                     variant="outline"
                     size="icon"
                     class="h-9 w-9 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 shrink-0"
-                    onclick={() => {
-                      if (attendeeStatusFilter === 'waitlisted') {
-                        fetchRequests();
-                      } else {
-                        fetchAttendees();
-                      }
-                    }}
-                    disabled={isCurrentFilterLoading}
+                    onclick={() => fetchAttendees()}
+                    disabled={loadingAttendees}
                     title="Refresh Attendees"
                   >
                     <RefreshCw
                       size={15}
-                      class={isCurrentFilterLoading ? "animate-spin" : ""}
+                      class={loadingAttendees ? "animate-spin" : ""}
                     />
                   </Button>
                 </div>
               </div>
 
               <!-- Attendees Grid / Skeleton / Empty state -->
-              {#if isCurrentFilterLoading && !displayedAttendees.length}
+              {#if loadingAttendees && !attendeesList.length}
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {#each Array(6) as _}
                     <div
@@ -3883,27 +3722,19 @@
                     </div>
                   {/each}
                 </div>
-              {:else if displayedAttendees.length === 0}
+              {:else if attendeesList.length === 0}
                 <div
                   class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"
                 >
                   <div
                     class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
                   >
-                    {#if attendeeStatusFilter === 'waitlisted'}
-                      <CheckCheck size={28} class="text-ink-500" />
-                    {:else}
-                      <Ghost size={28} class="text-ink-500" />
-                    {/if}
+                    <Ghost size={28} class="text-ink-500" />
                   </div>
-                  <h3 class="text-white font-bold mb-1">
-                    {attendeeStatusFilter === 'waitlisted' ? 'No pending requests' : 'No attendees found'}
-                  </h3>
+                  <h3 class="text-white font-bold mb-1">No attendees found</h3>
                   <p class="text-sm text-ink-400 max-w-sm mb-4">
                     {#if attendeeSearchQuery}
                       No participants match "{attendeeSearchQuery}". Try a different search term.
-                    {:else if attendeeStatusFilter === 'waitlisted'}
-                      All join requests have been reviewed, or no pending requests have arrived yet.
                     {:else}
                       No joined attendees yet. Share this event link to get participants to join!
                     {/if}
@@ -3914,6 +3745,7 @@
                       size="sm"
                       onclick={() => {
                         attendeeSearchQuery = "";
+                        fetchAttendees("");
                       }}
                     >
                       Clear Search
@@ -3922,7 +3754,7 @@
                 </div>
               {:else}
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {#each displayedAttendees as attendee (attendee.user_id)}
+                  {#each attendeesList as attendee (attendee.user_id)}
                     <div
                       class="glass card-hover rounded-2xl border border-white/8 p-5 flex flex-col justify-between space-y-4 relative overflow-hidden"
                     >
@@ -3989,26 +3821,7 @@
 
                       <!-- Action Button -->
                       <div class="pt-2 border-t border-white/6">
-                        {#if attendeeStatusFilter === 'waitlisted' && data.isOrganizer && ownerViewMode === 'organizer'}
-                          <!-- Pending filter: show Allow / Reject instead of connect -->
-                          <div class="flex gap-2">
-                            <Button
-                              size="sm"
-                              class="flex-1 gap-1.5 h-8 text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/50"
-                              onclick={() => approveRequest(attendee.user_id)}
-                            >
-                              <CheckCheck size={13} /> Allow
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              class="flex-1 gap-1.5 h-8 text-xs font-semibold border-white/10 text-ink-400 hover:text-rose-300 hover:border-rose-400/30 hover:bg-rose-400/10"
-                              onclick={() => rejectRequest(attendee.user_id)}
-                            >
-                              <X size={13} /> Reject
-                            </Button>
-                          </div>
-                        {:else if attendee.is_current_user}
+                        {#if attendee.is_current_user}
                           <Badge
                             variant="outline"
                             class="w-full justify-center py-2 text-ink-400 border-white/10 text-xs"
@@ -6681,7 +6494,7 @@
                   {/if}
 
                   <!-- Approval Required -->
-                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+                  <!-- <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
                     <div class="flex items-start gap-3">
                       <Lock size={16} class="text-amber-400 mt-0.5 shrink-0" />
                       <div>
@@ -6702,7 +6515,7 @@
                         class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsApprovalRequired ? 'translate-x-5' : 'translate-x-0'}"
                       ></span>
                     </button>
-                  </div>
+                  </div> -->
                 </div>
 
                 {#if saveTabSettingsError}

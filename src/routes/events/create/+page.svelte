@@ -630,7 +630,7 @@
         {/if}
 
         <!-- Approval Required -->
-        <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+        <!-- <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
           <div class="flex items-start gap-3">
             <Lock size={16} class="text-amber-400 mt-0.5 shrink-0" />
             <div>
@@ -650,7 +650,7 @@
               class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isApprovalRequired ? 'translate-x-5' : 'translate-x-0'}"
             ></span>
           </button>
-        </div>
+        </div> -->
       </div>
 
       <!-- Create error -->

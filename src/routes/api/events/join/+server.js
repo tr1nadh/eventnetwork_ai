@@ -15,23 +15,13 @@ export async function POST({ request, locals }) {
 
   const admin = createSupabaseAdminClient();
 
-  // Check if the event requires approval
-  const { data: eventRow } = await admin
-    .from('events')
-    .select('is_approval_required')
-    .eq('id', event_id)
-    .maybeSingle();
-
-  const needsApproval = Boolean(eventRow?.is_approval_required);
-  const participantStatus = needsApproval ? 'waitlisted' : 'joined';
-
   const { error: insertError } = await admin
     .from('event_participants')
     .upsert(
       {
         event_id,
         user_id: locals.user.id,
-        status: participantStatus,
+        status: 'joined',
         joined_at: new Date().toISOString()
       },
       {
@@ -45,5 +35,5 @@ export async function POST({ request, locals }) {
     throw error(500, insertError.message);
   }
 
-  return json({ success: true, status: participantStatus });
+  return json({ success: true, status: 'joined' });
 }

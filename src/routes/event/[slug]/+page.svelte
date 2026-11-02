@@ -2929,6 +2929,10 @@
                       <p class="text-xs text-ink-400">Get access to live networking, sessions, and real-time updates.</p>
                     </div>
 
+                    <p class="text-xs leading-5 text-ink-400">
+                      Your name and email will be shared with the event host for event communication.
+                    </p>
+
                     <Button
                       id="join-event-btn"
                       onclick={joinEvent}
@@ -3282,6 +3286,9 @@
                 <!-- Join button below date & time block -->
                 {#if !data.isOrganizer && !data.isParticipant}
                   <div class="flex flex-col items-center pt-4">
+                    <p class="mb-2 max-w-sm text-center text-xs leading-5 text-ink-400">
+                      Your name and email will be shared with the event host for event communication.
+                    </p>
                     <Button
                       id="join-event-btn"
                       onclick={joinEvent}
@@ -3809,6 +3816,11 @@
                           <p class="text-xs text-indigo-300 font-medium truncate mt-0.5">
                             {attendee.role || "Participant"}
                           </p>
+                          {#if data.isOrganizer && attendee.email}
+                            <p class="mt-1 truncate text-xs text-ink-400" title={attendee.email}>
+                              {attendee.email}
+                            </p>
+                          {/if}
                         </div>
                       </div>
 

@@ -71,6 +71,7 @@ export async function GET({ url, cookies }) {
 
     const realEventId = eventData.id;
     const hostUserId = eventData.created_by;
+    const isOrganizer = Boolean(user && user.id === hostUserId);
 
     // 1. Fetch participants from event_participants schema table
     // Support ?status=joined|requested|all filter (default: joined)
@@ -105,7 +106,7 @@ export async function GET({ url, cookies }) {
     }
 
     // 2. Parallel fetch network_profiles, users info, and active user connections
-    const [profilesRes, usersRes, connectionsRes] = await Promise.all([
+    const [profilesRes, usersRes, connectionsRes, attendeeEmailResults] = await Promise.all([
       admin
         .from('network_profiles')
         .select('user_id, display_name, what_i_do, looking_for, about_me, is_dummy, created_at')
@@ -121,7 +122,13 @@ export async function GET({ url, cookies }) {
             .select('id, sender_user_id, receiver_user_id, status, met_at')
             .eq('event_id', realEventId)
             .or(`sender_user_id.eq.${user.id},receiver_user_id.eq.${user.id}`)
-        : Promise.resolve({ data: [] })
+        : Promise.resolve({ data: [] }),
+      isOrganizer
+        ? Promise.all(participantUserIds.map(async (userId) => {
+            const { data } = await admin.auth.admin.getUserById(userId);
+            return [userId, data?.user?.email ?? null];
+          }))
+        : Promise.resolve([])
     ]);
 
     const profilesMap = {};
@@ -135,6 +142,7 @@ export async function GET({ url, cookies }) {
     }
 
     const connections = connectionsRes.data || [];
+    const attendeeEmails = Object.fromEntries(attendeeEmailResults);
 
     // 3. Map EVERY participant from event_participants (and host) into attendee items
     let attendees = participantUserIds.map((userId) => {
@@ -187,6 +195,7 @@ export async function GET({ url, cookies }) {
         is_dummy: Boolean(prof?.is_dummy),
         is_host: isHost,
         is_current_user: isCurrentUser,
+        email: isOrganizer ? attendeeEmails[userId] ?? null : undefined,
         connectionStatus,
         connectionId
       };

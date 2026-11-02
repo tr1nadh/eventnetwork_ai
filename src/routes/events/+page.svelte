@@ -13,6 +13,8 @@
     Globe,
     MapPin,
     Lock,
+    ChevronLeft,
+    ChevronRight,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -139,6 +141,7 @@
   function applyFilter(f) {
     const params = new URLSearchParams(window.location.search);
     params.set("filter", f);
+    params.delete("page");
     if (searchQuery) params.set("q", searchQuery);
     goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
@@ -154,6 +157,7 @@
       } else {
         params.delete("q");
       }
+      params.delete("page");
       goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
     }, 300);
   }
@@ -167,7 +171,15 @@
     } else {
       params.delete("q");
     }
+    params.delete("page");
     goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+  }
+
+  function goToPage(page) {
+    if (page < 1 || page > data.pagination.totalPages) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("page", String(page));
+    goto(`?${params.toString()}`, { keepFocus: true, noScroll: false });
   }
 </script>
 
@@ -441,6 +453,23 @@
             </Button>
           {/if}
         </div>
+      {/if}
+
+      {#if data.pagination.totalPages > 1 && !$navigating}
+        <nav class="mt-8 flex items-center justify-between gap-4" aria-label="Events pagination">
+          <p class="text-xs text-ink-500">
+            Showing {(data.pagination.page - 1) * data.pagination.limit + 1}–{Math.min(data.pagination.page * data.pagination.limit, data.pagination.total)} of {data.pagination.total} events
+          </p>
+          <div class="flex items-center gap-2">
+            <Button variant="outline" size="sm" class="border-white/10" disabled={data.pagination.page === 1} onclick={() => goToPage(data.pagination.page - 1)}>
+              <ChevronLeft size={15} /> Previous
+            </Button>
+            <span class="px-2 text-xs text-ink-400">Page {data.pagination.page} of {data.pagination.totalPages}</span>
+            <Button variant="outline" size="sm" class="border-white/10" disabled={!data.pagination.hasMore} onclick={() => goToPage(data.pagination.page + 1)}>
+              Next <ChevronRight size={15} />
+            </Button>
+          </div>
+        </nav>
       {/if}
     </div>
   </main>

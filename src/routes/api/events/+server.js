@@ -110,6 +110,8 @@ export async function GET({ url, locals }) {
 
   const filter = url.searchParams.get('filter') || 'all';
   const q = url.searchParams.get('q') || '';
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+  const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '12', 10)));
   const safeQ = q.replace(/"/g, '""');
 
   const admin = createSupabaseAdminClient();
@@ -323,7 +325,20 @@ export async function GET({ url, locals }) {
 
     events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    return json({ events });
+    const total = events.length;
+    const offset = (page - 1) * limit;
+    const paginatedEvents = events.slice(offset, offset + limit);
+
+    return json({
+      events: paginatedEvents,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        hasMore: offset + limit < total
+      }
+    });
   } catch (fetchError) {
     throw error(500, fetchError.message || 'Error fetching events');
   }

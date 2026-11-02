@@ -13,6 +13,7 @@
     Cpu,
     LayoutDashboard,
     Compass,
+    ContactRound,
   } from "@lucide/svelte";
   import * as Avatar from "$lib/components/ui/avatar/index.js";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
@@ -47,6 +48,7 @@
   $: isDiscover = currentPath === "/discover" || currentPath === "/discover/";
   $: isCreate = currentPath.startsWith("/events/create");
   $: isConnections = currentPath.startsWith("/connections");
+  $: isNetworkCards = currentPath.startsWith("/network-cards");
 
   onMount(() => {
     if (user) {
@@ -82,6 +84,12 @@
       icon: UserCircle2,
       href: "/connections",
       active: () => isConnections,
+    },
+    {
+      label: "Network Cards",
+      icon: ContactRound,
+      href: "/network-cards",
+      active: () => isNetworkCards,
     },
   ];
 </script>

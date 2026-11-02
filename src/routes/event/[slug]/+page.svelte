@@ -1842,6 +1842,7 @@
   }
 
   let networkingProfile = {
+    networkCardId: null,
     whoTheyAre: "",
     whatTheyDo: "",
     whoTheyWant: "",
@@ -1850,6 +1851,22 @@
   // If server provided a network profile, use it as initial data
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
+  }
+  let activeNetworkCardId = data.networkProfile?.networkCardId ?? null;
+  let activatingNetworkCard = false;
+  async function activateNetworkCard(cardId) {
+    if (!cardId || activatingNetworkCard) return;
+    activatingNetworkCard = true;
+    try {
+      const res = await fetch(`/api/network-cards/${cardId}/activate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ event_id: data.event.id }) });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.message ?? payload.error ?? 'Could not use this network card.');
+      activeNetworkCardId = cardId;
+      networkingProfile = { networkCardId: cardId, whoTheyAre: payload.profile.display_name, whatTheyDo: payload.profile.what_i_do, whoTheyWant: payload.profile.looking_for, expectations: payload.profile.about_me };
+      toast.success('Network card selected', { description: 'Future AI matches will use this card. Existing connections stay unchanged.' });
+      await refreshFromDb();
+    } catch (error) { toast.error('Could not select network card', { description: error instanceof Error ? error.message : 'Please try again.' }); }
+    finally { activatingNetworkCard = false; }
   }
   let profileFillMode = "ai"; // "ai" | "manual"
   $: hasCompletedProfile = Boolean(
@@ -4989,6 +5006,27 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
+                  {#if data.networkCards?.length}
+                    <select
+                      value={activeNetworkCardId ?? ''}
+                      onchange={(event) => activateNetworkCard(event.currentTarget.value)}
+                      disabled={activatingNetworkCard}
+                      class="h-8 max-w-44 rounded-lg border border-violet-400/25 bg-violet-400/10 px-2 text-xs font-semibold text-violet-100 outline-none disabled:opacity-60"
+                      aria-label="Network card used for matching"
+                    >
+                      <option value="" disabled>Select a network card</option>
+                      {#each data.networkCards as card (card.id)}
+                        <option value={card.id}>{card.title}</option>
+                      {/each}
+                    </select>
+                    <Button variant="outline" size="sm" class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs" onclick={() => goto('/network-cards')}>
+                      <UserCircle2 size={14} /> Cards
+                    </Button>
+                  {:else}
+                    <Button variant="outline" size="sm" class="gap-1.5 border-violet-400/25 text-violet-200 hover:bg-violet-400/10 h-8 text-xs" onclick={() => goto('/network-cards')}>
+                      <UserCircle2 size={14} /> Create a card
+                    </Button>
+                  {/if}
                   <Button
                     variant="outline"
                     size="sm"

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { CalendarHeart, Check, ChevronRight, Inbox, LoaderCircle, Lock, MessageCircle, X } from "@lucide/svelte";
+  import { CalendarHeart, Check, ChevronRight, LoaderCircle, Lock, MessageCircle, X } from "@lucide/svelte";
   import PageShell from "$lib/components/page-shell.svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import ConnectionChatWindow from "$lib/components/connection-chat-window.svelte";
@@ -20,7 +20,6 @@
   let connectionsPage = 1;
   let connectionsHasMore = false;
   let signingOut = false;
-  let showReceivedRequests = false;
   let selectedConnection = null;
   let selectedHistory = [];
   let selectedRequest = null;
@@ -131,23 +130,9 @@
   <main class="-mt-8 min-h-screen">
     <div class="grid min-h-screen overflow-hidden bg-[#111216] lg:grid-cols-[340px_minmax(0,1fr)]">
       <aside class="flex min-h-0 flex-col border-b border-white/10 bg-[#15161a] lg:border-b-0 lg:border-r">
-        <div class="border-b border-white/8 p-4">
-          <button type="button" onclick={() => { showReceivedRequests = !showReceivedRequests; selectedRequest = null; }} class="flex w-full items-center justify-between rounded-xl border border-cyan-400/15 bg-cyan-400/8 px-3 py-2.5 text-left text-sm text-cyan-100 transition hover:bg-cyan-400/12">
-            <span class="flex items-center gap-2"><Inbox size={16} /> Received requests</span><span class="rounded-full bg-cyan-400/20 px-2 py-0.5 text-xs font-semibold text-cyan-200">{receivedRequests.length}</span>
-          </button>
-        </div>
         <div class="min-h-0 flex-1 overflow-y-auto">
           {#if loadingConnections}
             <div class="flex justify-center py-12 text-sm text-ink-400"><LoaderCircle size={16} class="mr-2 animate-spin" /> Loading people</div>
-          {:else if showReceivedRequests}
-            <div class="border-b border-white/8 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-cyan-300">Received requests</div>
-            {#if receivedRequests.length}
-              {#each receivedRequests as request (request.id)}
-                <button type="button" onclick={() => openPendingRequest(request, "received")} class="flex w-full items-center gap-3 border-b border-white/5 px-4 py-3 text-left transition hover:bg-white/5 {selectedRequest?.id === request.id ? 'bg-cyan-400/10' : ''}">
-                  <Avatar class="size-10 shrink-0"><AvatarImage src={request.profile?.avatar_url ?? undefined} /><AvatarFallback>{getInitials(request.profile?.display_name)}</AvatarFallback></Avatar><span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium text-white">{request.profile?.display_name ?? "Unknown"}</span><span class="block truncate text-xs text-cyan-300">Wants to connect</span></span><ChevronRight size={16} class="text-ink-500" />
-                </button>
-              {/each}
-            {:else}<p class="px-4 py-8 text-center text-sm text-ink-500">No pending requests.</p>{/if}
           {:else}
             <div class="border-b border-white/8 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-400">Chats</div>
             {#if acceptedPeople.length}
@@ -157,6 +142,14 @@
                 </button>
               {/each}
             {:else}<p class="px-4 py-8 text-center text-sm text-ink-500">No accepted connections yet.</p>{/if}
+            {#if receivedRequests.length}
+              <div class="border-y border-white/8 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-cyan-300">Received requests</div>
+              {#each receivedRequests as request (request.id)}
+                <button type="button" onclick={() => openPendingRequest(request, "received")} class="flex w-full items-center gap-3 border-b border-white/5 px-4 py-3 text-left transition hover:bg-white/5 {selectedRequest?.id === request.id ? 'bg-cyan-400/10' : ''}">
+                  <Avatar class="size-10 shrink-0"><AvatarImage src={request.profile?.avatar_url ?? undefined} /><AvatarFallback>{getInitials(request.profile?.display_name)}</AvatarFallback></Avatar><span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium text-white">{request.profile?.display_name ?? "Unknown"}</span><span class="block truncate text-xs text-cyan-300">Wants to connect</span></span><ChevronRight size={16} class="text-ink-500" />
+                </button>
+              {/each}
+            {/if}
             {#if sentRequests.length}
               <div class="border-y border-white/8 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-400">Sent requests</div>
               {#each sentRequests as request (request.id)}

@@ -68,6 +68,7 @@
   let eventFormat = 'offline';
   let location = '';
   let googleMapUrl = '';
+  let isPublic = true;
   let isApprovalRequired = false;
   let isVenueEnabled = false;
   let isNetworkEnabled = false;
@@ -289,6 +290,7 @@
           event_format: eventFormat,
           location: location.trim() || null,
           google_map_url: googleMapUrl.trim() || null,
+          is_public: isPublic,
           is_approval_required: isApprovalRequired,
           is_venue_enabled: isVenueEnabled,
           is_network_enabled: isNetworkEnabled,
@@ -580,6 +582,27 @@
       <!-- Options -->
       <div class="space-y-4 pt-2 border-t border-white/6">
         <h3 class="text-sm font-bold text-white">Options</h3>
+
+        <!-- Discovery visibility -->
+        <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+          <div class="flex items-start gap-3">
+            <Globe size={16} class="text-emerald-400 mt-0.5 shrink-0" />
+            <div>
+              <p class="text-sm font-semibold text-white">Show in discovery</p>
+              <p class="text-xs text-ink-500 mt-0.5">{isPublic ? 'Public — anyone can find this event on the discovery page.' : 'Private — this event will not appear on the discovery page.'}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onclick={() => (isPublic = !isPublic)}
+            class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isPublic ? 'bg-emerald-500' : 'bg-white/10'}"
+            role="switch"
+            aria-checked={isPublic}
+            aria-label="Show in discovery"
+          >
+            <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isPublic ? 'translate-x-5' : 'translate-x-0'}"></span>
+          </button>
+        </div>
 
         <!-- Enable Networking -->
         <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">

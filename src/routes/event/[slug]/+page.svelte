@@ -1126,6 +1126,7 @@
   let settingsStartTime = currentEvent?.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : '';
   let settingsEndTime = currentEvent?.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
   let settingsIsApprovalRequired = Boolean(currentEvent?.is_approval_required);
+  let settingsIsPublic = currentEvent?.is_public !== false;
   let settingsIsVenueEnabled = currentEvent?.is_venue_enabled !== false;
   let settingsIsNetworkEnabled = Boolean(currentEvent?.is_network_enabled);
   let settingsIsAnnouncementsEnabled = currentEvent?.is_announcements_enabled !== false;
@@ -1140,6 +1141,7 @@
     settingsStartTime = currentEvent.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : '';
     settingsEndTime = currentEvent.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
     settingsIsApprovalRequired = Boolean(currentEvent.is_approval_required);
+    settingsIsPublic = currentEvent.is_public !== false;
     settingsIsVenueEnabled = currentEvent.is_venue_enabled !== false;
     settingsIsNetworkEnabled = Boolean(currentEvent.is_network_enabled);
     settingsIsAnnouncementsEnabled = currentEvent.is_announcements_enabled !== false;
@@ -1454,6 +1456,7 @@
           event_format: settingsEventFormat,
           start_time: settingsStartTime ? new Date(settingsStartTime).toISOString() : null,
           end_time: settingsEndTime ? new Date(settingsEndTime).toISOString() : null,
+          is_public: settingsIsPublic,
           is_approval_required: settingsIsApprovalRequired,
           is_venue_enabled: settingsIsVenueEnabled,
           is_network_enabled: settingsIsNetworkEnabled,
@@ -6418,6 +6421,28 @@
                 <!-- Options Toggles -->
                 <div class="space-y-4 pt-2 border-t border-white/6">
                   <h3 class="text-sm font-bold text-white">Options</h3>
+
+                  <!-- Discovery visibility -->
+                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+                    <div class="flex items-start gap-3">
+                      <Globe size={16} class="text-emerald-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p class="text-sm font-semibold text-white">Show in discovery</p>
+                        <p class="text-xs text-ink-500 mt-0.5">{settingsIsPublic ? 'Public — anyone can find this event on the discovery page.' : 'Private — this event will not appear on the discovery page.'}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isEventEnded}
+                      onclick={() => (settingsIsPublic = !settingsIsPublic)}
+                      class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsPublic ? 'bg-emerald-500' : 'bg-white/10'} disabled:opacity-50"
+                      role="switch"
+                      aria-checked={settingsIsPublic}
+                      aria-label="Show in discovery"
+                    >
+                      <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsPublic ? 'translate-x-5' : 'translate-x-0'}"></span>
+                    </button>
+                  </div>
 
                   <!-- Enable Networking -->
                   <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">

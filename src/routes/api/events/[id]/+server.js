@@ -117,6 +117,9 @@ export async function PUT({ request, params, locals }) {
   if (body?.event_format && ['online', 'offline', 'hybrid'].includes(body.event_format)) {
     updatePayload.event_format = body.event_format;
   }
+  if (body?.is_public !== undefined) {
+    updatePayload.is_public = Boolean(body.is_public);
+  }
   if (body?.is_approval_required !== undefined) {
     updatePayload.is_approval_required = Boolean(body.is_approval_required);
   }

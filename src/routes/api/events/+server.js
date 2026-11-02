@@ -9,7 +9,7 @@ function slugify(input) {
     .replace(/^-+|-+$/g, '');
 }
 
-const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_format, attendees_count, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
+const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_format, attendees_count, is_public, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
 
 export async function POST({ request, locals }) {
   if (!locals.user) {
@@ -47,6 +47,7 @@ export async function POST({ request, locals }) {
   const location = body?.location?.trim() || null;
   const google_map_url = body?.google_map_url?.trim() || null;
   const event_format = ['online', 'offline', 'hybrid'].includes(body?.event_format) ? body.event_format : 'offline';
+  const is_public = body?.is_public !== undefined ? Boolean(body.is_public) : true;
   const is_approval_required = Boolean(body?.is_approval_required);
   const is_venue_enabled = body?.is_venue_enabled !== undefined ? Boolean(body.is_venue_enabled) : true;
   const is_network_enabled = Boolean(body?.is_network_enabled);
@@ -80,6 +81,7 @@ export async function POST({ request, locals }) {
       location,
       google_map_url,
       event_format,
+      is_public,
       is_approval_required,
       is_venue_enabled,
       is_network_enabled,
@@ -178,7 +180,8 @@ export async function GET({ url, locals }) {
       const limit = Math.max(1, parseInt(url.searchParams.get('limit') || '9', 10));
 
       let query = admin.from('events')
-        .select(SELECT_FIELDS);
+        .select(SELECT_FIELDS)
+        .eq('is_public', true);
 
       // Text search
       if (q) {

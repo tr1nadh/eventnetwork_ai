@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { CalendarHeart, Check, ChevronRight, LoaderCircle, Lock, MessageCircle, X } from "@lucide/svelte";
+  import { ArrowLeft, CalendarHeart, Check, ChevronRight, LoaderCircle, Lock, MessageCircle, X } from "@lucide/svelte";
   import PageShell from "$lib/components/page-shell.svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import ConnectionChatWindow from "$lib/components/connection-chat-window.svelte";
@@ -103,6 +103,12 @@
     selectedRequest = { ...connection, type };
   }
 
+  function returnToPeople() {
+    selectedConnection = null;
+    selectedHistory = [];
+    selectedRequest = null;
+  }
+
   async function updateRequest(status) {
     if (!selectedRequest || updatingRequest) return;
     updatingRequest = true;
@@ -128,8 +134,8 @@
 <PageShell user={data.user}>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
   <main class="-mt-8 min-h-screen">
-    <div class="grid min-h-screen overflow-hidden bg-[#111216] lg:grid-cols-[340px_minmax(0,1fr)]">
-      <aside class="flex min-h-0 flex-col border-b border-white/10 bg-[#15161a] lg:border-b-0 lg:border-r">
+    <div class="grid min-h-[calc(100dvh-4.5rem)] overflow-hidden bg-[#111216] lg:min-h-screen lg:grid-cols-[340px_minmax(0,1fr)]">
+      <aside class="{selectedConnection || selectedRequest ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col border-b border-white/10 bg-[#15161a] lg:border-b-0 lg:border-r">
         <div class="min-h-0 flex-1 overflow-y-auto">
           {#if loadingConnections}
             <div class="flex justify-center py-12 text-sm text-ink-400"><LoaderCircle size={16} class="mr-2 animate-spin" /> Loading people</div>
@@ -162,7 +168,10 @@
         </div>
         {#if connectionsHasMore}<div class="border-t border-white/8 p-3"><Button variant="outline" class="w-full border-white/10" disabled={loadingMoreConnections} onclick={loadMoreConnections}>{loadingMoreConnections ? "Loading…" : "Load more"}</Button></div>{/if}
       </aside>
-      <section class="min-h-[620px] bg-[#101114]">
+      <section class="{selectedConnection || selectedRequest ? 'block' : 'hidden lg:block'} min-h-[calc(100dvh-4.5rem)] bg-[#101114] lg:min-h-[620px]">
+        <button type="button" class="flex w-full items-center gap-2 border-b border-white/8 bg-[#15161a] px-4 py-3 text-sm font-medium text-ink-300 hover:bg-white/5 lg:hidden" onclick={returnToPeople}>
+          <ArrowLeft size={16} /> People
+        </button>
         {#if selectedConnection}
           <ConnectionChatWindow connection={selectedConnection} currentUserId={data.user?.id} history={selectedHistory} />
         {:else if selectedRequest}

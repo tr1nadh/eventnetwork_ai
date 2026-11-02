@@ -386,6 +386,10 @@
 
     if (!data.user?.id) return;
 
+    if (data.isOrganizer && currentEvent?.is_approval_required) {
+      fetchRequests();
+    }
+
     if (data.isParticipant) {
       fetchAllConnections();
       fetchAttendees();
@@ -577,6 +581,18 @@
   let requestsList = [];
   let loadingRequests = false;
   $: pendingRequestsCount = requestsList.length;
+  $: displayedAttendees = (() => {
+    const list = attendeeStatusFilter === 'waitlisted' ? requestsList : attendeesList;
+    if (!attendeeSearchQuery.trim()) return list;
+    const q = attendeeSearchQuery.trim().toLowerCase();
+    return list.filter((a) =>
+      a.name?.toLowerCase().includes(q) ||
+      a.role?.toLowerCase().includes(q) ||
+      a.about?.toLowerCase().includes(q) ||
+      a.looking_for?.toLowerCase().includes(q)
+    );
+  })();
+  $: isCurrentFilterLoading = attendeeStatusFilter === 'waitlisted' ? loadingRequests : loadingAttendees;
   let savingProfile = false;
   let pageLoading = true; // Start true so skeleton UI shows until mounted
   let refreshingMatches = false;
@@ -1813,7 +1829,7 @@
     loadingAttendees = true;
     try {
       const q = encodeURIComponent(query.trim());
-      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}&status=${attendeeStatusFilter}`, {
+      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}&status=joined`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch attendees");
@@ -1828,10 +1844,6 @@
 
   function handleAttendeeSearchInput(e) {
     attendeeSearchQuery = e.target.value;
-    if (attendeeSearchTimeout) clearTimeout(attendeeSearchTimeout);
-    attendeeSearchTimeout = setTimeout(() => {
-      fetchAttendees(attendeeSearchQuery);
-    }, 300);
   }
 
   async function handleConnectAttendee(attendee) {
@@ -2061,13 +2073,12 @@
         throw new Error(errJson.message || errJson.error || 'Failed to approve');
       }
       requestsList = requestsList.filter((r) => r.user_id !== userId);
-      attendeesList = attendeesList.filter((a) => a.user_id !== userId);
       if (currentEvent) {
         currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
         currentEvent = { ...currentEvent };
       }
       toast.success('Request approved');
-      fetchAttendees(); // refresh joined list
+      fetchAttendees(); // refresh joined list in background
     } catch (e) {
       console.error('Approve error:', e);
       toast.error(e.message || 'Could not approve request');
@@ -2088,9 +2099,7 @@
         throw new Error(errJson.message || errJson.error || 'Failed to reject');
       }
       requestsList = requestsList.filter((r) => r.user_id !== userId);
-      attendeesList = attendeesList.filter((a) => a.user_id !== userId);
       toast.info('Request rejected');
-      fetchAttendees();
     } catch (e) {
       console.error('Reject error:', e);
       toast.error(e.message || 'Could not reject request');
@@ -3421,30 +3430,19 @@
                   class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
                 >
                   <Users size={16} />
-                  <span class="flex items-center gap-1.5"
-                    >Attendees {#if attendeesList.length || currentEvent.attendees_count}<span
-                        class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300"
-                        >{attendeesList.length || currentEvent.attendees_count}</span
-                      >
-                    {/if}</span
-                  >
+                  <span class="flex items-center gap-1.5">
+                    Attendees
+                    {#if currentEvent.is_approval_required && pendingRequestsCount > 0}
+                      <span class="rounded-full bg-amber-400 text-slate-950 px-1.5 py-0.5 text-[10px] font-black shadow-sm flex items-center gap-1">
+                        <Clock size={10} class="inline" />{pendingRequestsCount}
+                      </span>
+                    {:else if attendeesList.length || currentEvent.attendees_count}
+                      <span class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">
+                        {attendeesList.length || currentEvent.attendees_count}
+                      </span>
+                    {/if}
+                  </span>
                 </Tabs.Trigger>
-
-                {#if currentEvent.is_approval_required}
-                  <Tabs.Trigger
-                    value="requests"
-                    onclick={() => { if (requestsList.length === 0) fetchRequests(); }}
-                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
-                  >
-                    <Clock size={16} />
-                    <span class="flex items-center gap-1.5">
-                      Requests
-                      {#if pendingRequestsCount > 0}
-                        <span class="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">{pendingRequestsCount}</span>
-                      {/if}
-                    </span>
-                  </Tabs.Trigger>
-                {/if}
 
                 <Tabs.Trigger
                   value="timeline"
@@ -3807,16 +3805,24 @@
                   {#if currentEvent.is_approval_required && data.isOrganizer && ownerViewMode === 'organizer'}
                     <div class="flex gap-2 mt-3">
                       <button
-                        onclick={() => { attendeeStatusFilter = 'joined'; fetchAttendees(); }}
+                        type="button"
+                        onclick={() => { attendeeStatusFilter = 'joined'; }}
                         class="px-3 py-1 rounded-full text-xs font-semibold border transition-all {attendeeStatusFilter === 'joined' ? 'bg-emerald-400/15 text-emerald-300 border-emerald-400/30' : 'border-white/10 text-ink-400 hover:text-white'}"
                       >
                         <CheckCheck size={11} class="inline-block mr-1" />Joined
+                        {#if attendeesList.length > 0}
+                          <span class="ml-1 text-[10px] opacity-70">({attendeesList.length})</span>
+                        {/if}
                       </button>
                       <button
-                        onclick={() => { attendeeStatusFilter = 'waitlisted'; fetchAttendees(); }}
+                        type="button"
+                        onclick={() => { attendeeStatusFilter = 'waitlisted'; fetchRequests(); }}
                         class="px-3 py-1 rounded-full text-xs font-semibold border transition-all {attendeeStatusFilter === 'waitlisted' ? 'bg-amber-400/15 text-amber-300 border-amber-400/30' : 'border-white/10 text-ink-400 hover:text-white'}"
                       >
                         <Clock size={11} class="inline-block mr-1" />Pending
+                        {#if pendingRequestsCount > 0}
+                          <span class="ml-1.5 bg-amber-400 text-slate-950 rounded-full px-1.5 py-0.2 text-[10px] font-black">{pendingRequestsCount}</span>
+                        {/if}
                       </button>
                     </div>
                   {/if}
@@ -3840,20 +3846,26 @@
                     variant="outline"
                     size="icon"
                     class="h-9 w-9 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 shrink-0"
-                    onclick={() => fetchAttendees()}
-                    disabled={loadingAttendees}
+                    onclick={() => {
+                      if (attendeeStatusFilter === 'waitlisted') {
+                        fetchRequests();
+                      } else {
+                        fetchAttendees();
+                      }
+                    }}
+                    disabled={isCurrentFilterLoading}
                     title="Refresh Attendees"
                   >
                     <RefreshCw
                       size={15}
-                      class={loadingAttendees ? "animate-spin" : ""}
+                      class={isCurrentFilterLoading ? "animate-spin" : ""}
                     />
                   </Button>
                 </div>
               </div>
 
               <!-- Attendees Grid / Skeleton / Empty state -->
-              {#if loadingAttendees && !attendeesList.length}
+              {#if isCurrentFilterLoading && !displayedAttendees.length}
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {#each Array(6) as _}
                     <div
@@ -3871,19 +3883,27 @@
                     </div>
                   {/each}
                 </div>
-              {:else if attendeesList.length === 0}
+              {:else if displayedAttendees.length === 0}
                 <div
                   class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"
                 >
                   <div
                     class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
                   >
-                    <Ghost size={28} class="text-ink-500" />
+                    {#if attendeeStatusFilter === 'waitlisted'}
+                      <CheckCheck size={28} class="text-ink-500" />
+                    {:else}
+                      <Ghost size={28} class="text-ink-500" />
+                    {/if}
                   </div>
-                  <h3 class="text-white font-bold mb-1">No attendees found</h3>
+                  <h3 class="text-white font-bold mb-1">
+                    {attendeeStatusFilter === 'waitlisted' ? 'No pending requests' : 'No attendees found'}
+                  </h3>
                   <p class="text-sm text-ink-400 max-w-sm mb-4">
                     {#if attendeeSearchQuery}
                       No participants match "{attendeeSearchQuery}". Try a different search term.
+                    {:else if attendeeStatusFilter === 'waitlisted'}
+                      All join requests have been reviewed, or no pending requests have arrived yet.
                     {:else}
                       No joined attendees yet. Share this event link to get participants to join!
                     {/if}
@@ -3894,7 +3914,6 @@
                       size="sm"
                       onclick={() => {
                         attendeeSearchQuery = "";
-                        fetchAttendees("");
                       }}
                     >
                       Clear Search
@@ -3903,7 +3922,7 @@
                 </div>
               {:else}
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {#each attendeesList as attendee (attendee.user_id)}
+                  {#each displayedAttendees as attendee (attendee.user_id)}
                     <div
                       class="glass card-hover rounded-2xl border border-white/8 p-5 flex flex-col justify-between space-y-4 relative overflow-hidden"
                     >
@@ -4046,105 +4065,6 @@
               {/if}
             </div>
           </Tabs.Content>
-
-          <!-- Requests tab — only shown to organizer when approval required -->
-          {#if currentEvent.is_approval_required && data.isOrganizer && ownerViewMode === 'organizer'}
-            <Tabs.Content value="requests" class="mt-4">
-              <div class="space-y-6">
-                <div class="glass rounded-2xl border border-white/8 p-5 sm:p-6">
-                  <div class="flex items-center justify-between gap-4 flex-wrap">
-                    <div>
-                      <div class="flex items-center gap-2 mb-1">
-                        <Clock size={18} class="text-amber-400" />
-                        <h2 class="text-xl font-bold text-white">Join Requests</h2>
-                      </div>
-                      <p class="text-xs text-ink-400">Approve or reject pending attendee requests for {currentEvent.name}.</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      class="border-white/10 text-ink-300 hover:text-white hover:bg-white/10"
-                      onclick={fetchRequests}
-                      disabled={loadingRequests}
-                    >
-                      <RefreshCw size={14} class={loadingRequests ? 'animate-spin' : ''} />
-                      Refresh
-                    </Button>
-                  </div>
-                </div>
-
-                {#if loadingRequests && !requestsList.length}
-                  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {#each Array(3) as _}
-                      <div class="glass rounded-2xl border border-white/8 p-5 space-y-4 animate-pulse">
-                        <div class="flex items-center gap-3">
-                          <div class="h-12 w-12 rounded-full bg-white/10"></div>
-                          <div class="space-y-2 flex-1">
-                            <div class="h-4 w-28 rounded bg-white/10"></div>
-                            <div class="h-3 w-20 rounded bg-white/10"></div>
-                          </div>
-                        </div>
-                        <div class="flex gap-2">
-                          <div class="h-9 rounded bg-white/10 flex-1"></div>
-                          <div class="h-9 rounded bg-white/10 flex-1"></div>
-                        </div>
-                      </div>
-                    {/each}
-                  </div>
-                {:else if requestsList.length === 0}
-                  <div class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center">
-                    <div class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                      <CheckCheck size={28} class="text-ink-500" />
-                    </div>
-                    <h3 class="text-white font-bold mb-1">No pending requests</h3>
-                    <p class="text-sm text-ink-400 max-w-sm">All join requests have been reviewed, or no new requests have come in.</p>
-                    <Button variant="outline" size="sm" class="mt-4 border-white/10 text-ink-300 hover:text-white" onclick={fetchRequests}>
-                      Check again
-                    </Button>
-                  </div>
-                {:else}
-                  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {#each requestsList as requester (requester.user_id)}
-                      <div class="glass rounded-2xl border border-amber-400/15 p-5 space-y-4 hover:border-amber-400/30 transition-colors">
-                        <div class="flex items-start gap-3">
-                          <div class="h-11 w-11 rounded-full bg-gradient-to-br from-amber-400/20 to-white/5 border border-white/10 flex items-center justify-center shrink-0 text-lg font-bold text-amber-300">
-                            {requester.name?.charAt(0)?.toUpperCase() ?? '?'}
-                          </div>
-                          <div class="min-w-0 flex-1">
-                            <p class="font-semibold text-white text-sm truncate">{requester.name}</p>
-                            <p class="text-xs text-ink-400 truncate">{requester.role}</p>
-                          </div>
-                          <span class="shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">Pending</span>
-                        </div>
-                        {#if requester.about}
-                          <p class="text-xs text-ink-400 line-clamp-2">{requester.about}</p>
-                        {/if}
-                        <div class="flex gap-2 pt-1">
-                          <Button
-                            size="sm"
-                            class="flex-1 h-9 text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/50"
-                            onclick={() => approveRequest(requester.user_id)}
-                          >
-                            <CheckCheck size={13} />
-                            Approve
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            class="flex-1 h-9 text-xs font-semibold border-white/10 text-ink-400 hover:text-rose-300 hover:border-rose-400/30 hover:bg-rose-400/10"
-                            onclick={() => rejectRequest(requester.user_id)}
-                          >
-                            <X size={13} />
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            </Tabs.Content>
-          {/if}
 
           <!-- Analytics tab -->
           <Tabs.Content value="analytics" class="mt-4">

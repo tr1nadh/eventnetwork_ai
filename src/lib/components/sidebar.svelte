@@ -92,6 +92,7 @@
       active: () => isNetworkCards,
     },
   ];
+  $: mobileNavItems = [navItems[0], navItems[1], navItems[4], navItems[2], navItems[3]];
 </script>
 
 <!-- ── Desktop Sidebar (hidden on mobile) ── -->
@@ -223,10 +224,11 @@
 
 <!-- ── Mobile Bottom Bar ── -->
 <nav class="mobile-bar" aria-label="Mobile navigation">
-  {#each navItems as item}
+  {#each mobileNavItems as item}
     <button
       class="mobile-item"
       class:active={item.active()}
+      class:mobile-network-card={item.href === "/network-card"}
       onclick={() => goto(item.href)}
       aria-label={item.label}
     >
@@ -628,12 +630,38 @@
       background: none;
       border: none;
       cursor: pointer;
-      padding: 0.3rem 0.75rem;
+      padding: 0.3rem 0.45rem;
       border-radius: 0.5rem;
       transition: color 150ms;
       text-decoration: none;
       font-family: inherit;
       line-height: 1.2;
+    }
+    :global(.mobile-item.mobile-network-card) {
+      position: relative;
+      z-index: 1;
+      min-width: 3.75rem;
+      margin-top: -1.65rem;
+      padding: 0;
+      color: #e9d5ff;
+    }
+    :global(.mobile-item.mobile-network-card svg) {
+      width: 25px;
+      height: 25px;
+      padding: 0.85rem;
+      box-sizing: content-box;
+      border: 1px solid rgba(196, 181, 253, 0.38);
+      border-radius: 9999px;
+      background: linear-gradient(145deg, #7c3aed, #4f46e5);
+      box-shadow: 0 10px 22px rgba(79, 70, 229, 0.42), 0 0 0 5px rgba(5, 8, 22, 0.95);
+    }
+    :global(.mobile-item.mobile-network-card span) {
+      margin-top: 0.2rem;
+      font-weight: 700;
+    }
+    :global(.mobile-item.mobile-network-card.active),
+    :global(.mobile-item.mobile-network-card:hover) {
+      color: white;
     }
     :global(.mobile-item.active),
     :global(.mobile-item:hover),

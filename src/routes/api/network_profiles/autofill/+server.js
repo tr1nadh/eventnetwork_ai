@@ -132,6 +132,11 @@ Rules:
 		}
 
 		if (!res.ok) {
+			if (res.status === 401) {
+				throw new Error(
+					'AI profile generation is unavailable because the configured Fireworks API key is invalid. Update FIREWORKS_API_KEY in your server environment and restart the app.'
+				);
+			}
 			const errorText = await res.text();
 			throw new Error(`Fireworks API Error (${res.status}): ${errorText}`);
 		}

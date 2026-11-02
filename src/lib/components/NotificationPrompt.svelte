@@ -138,8 +138,8 @@
 
   @media (max-width: 767px) {
     .notif-wrap {
-      top: auto;
-      bottom: 5.5rem;
+      top: 0.75rem;
+      bottom: auto;
       right: 0.75rem;
     }
   }

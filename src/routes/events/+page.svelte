@@ -194,7 +194,7 @@
 <PageShell>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
 
-  <main class="mx-auto max-w-4xl px-4 pb-20 sm:px-6">
+  <main class="w-full px-4 pb-20 sm:px-6 lg:px-8">
     <!-- Page header -->
     <div
       class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-slide-up"

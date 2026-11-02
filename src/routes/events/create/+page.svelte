@@ -350,7 +350,7 @@
       }
 
       toast.success('Event created', {
-        description: 'Your new event is now available in your dashboard.',
+        description: 'Your new event is now available in My Events.',
       });
       await goto('/events');
       return true;

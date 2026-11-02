@@ -340,8 +340,8 @@
         backLabel = "Back to events";
         try { sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl); } catch (_) {}
       } else if (decoded === "dashboard" || decoded.startsWith("/dashboard")) {
-        backUrl = decoded.startsWith("/") ? decoded : "/dashboard";
-        backLabel = "Back to dashboard";
+        backUrl = "/events";
+        backLabel = "Back to My Events";
         try { sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl); } catch (_) {}
       }
     } catch (_) {}

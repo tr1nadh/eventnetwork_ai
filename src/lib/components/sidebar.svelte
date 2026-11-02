@@ -11,7 +11,6 @@
     ChevronLeft,
     ChevronRight,
     Cpu,
-    LayoutDashboard,
     Compass,
     ContactRound,
   } from "@lucide/svelte";
@@ -42,8 +41,6 @@
   $: collapsed = $sidebarCollapsed;
 
   $: currentPath = $page?.url?.pathname ?? "";
-  $: isDashboard =
-    currentPath === "/dashboard" || currentPath === "/dashboard/";
   $: isEvents = currentPath === "/events" || currentPath === "/events/";
   $: isDiscover = currentPath === "/discover" || currentPath === "/discover/";
   $: isCreate = currentPath.startsWith("/events/create");
@@ -61,12 +58,6 @@
   }
 
   $: navItems = [
-    {
-      label: "Dashboard",
-      icon: LayoutDashboard,
-      href: "/dashboard",
-      active: () => isDashboard,
-    },
     {
       label: "Events",
       icon: Calendar,
@@ -92,7 +83,7 @@
       active: () => isNetworkCards,
     },
   ];
-  $: mobileNavItems = [navItems[0], navItems[1], navItems[4], navItems[2], navItems[3]];
+  $: mobileNavItems = [navItems[0], navItems[1], navItems[3], navItems[2]];
 </script>
 
 <!-- ── Desktop Sidebar (hidden on mobile) ── -->
@@ -640,20 +631,20 @@
     :global(.mobile-item.mobile-network-card) {
       position: relative;
       z-index: 1;
-      min-width: 3.75rem;
-      margin-top: -1.65rem;
+      min-width: 3.25rem;
+      margin-top: -1.15rem;
       padding: 0;
       color: #e9d5ff;
     }
     :global(.mobile-item.mobile-network-card svg) {
-      width: 25px;
-      height: 25px;
-      padding: 0.85rem;
+      width: 20px;
+      height: 20px;
+      padding: 0.65rem;
       box-sizing: content-box;
       border: 1px solid rgba(196, 181, 253, 0.38);
       border-radius: 9999px;
       background: linear-gradient(145deg, #7c3aed, #4f46e5);
-      box-shadow: 0 10px 22px rgba(79, 70, 229, 0.42), 0 0 0 5px rgba(5, 8, 22, 0.95);
+      box-shadow: 0 7px 16px rgba(79, 70, 229, 0.34), 0 0 0 4px rgba(5, 8, 22, 0.95);
     }
     :global(.mobile-item.mobile-network-card span) {
       margin-top: 0.2rem;

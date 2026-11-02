@@ -6,7 +6,6 @@
     Sparkles,
     UserCircle2,
     LayoutGrid,
-    LayoutDashboard,
     Cpu,
   } from "@lucide/svelte";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
@@ -66,13 +65,6 @@
       {#if user}
         <!-- Quick nav links on desktop -->
         <div class="hidden md:flex items-center gap-1">
-          <button
-            onclick={() => goto("/dashboard")}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-ink-300 transition hover:bg-white/8 hover:text-white"
-          >
-            <LayoutDashboard size={14} />
-            Dashboard
-          </button>
           <button
             onclick={() => goto("/events")}
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-ink-300 transition hover:bg-white/8 hover:text-white"

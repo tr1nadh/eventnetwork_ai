@@ -44,6 +44,10 @@
   let signingOut = false;
   let copiedSlug = null;
 
+  function eventImageSrc(path) {
+    return path ? `/api/events/images?path=${encodeURIComponent(path)}` : "";
+  }
+
   // Filter states — initialised from URL (returned by server)
   let filterOnline = data.format === 'online';
   let filterOffline = data.format === 'offline';
@@ -1191,6 +1195,11 @@
                 : status === 'completed'
                 ? 'bg-slate-700/60'
                 : 'accent-discover'}"></div>
+              {#if event.event_banner_url}
+                <img src={eventImageSrc(event.event_banner_url)} alt="" class="h-28 w-full object-cover" />
+              {:else}
+                <div class="flex h-28 items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 text-indigo-200"><CalendarClock size={22} /></div>
+              {/if}
 
               <!-- Card body -->
               <div class="card-body">
@@ -1253,7 +1262,14 @@
                 </div>
 
                 <!-- Title -->
-                <h2 class="card-title">{event.name}</h2>
+                <div class="mb-2 flex items-center gap-2">
+                  {#if event.event_logo_url}
+                    <img src={eventImageSrc(event.event_logo_url)} alt="" class="h-8 w-8 rounded-lg object-cover" />
+                  {:else}
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-200"><CalendarClock size={15} /></div>
+                  {/if}
+                  <h2 class="card-title mb-0">{event.name}</h2>
+                </div>
 
                 <!-- Description -->
                 <p class="card-desc">

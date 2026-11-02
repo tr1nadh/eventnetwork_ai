@@ -68,6 +68,10 @@
   let eventFormat = 'offline';
   let location = '';
   let googleMapUrl = '';
+  let logoFile = null;
+  let bannerFile = null;
+  let logoPreview = '';
+  let bannerPreview = '';
   let isPublic = true;
   let allowJoinAfterStart = true;
   let isApprovalRequired = false;
@@ -268,9 +272,35 @@
   let creatingEvent = false;
   let createError = null;
 
+  function selectImage(event, type) {
+    const file = event.currentTarget.files?.[0] ?? null;
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      createError = 'Use a JPG, PNG, or WebP image smaller than 2 MB.';
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    if (type === 'logo') { logoFile = file; logoPreview = preview; } else { bannerFile = file; bannerPreview = preview; }
+  }
+
+  async function uploadEventImage(file, type) {
+    const formData = new FormData();
+    formData.set('file', file);
+    formData.set('type', type);
+    formData.set('slug', resolvedSlug);
+    const res = await fetch('/api/events/images', { method: 'POST', body: formData });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || 'Could not upload event image.');
+    return payload.url;
+  }
+
   async function createEvent() {
     if (!name.trim()) {
       createError = 'Event name is required.';
+      return false;
+    }
+    if (!logoFile) {
+      createError = 'Please add a square event logo.';
       return false;
     }
     if (isTimeInvalid) return false;
@@ -279,6 +309,10 @@
     createError = null;
 
     try {
+      const [eventLogoUrl, eventBannerUrl] = await Promise.all([
+        uploadEventImage(logoFile, 'logo'),
+        bannerFile ? uploadEventImage(bannerFile, 'banner') : Promise.resolve(null)
+      ]);
       const response = await fetch('/api/events', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -291,6 +325,8 @@
           event_format: eventFormat,
           location: location.trim() || null,
           google_map_url: googleMapUrl.trim() || null,
+          event_logo_url: eventLogoUrl,
+          event_banner_url: eventBannerUrl,
           is_public: isPublic,
           allow_join_after_start: allowJoinAfterStart,
           is_approval_required: isApprovalRequired,
@@ -417,6 +453,22 @@
           </button>
         </div>
         <p class="text-[11px] text-ink-500">Unique identifier for your event URL.</p>
+      </div>
+
+      <!-- Event images -->
+      <div class="space-y-4 border-t border-white/6 pt-5">
+        <div><h3 class="text-sm font-bold text-white">Event images</h3><p class="text-xs text-ink-500 mt-0.5">Logo is required. Banner is optional.</p></div>
+        <div class="grid gap-4 sm:grid-cols-[160px_1fr]">
+          <label class="cursor-pointer rounded-xl border border-dashed border-indigo-400/30 bg-white/3 p-3 text-center hover:bg-white/5">
+            {#if logoPreview}<img src={logoPreview} alt="Event logo preview" class="mx-auto aspect-square w-full rounded-lg object-cover" />{:else}<div class="flex aspect-square items-center justify-center text-xs text-ink-400">Add logo<br />(1:1)</div>{/if}
+            <span class="mt-2 block text-xs font-semibold text-indigo-300">Event logo *</span><input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onchange={(event) => selectImage(event, 'logo')} />
+          </label>
+          <label class="cursor-pointer rounded-xl border border-dashed border-cyan-400/25 bg-white/3 p-3 hover:bg-white/5">
+            {#if bannerPreview}<img src={bannerPreview} alt="Event banner preview" class="aspect-video w-full rounded-lg object-cover" />{:else}<div class="flex aspect-video items-center justify-center rounded-lg bg-white/4 text-xs text-ink-400">Add optional banner (16:9)</div>{/if}
+            <span class="mt-2 block text-xs font-semibold text-cyan-300">Event banner</span><input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onchange={(event) => selectImage(event, 'banner')} />
+          </label>
+        </div>
+        <p class="text-[11px] text-ink-500">JPG, PNG, or WebP · maximum 2 MB · logo 512 × 512 · banner 1600 × 900.</p>
       </div>
 
       <!-- Format -->

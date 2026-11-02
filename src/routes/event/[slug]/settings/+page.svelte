@@ -68,6 +68,13 @@
   let location = event?.location ?? '';
   let googleMapUrl = event?.google_map_url ?? '';
   let eventFormat = event?.event_format ?? 'offline';
+  let eventLogoUrl = event?.event_logo_url ?? '';
+  let eventBannerUrl = event?.event_banner_url ?? '';
+  let logoFile = null;
+  let bannerFile = null;
+  let logoPreview = eventLogoUrl;
+  let bannerPreview = eventBannerUrl;
+  let imagePathsToRemove = [];
   let isPublic = event?.is_public ?? true;
   let allowJoinAfterStart = event?.allow_join_after_start ?? true;
   function formatDatetimeLocal(dateInput) {
@@ -84,6 +91,10 @@
   let isVenueEnabled = event?.is_venue_enabled ?? true;
   let isNetworkEnabled = event?.is_network_enabled ?? false;
   let isAnnouncementsEnabled = event?.is_announcements_enabled ?? true;
+
+  function eventImageSrc(path) {
+    return path ? `/api/events/images?path=${encodeURIComponent(path)}` : '';
+  }
 
   // Split start & end time into Date and Time components for custom UX
   let startDate = startTime ? startTime.split('T')[0] : '';
@@ -283,6 +294,10 @@
     location,
     googleMapUrl,
     eventFormat,
+    eventLogoUrl,
+    eventBannerUrl,
+    logoPreview,
+    bannerPreview,
     isPublic,
     allowJoinAfterStart,
     startTime,
@@ -300,6 +315,10 @@
     location,
     googleMapUrl,
     eventFormat,
+    eventLogoUrl,
+    eventBannerUrl,
+    logoPreview,
+    bannerPreview,
     isPublic,
     allowJoinAfterStart,
     startTime,
@@ -368,6 +387,62 @@
   let deleting = false;
 
   let copiedSlug = false;
+
+  function selectImage(event, type) {
+    const file = event.currentTarget.files?.[0] ?? null;
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      toast.error('Use a JPG, PNG, or WebP image smaller than 2 MB.');
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    if (type === 'logo') {
+      logoFile = file;
+      logoPreview = preview;
+    } else {
+      bannerFile = file;
+      bannerPreview = preview;
+    }
+  }
+
+  async function uploadEventImage(file, type) {
+    const formData = new FormData();
+    formData.set('file', file);
+    formData.set('type', type);
+    formData.set('slug', slug);
+    const res = await fetch('/api/events/images', { method: 'POST', body: formData });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || 'Could not upload event image.');
+    return payload.url;
+  }
+
+  function queueImageRemoval(path) {
+    if (!path || path.startsWith('blob:')) return;
+    imagePathsToRemove = [...new Set([...imagePathsToRemove, path])];
+  }
+
+  function removeImage(type) {
+    if (type === 'logo') {
+      queueImageRemoval(eventLogoUrl);
+      eventLogoUrl = '';
+      logoFile = null;
+      logoPreview = '';
+    } else {
+      queueImageRemoval(eventBannerUrl);
+      eventBannerUrl = '';
+      bannerFile = null;
+      bannerPreview = '';
+    }
+  }
+
+  async function deleteEventImage(path) {
+    const res = await fetch('/api/events/images', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    if (!res.ok) throw new Error('Could not remove the old event image.');
+  }
   function copySlugUrl() {
     if (typeof window === 'undefined') return;
     const fullUrl = `${window.location.origin}/event/${slug}`;
@@ -383,6 +458,16 @@
     saveSuccess = false;
 
     try {
+      if (logoFile) {
+        queueImageRemoval(eventLogoUrl);
+        eventLogoUrl = await uploadEventImage(logoFile, 'logo');
+        logoPreview = eventLogoUrl;
+      }
+      if (bannerFile) {
+        queueImageRemoval(eventBannerUrl);
+        eventBannerUrl = await uploadEventImage(bannerFile, 'banner');
+        bannerPreview = eventBannerUrl;
+      }
       const res = await fetch(`/api/events/${event.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -394,6 +479,8 @@
           location,
           google_map_url: googleMapUrl,
           event_format: eventFormat,
+          event_logo_url: eventLogoUrl || null,
+          event_banner_url: eventBannerUrl || null,
           is_public: isPublic,
           allow_join_after_start: allowJoinAfterStart,
           start_time: startTime ? new Date(startTime).toISOString() : null,
@@ -419,6 +506,11 @@
       }
 
       saveSuccess = true;
+      const pathsToRemove = imagePathsToRemove;
+      imagePathsToRemove = [];
+      logoFile = null;
+      bannerFile = null;
+      await Promise.all(pathsToRemove.map((path) => deleteEventImage(path).catch(() => null)));
       initialFormSnapshot = currentFormSnapshot; // reset snapshot after successful save
       toast.success('Event updated successfully.');
 
@@ -565,6 +657,26 @@
           </button>
         </div>
         <p class="text-[11px] text-ink-500">Changing the slug will redirect to the new URL.</p>
+      </div>
+
+      <div class="space-y-4 border-t border-white/6 pt-5">
+        <div><h3 class="text-sm font-bold text-white">Event images</h3><p class="text-xs text-ink-500 mt-0.5">Square logo and optional 16:9 banner.</p></div>
+        <div class="grid gap-4 sm:grid-cols-[160px_1fr]">
+          <div class="space-y-2">
+            <label class="block cursor-pointer rounded-xl border border-dashed border-indigo-400/30 bg-white/3 p-3 text-center hover:bg-white/5 {isEventEnded ? 'pointer-events-none opacity-50' : ''}">
+              {#if logoPreview}<img src={logoPreview.startsWith('blob:') ? logoPreview : eventImageSrc(logoPreview)} alt="Event logo" class="mx-auto aspect-square w-full rounded-lg object-cover" />{:else}<div class="flex aspect-square items-center justify-center text-xs text-ink-400">Add logo<br />(1:1)</div>{/if}
+              <span class="mt-2 block text-xs font-semibold text-indigo-300">{logoPreview ? 'Replace logo' : 'Add logo'}</span><input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={isEventEnded} onchange={(event) => selectImage(event, 'logo')} />
+            </label>
+            {#if logoPreview}<button type="button" class="w-full text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50" disabled={isEventEnded} onclick={() => removeImage('logo')}>Remove logo</button>{/if}
+          </div>
+          <div class="space-y-2">
+            <label class="block cursor-pointer rounded-xl border border-dashed border-cyan-400/25 bg-white/3 p-3 hover:bg-white/5 {isEventEnded ? 'pointer-events-none opacity-50' : ''}">
+              {#if bannerPreview}<img src={bannerPreview.startsWith('blob:') ? bannerPreview : eventImageSrc(bannerPreview)} alt="Event banner" class="aspect-video w-full rounded-lg object-cover" />{:else}<div class="flex aspect-video items-center justify-center rounded-lg bg-white/4 text-xs text-ink-400">Add optional banner (16:9)</div>{/if}
+              <span class="mt-2 block text-xs font-semibold text-cyan-300">{bannerPreview ? 'Replace banner' : 'Add banner'}</span><input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={isEventEnded} onchange={(event) => selectImage(event, 'banner')} />
+            </label>
+            {#if bannerPreview}<button type="button" class="text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50" disabled={isEventEnded} onclick={() => removeImage('banner')}>Remove banner</button>{/if}
+          </div>
+        </div>
       </div>
 
       <!-- Format -->

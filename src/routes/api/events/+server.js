@@ -9,7 +9,7 @@ function slugify(input) {
     .replace(/^-+|-+$/g, '');
 }
 
-const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_format, attendees_count, is_public, allow_join_after_start, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
+const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_format, attendees_count, event_logo_url, event_banner_url, is_public, allow_join_after_start, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
 
 export async function POST({ request, locals }) {
   if (!locals.user) {
@@ -25,6 +25,10 @@ export async function POST({ request, locals }) {
   if (!name || !slug) {
     throw error(400, 'Name and ID are required.');
   }
+
+  const event_logo_url = body?.event_logo_url?.trim() || null;
+  const event_banner_url = body?.event_banner_url?.trim() || null;
+  if (!event_logo_url) throw error(400, 'An event logo is required.');
 
   const now = new Date();
   const startTimeDate = body?.start_time ? new Date(body.start_time) : now;
@@ -82,6 +86,8 @@ export async function POST({ request, locals }) {
       location,
       google_map_url,
       event_format,
+      event_logo_url,
+      event_banner_url,
       is_public,
       allow_join_after_start,
       is_approval_required,

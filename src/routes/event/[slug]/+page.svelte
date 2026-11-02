@@ -103,6 +103,10 @@
   const supabase = createSupabaseBrowserClient();
 
   export let data;
+
+  function eventImageSrc(path) {
+    return path ? `/api/events/images?path=${encodeURIComponent(path)}` : "";
+  }
   let realtimeChannel;
 
   // Announcements State & Reactive Handlers
@@ -1122,6 +1126,13 @@
   let settingsLocation = currentEvent?.location ?? '';
   let settingsGoogleMapUrl = currentEvent?.google_map_url ?? '';
   let settingsEventFormat = currentEvent?.event_format ?? 'offline';
+  let settingsLogoUrl = currentEvent?.event_logo_url ?? '';
+  let settingsBannerUrl = currentEvent?.event_banner_url ?? '';
+  let settingsLogoFile = null;
+  let settingsBannerFile = null;
+  let settingsLogoPreview = settingsLogoUrl;
+  let settingsBannerPreview = settingsBannerUrl;
+  let settingsImagePathsToRemove = [];
 
   let settingsStartTime = currentEvent?.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : '';
   let settingsEndTime = currentEvent?.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
@@ -1139,6 +1150,10 @@
     settingsLocation = currentEvent.location ?? '';
     settingsGoogleMapUrl = currentEvent.google_map_url ?? '';
     settingsEventFormat = currentEvent.event_format ?? 'offline';
+    settingsLogoUrl = currentEvent.event_logo_url ?? '';
+    settingsBannerUrl = currentEvent.event_banner_url ?? '';
+    settingsLogoPreview = settingsLogoUrl;
+    settingsBannerPreview = settingsBannerUrl;
     settingsStartTime = currentEvent.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : '';
     settingsEndTime = currentEvent.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
     settingsIsApprovalRequired = Boolean(currentEvent.is_approval_required);
@@ -1431,6 +1446,62 @@
   let settingsDeleting = false;
 
   let copiedSlug = false;
+
+  function selectSettingsImage(event, type) {
+    const file = event.currentTarget.files?.[0] ?? null;
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      toast.error('Use a JPG, PNG, or WebP image smaller than 2 MB.');
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    if (type === 'logo') {
+      settingsLogoFile = file;
+      settingsLogoPreview = preview;
+    } else {
+      settingsBannerFile = file;
+      settingsBannerPreview = preview;
+    }
+  }
+
+  async function uploadSettingsImage(file, type) {
+    const formData = new FormData();
+    formData.set('file', file);
+    formData.set('type', type);
+    formData.set('slug', settingsSlug);
+    const res = await fetch('/api/events/images', { method: 'POST', body: formData });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || 'Could not upload event image.');
+    return payload.url;
+  }
+
+  function queueSettingsImageRemoval(path) {
+    if (!path || path.startsWith('blob:')) return;
+    settingsImagePathsToRemove = [...new Set([...settingsImagePathsToRemove, path])];
+  }
+
+  function removeSettingsImage(type) {
+    if (type === 'logo') {
+      queueSettingsImageRemoval(settingsLogoUrl);
+      settingsLogoUrl = '';
+      settingsLogoFile = null;
+      settingsLogoPreview = '';
+    } else {
+      queueSettingsImageRemoval(settingsBannerUrl);
+      settingsBannerUrl = '';
+      settingsBannerFile = null;
+      settingsBannerPreview = '';
+    }
+  }
+
+  async function deleteSettingsImage(path) {
+    await fetch('/api/events/images', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+  }
+
   function copySlugUrl() {
     if (typeof window === 'undefined') return;
     const fullUrl = `${window.location.origin}/event/${settingsSlug}`;
@@ -1446,6 +1517,16 @@
     saveTabSettingsSuccess = false;
 
     try {
+      if (settingsLogoFile) {
+        queueSettingsImageRemoval(settingsLogoUrl);
+        settingsLogoUrl = await uploadSettingsImage(settingsLogoFile, 'logo');
+        settingsLogoPreview = settingsLogoUrl;
+      }
+      if (settingsBannerFile) {
+        queueSettingsImageRemoval(settingsBannerUrl);
+        settingsBannerUrl = await uploadSettingsImage(settingsBannerFile, 'banner');
+        settingsBannerPreview = settingsBannerUrl;
+      }
       const res = await fetch(`/api/events/${currentEvent.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1457,6 +1538,8 @@
           location: settingsLocation,
           google_map_url: settingsGoogleMapUrl,
           event_format: settingsEventFormat,
+          event_logo_url: settingsLogoUrl || null,
+          event_banner_url: settingsBannerUrl || null,
           start_time: settingsStartTime ? new Date(settingsStartTime).toISOString() : null,
           end_time: settingsEndTime ? new Date(settingsEndTime).toISOString() : null,
           is_public: settingsIsPublic,
@@ -1479,6 +1562,12 @@
       if (json?.event) {
         currentEvent = json.event;
       }
+
+      const pathsToRemove = settingsImagePathsToRemove;
+      settingsImagePathsToRemove = [];
+      settingsLogoFile = null;
+      settingsBannerFile = null;
+      await Promise.all(pathsToRemove.map((path) => deleteSettingsImage(path).catch(() => null)));
 
       saveTabSettingsSuccess = true;
       toast.success('Event settings updated successfully.');
@@ -2398,6 +2487,14 @@
           <div
             class="h-1 bg-gradient-to-r from-amber-400 via-amber-300/50 to-transparent"
           ></div>
+          {#if currentEvent.event_banner_url}
+            <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="h-48 w-full object-cover sm:h-64" />
+          {:else}
+            <div class="flex h-48 items-center justify-center gap-3 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 text-indigo-100 sm:h-64">
+              <Calendar size={30} class="text-amber-300" />
+              <span class="text-sm font-bold tracking-wide">{currentEvent.event_format === 'online' ? 'Online event' : 'Evenai networking event'}</span>
+            </div>
+          {/if}
           <div class="p-8 sm:p-10 space-y-8">
             <Badge
               variant="secondary"
@@ -2408,9 +2505,13 @@
             </Badge>
 
             <div>
-              <h1
-                class="text-4xl font-black tracking-tight text-white sm:text-6xl mb-4"
-              >
+              <div class="mb-4 flex items-center gap-4">
+                {#if currentEvent.event_logo_url}
+                  <img src={eventImageSrc(currentEvent.event_logo_url)} alt="" class="h-16 w-16 rounded-2xl object-cover sm:h-20 sm:w-20" />
+                {:else}
+                  <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-200 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20"><Calendar size={28} /></div>
+                {/if}
+                <h1 class="text-4xl font-black tracking-tight text-white sm:text-6xl">
                 {currentEvent.name}
                 {#if data.isParticipant}
                   <CheckCircle2
@@ -2418,7 +2519,8 @@
                     class="inline-block text-amber-400 ml-2"
                   />
                 {/if}
-              </h1>
+                </h1>
+              </div>
               <p class="text-lg leading-relaxed text-ink-300 max-w-2xl">
                 {currentEvent.description}
               </p>
@@ -2677,6 +2779,15 @@
               <!-- Top accent bar matching status -->
               <div class="h-1 w-full {isEventLive ? 'bg-gradient-to-r from-emerald-400 via-emerald-300 to-teal-400' : isEventEnded ? 'bg-gradient-to-r from-slate-500 via-slate-400/50 to-transparent' : 'bg-gradient-to-r from-amber-400 via-amber-300 to-orange-400'}"></div>
 
+              {#if currentEvent.event_banner_url}
+                <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="h-44 w-full object-cover sm:h-60" />
+              {:else}
+                <div class="flex h-44 items-center justify-center gap-3 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 text-indigo-100 sm:h-60">
+                  <Calendar size={30} class="text-amber-300" />
+                  <span class="text-sm font-bold tracking-wide">{currentEvent.event_format === 'online' ? 'Online event' : 'Evenai networking event'}</span>
+                </div>
+              {/if}
+
               <div class="p-6 sm:p-10 lg:p-12 space-y-6">
                 <!-- Badges Row -->
                 <div class="flex flex-wrap items-center gap-2.5">
@@ -2723,9 +2834,14 @@
                 </div>
 
                 <!-- Event Title -->
-                <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]">
-                  {currentEvent.name}
-                </h1>
+                <div class="flex items-center gap-4">
+                  {#if currentEvent.event_logo_url}
+                    <img src={eventImageSrc(currentEvent.event_logo_url)} alt="" class="h-16 w-16 shrink-0 rounded-2xl object-cover sm:h-20 sm:w-20" />
+                  {:else}
+                    <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-200 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20"><Calendar size={28} /></div>
+                  {/if}
+                  <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]">{currentEvent.name}</h1>
+                </div>
 
                 <!-- Live or Next Session Ticker -->
                 {#if liveSessions.length > 0}
@@ -3061,6 +3177,11 @@
           <div
             class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10 relative"
           >
+            {#if currentEvent.event_banner_url}
+              <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="mb-6 h-36 w-full rounded-2xl object-cover sm:h-48" />
+            {:else}
+              <div class="mb-6 flex h-36 items-center justify-center gap-3 rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950 text-indigo-100 sm:h-48"><Calendar size={28} class="text-amber-300" /><span class="text-sm font-bold tracking-wide">{currentEvent.event_format === 'online' ? 'Online event' : 'Evenai networking event'}</span></div>
+            {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
                 <div class="flex flex-wrap items-center justify-center gap-2">
@@ -3137,11 +3258,14 @@
 
                 </div>
 
-                <h1
-                  class="text-4xl sm:text-5xl font-black tracking-tight text-white"
-                >
-                  {currentEvent.name}
-                </h1>
+                <div class="flex items-center justify-center gap-4">
+                  {#if currentEvent.event_logo_url}
+                    <img src={eventImageSrc(currentEvent.event_logo_url)} alt="" class="h-14 w-14 shrink-0 rounded-2xl object-cover sm:h-16 sm:w-16" />
+                  {:else}
+                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-200 ring-1 ring-indigo-300/25 sm:h-16 sm:w-16"><Calendar size={24} /></div>
+                  {/if}
+                  <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{currentEvent.name}</h1>
+                </div>
 
                 {#if liveSessions.length > 0}
                   <div class="mt-4 w-full" transition:slide>
@@ -6265,6 +6389,39 @@
                     </button>
                   </div>
                   <p class="text-[11px] text-ink-500">Changing the slug will redirect to the new URL.</p>
+                </div>
+
+                <div class="space-y-4 border-t border-white/6 pt-5">
+                  <div>
+                    <h3 class="text-sm font-bold text-white">Event images</h3>
+                    <p class="text-xs text-ink-500 mt-0.5">Square logo and optional 16:9 banner. JPG, PNG, or WebP up to 2 MB.</p>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-[160px_1fr]">
+                    <div class="space-y-2">
+                      <label class="block cursor-pointer rounded-xl border border-dashed border-indigo-400/30 bg-white/3 p-3 text-center hover:bg-white/5 {isEventEnded ? 'pointer-events-none opacity-50' : ''}">
+                        {#if settingsLogoPreview}
+                          <img src={settingsLogoPreview.startsWith('blob:') ? settingsLogoPreview : eventImageSrc(settingsLogoPreview)} alt="Event logo" class="mx-auto aspect-square w-full rounded-lg object-cover" />
+                        {:else}
+                          <div class="flex aspect-square items-center justify-center text-xs text-ink-400">Add logo<br />(1:1)</div>
+                        {/if}
+                        <span class="mt-2 block text-xs font-semibold text-indigo-300">{settingsLogoPreview ? 'Replace logo' : 'Add logo'}</span>
+                        <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={isEventEnded} onchange={(event) => selectSettingsImage(event, 'logo')} />
+                      </label>
+                      {#if settingsLogoPreview}<button type="button" class="w-full text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50" disabled={isEventEnded} onclick={() => removeSettingsImage('logo')}>Remove logo</button>{/if}
+                    </div>
+                    <div class="space-y-2">
+                      <label class="block cursor-pointer rounded-xl border border-dashed border-cyan-400/25 bg-white/3 p-3 hover:bg-white/5 {isEventEnded ? 'pointer-events-none opacity-50' : ''}">
+                        {#if settingsBannerPreview}
+                          <img src={settingsBannerPreview.startsWith('blob:') ? settingsBannerPreview : eventImageSrc(settingsBannerPreview)} alt="Event banner" class="aspect-video w-full rounded-lg object-cover" />
+                        {:else}
+                          <div class="flex aspect-video items-center justify-center rounded-lg bg-white/4 text-xs text-ink-400">Add optional banner (16:9)</div>
+                        {/if}
+                        <span class="mt-2 block text-xs font-semibold text-cyan-300">{settingsBannerPreview ? 'Replace banner' : 'Add banner'}</span>
+                        <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={isEventEnded} onchange={(event) => selectSettingsImage(event, 'banner')} />
+                      </label>
+                      {#if settingsBannerPreview}<button type="button" class="text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50" disabled={isEventEnded} onclick={() => removeSettingsImage('banner')}>Remove banner</button>{/if}
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Format -->

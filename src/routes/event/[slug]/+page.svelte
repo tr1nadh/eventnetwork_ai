@@ -1127,6 +1127,7 @@
   let settingsEndTime = currentEvent?.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
   let settingsIsApprovalRequired = Boolean(currentEvent?.is_approval_required);
   let settingsIsPublic = currentEvent?.is_public !== false;
+  let settingsAllowJoinAfterStart = currentEvent?.allow_join_after_start !== false;
   let settingsIsVenueEnabled = currentEvent?.is_venue_enabled !== false;
   let settingsIsNetworkEnabled = Boolean(currentEvent?.is_network_enabled);
   let settingsIsAnnouncementsEnabled = currentEvent?.is_announcements_enabled !== false;
@@ -1142,6 +1143,7 @@
     settingsEndTime = currentEvent.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
     settingsIsApprovalRequired = Boolean(currentEvent.is_approval_required);
     settingsIsPublic = currentEvent.is_public !== false;
+    settingsAllowJoinAfterStart = currentEvent.allow_join_after_start !== false;
     settingsIsVenueEnabled = currentEvent.is_venue_enabled !== false;
     settingsIsNetworkEnabled = Boolean(currentEvent.is_network_enabled);
     settingsIsAnnouncementsEnabled = currentEvent.is_announcements_enabled !== false;
@@ -1411,6 +1413,7 @@
   $: eventEnd = currentEvent?.end_time ? new Date(currentEvent.end_time) : null;
   $: isEventLive = Boolean(eventStart && eventStart <= currentTime && (!eventEnd || eventEnd >= currentTime));
   $: isEventEnded = Boolean(eventEnd && eventEnd < currentTime);
+  $: isJoinAfterStartClosed = Boolean(isEventLive && currentEvent?.allow_join_after_start === false);
 
   $: isStartInPast = Boolean(!isEventLive && !isEventEnded && settingsStartDate && settingsStartDate < getFormattedDateStr(currentTime));
   $: isEndBeforeStart = Boolean(
@@ -1457,6 +1460,7 @@
           start_time: settingsStartTime ? new Date(settingsStartTime).toISOString() : null,
           end_time: settingsEndTime ? new Date(settingsEndTime).toISOString() : null,
           is_public: settingsIsPublic,
+          allow_join_after_start: settingsAllowJoinAfterStart,
           is_approval_required: settingsIsApprovalRequired,
           is_venue_enabled: settingsIsVenueEnabled,
           is_network_enabled: settingsIsNetworkEnabled,
@@ -2051,6 +2055,12 @@
 
   async function joinEvent() {
     if (joining) return;
+    if (isJoinAfterStartClosed) {
+      toast.error("Registration closed", {
+        description: "This event has already started and is no longer accepting registrations.",
+      });
+      return;
+    }
     joining = true;
     try {
       if (!data.user) {
@@ -2938,6 +2948,9 @@
                       {/if}
                     </Button>
 
+                    {#if isJoinAfterStartClosed}
+                      <p class="text-xs text-center text-amber-300">Registration is closed because this event has already started.</p>
+                    {/if}
                     <p class="text-[11px] text-center text-ink-500">
                       Free registration · Instant confirmation
                     </p>
@@ -3268,7 +3281,7 @@
 
                 <!-- Join button below date & time block -->
                 {#if !data.isOrganizer && !data.isParticipant}
-                  <div class="flex justify-center pt-4">
+                  <div class="flex flex-col items-center pt-4">
                     <Button
                       id="join-event-btn"
                       onclick={joinEvent}
@@ -3283,6 +3296,9 @@
                         {#if data.user}Join Event{:else}Join with Google{/if}
                       {/if}
                     </Button>
+                    {#if isJoinAfterStartClosed}
+                      <p class="mt-2 text-xs text-center text-amber-300">Registration is closed because this event has already started.</p>
+                    {/if}
                   </div>
                 {/if}
               </div>
@@ -6441,6 +6457,28 @@
                       aria-label="Show in discovery"
                     >
                       <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsPublic ? 'translate-x-5' : 'translate-x-0'}"></span>
+                    </button>
+                  </div>
+
+                  <!-- Registration after start -->
+                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+                    <div class="flex items-start gap-3">
+                      <Lock size={16} class="text-amber-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p class="text-sm font-semibold text-white">Allow joining after the event starts</p>
+                        <p class="text-xs text-ink-500 mt-0.5">{settingsAllowJoinAfterStart ? 'Attendees can register while the event is live.' : 'Registration closes automatically when the event starts.'}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isEventEnded}
+                      onclick={() => (settingsAllowJoinAfterStart = !settingsAllowJoinAfterStart)}
+                      class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsAllowJoinAfterStart ? 'bg-amber-500' : 'bg-white/10'} disabled:opacity-50"
+                      role="switch"
+                      aria-checked={settingsAllowJoinAfterStart}
+                      aria-label="Allow joining after the event starts"
+                    >
+                      <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsAllowJoinAfterStart ? 'translate-x-5' : 'translate-x-0'}"></span>
                     </button>
                   </div>
 

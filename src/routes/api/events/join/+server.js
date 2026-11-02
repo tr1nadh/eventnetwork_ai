@@ -15,6 +15,24 @@ export async function POST({ request, locals }) {
 
   const admin = createSupabaseAdminClient();
 
+  const { data: event, error: eventError } = await admin
+    .from('events')
+    .select('id, start_time, allow_join_after_start')
+    .eq('id', event_id)
+    .maybeSingle();
+
+  if (eventError) {
+    throw error(500, eventError.message);
+  }
+  if (!event) {
+    throw error(404, 'Event not found.');
+  }
+
+  const hasStarted = event.start_time && new Date(event.start_time) <= new Date();
+  if (hasStarted && event.allow_join_after_start === false) {
+    throw error(403, 'Registration is closed because this event has already started.');
+  }
+
   const { error: insertError } = await admin
     .from('event_participants')
     .upsert(

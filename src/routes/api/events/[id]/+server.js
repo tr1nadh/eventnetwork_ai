@@ -120,6 +120,9 @@ export async function PUT({ request, params, locals }) {
   if (body?.is_public !== undefined) {
     updatePayload.is_public = Boolean(body.is_public);
   }
+  if (body?.allow_join_after_start !== undefined) {
+    updatePayload.allow_join_after_start = Boolean(body.allow_join_after_start);
+  }
   if (body?.is_approval_required !== undefined) {
     updatePayload.is_approval_required = Boolean(body.is_approval_required);
   }

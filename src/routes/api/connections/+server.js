@@ -19,7 +19,7 @@ export async function GET({ url, cookies }) {
   // Base query for connections of the event
   let query = supabase
     .from('connections')
-    .select('id, event_id, status, met_at, match_id, sender_user_id, receiver_user_id, matches(match_details), events(name, slug)', { count: 'exact' });
+    .select('id, event_id, status, met_at, created_at, updated_at, match_id, sender_user_id, receiver_user_id, matches(match_details), events(name, slug)', { count: 'exact' });
 
   if (eventId) {
     query = query.eq('event_id', eventId);
@@ -90,6 +90,8 @@ export async function GET({ url, cookies }) {
       event_slug: c.events?.slug ?? '',
       status: c.status,
       met_at: c.met_at,
+      created_at: c.created_at,
+      updated_at: c.updated_at,
       match_id: c.match_id,
       sender_user_id: c.sender_user_id,
       receiver_user_id: c.receiver_user_id,

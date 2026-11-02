@@ -68,7 +68,8 @@
   let location = event?.location ?? '';
   let googleMapUrl = event?.google_map_url ?? '';
   let eventFormat = event?.event_format ?? 'offline';
-  let isPublic = event?.is_public ?? false;
+  let isPublic = event?.is_public ?? true;
+  let allowJoinAfterStart = event?.allow_join_after_start ?? true;
   function formatDatetimeLocal(dateInput) {
     if (!dateInput) return '';
     const date = new Date(dateInput);
@@ -283,6 +284,7 @@
     googleMapUrl,
     eventFormat,
     isPublic,
+    allowJoinAfterStart,
     startTime,
     endTime,
     isApprovalRequired,
@@ -299,6 +301,7 @@
     googleMapUrl,
     eventFormat,
     isPublic,
+    allowJoinAfterStart,
     startTime,
     endTime,
     isApprovalRequired,
@@ -392,6 +395,7 @@
           google_map_url: googleMapUrl,
           event_format: eventFormat,
           is_public: isPublic,
+          allow_join_after_start: allowJoinAfterStart,
           start_time: startTime ? new Date(startTime).toISOString() : null,
           end_time: endTime ? new Date(endTime).toISOString() : null,
           is_approval_required: isApprovalRequired,
@@ -770,6 +774,28 @@
             aria-label="Show in discovery"
           >
             <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isPublic ? 'translate-x-5' : 'translate-x-0'}"></span>
+          </button>
+        </div>
+
+        <!-- Registration after start -->
+        <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+          <div class="flex items-start gap-3">
+            <Lock size={16} class="text-amber-400 mt-0.5 shrink-0" />
+            <div>
+              <p class="text-sm font-semibold text-white">Allow joining after the event starts</p>
+              <p class="text-xs text-ink-500 mt-0.5">{allowJoinAfterStart ? 'Attendees can register while the event is live.' : 'Registration closes automatically when the event starts.'}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={isEventEnded}
+            onclick={() => (allowJoinAfterStart = !allowJoinAfterStart)}
+            class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {allowJoinAfterStart ? 'bg-amber-500' : 'bg-white/10'} disabled:opacity-50"
+            role="switch"
+            aria-checked={allowJoinAfterStart}
+            aria-label="Allow joining after the event starts"
+          >
+            <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {allowJoinAfterStart ? 'translate-x-5' : 'translate-x-0'}"></span>
           </button>
         </div>
 

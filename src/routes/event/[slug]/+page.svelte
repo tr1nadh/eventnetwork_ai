@@ -5120,9 +5120,16 @@
                       <div class="flex-1 flex flex-col p-5">
                         <div class="flex-1">
                           <div class="flex items-start justify-between gap-3">
-                            <h3 class="text-base font-bold text-white">
-                              {match.name}
-                            </h3>
+                            <div class="min-w-0">
+                              <h3 class="text-base font-bold text-white">
+                                {match.name}
+                              </h3>
+                              {#if conn?.status === "accepted"}
+                                <span class="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-emerald-300">
+                                  <CheckCircle2 size={11} /> Connected
+                                </span>
+                              {/if}
+                            </div>
                             <span
                               class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
                             >
@@ -5211,10 +5218,10 @@
                           {:else if conn.status === "accepted"}
                             <Button
                               variant="secondary"
-                              class="w-full gap-2 bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                              disabled
+                              class="w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                              onclick={() => openChatForConnection(conn)}
                             >
-                              <CheckCircle2 size={16} /> Connected
+                              <MessageCircle size={16} /> Chat
                             </Button>
                           {:else if conn.status === "rejected"}
                             <Button

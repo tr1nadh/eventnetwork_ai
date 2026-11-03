@@ -64,18 +64,17 @@ export async function GET({ url, cookies }) {
     return json({ recommendations: [] });
   }
 
-  // Match each person's networking intent to what the other person offers.
-  // The viewer's intent has a slightly higher weight so their request drives
-  // the recommendations, while reciprocal intent rewards mutually useful fits.
+  // A recommendation is primarily one-way: what the viewer is looking for
+  // matched against what an attendee offers. Reciprocal intent is a bonus for
+  // mutually useful matches, never a penalty that can hide a strong fit.
   const scored = participants
     .map(p => {
       const intentFit = cosineSimilarity(userEmbedding, p.about_user_embed);
       const reciprocalFit = currentProfile.about_user_embed && p.looking_for_embed
         ? cosineSimilarity(currentProfile.about_user_embed, p.looking_for_embed)
         : 0;
-      const similarity = p.looking_for_embed
-        ? (intentFit * 0.65) + (reciprocalFit * 0.35)
-        : intentFit;
+      const reciprocalBonus = Math.max(0, reciprocalFit) * 0.2;
+      const similarity = Math.min(1, intentFit + reciprocalBonus);
       return { ...p, similarity };
     })
     .filter(p => p.similarity > 0)

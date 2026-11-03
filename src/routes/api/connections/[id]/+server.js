@@ -21,7 +21,7 @@ export async function PATCH({ params, request, cookies }) {
   // Fetch current connection
   const { data: currentConn, error: connErr } = await supabase
     .from('connections')
-    .select('status, sender_user_id, receiver_user_id')
+    .select('status, sender_user_id, receiver_user_id, event_id, connection_type')
     .eq('id', id)
     .single();
 
@@ -35,6 +35,10 @@ export async function PATCH({ params, request, cookies }) {
   }
 
   const currentStatus = currentConn.status;
+
+  if (status === 'met' && (currentConn.connection_type !== 'event' || !currentConn.event_id)) {
+    throw error(400, 'Only event connections can be marked as met.');
+  }
 
   // Enforce valid transitions
   // pending -> accepted, rejected, cancelled

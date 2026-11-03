@@ -6308,15 +6308,24 @@
                                 </div>
                               {/if}
                               {#if conn.status === "accepted"}
-                                <div class="mt-2">
+                                <div class="mt-2 flex gap-2">
                                   <Button
                                     variant="secondary"
-                                    class="w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                                    class="flex-1 gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
                                     onclick={() => openChatForConnection(conn)}
                                   >
                                     <MessageCircle size={16} />
                                     Chat
                                   </Button>
+                                  {#if !conn.met_at}
+                                    <Button
+                                      variant="outline"
+                                      class="flex-1 gap-2 border-emerald-400/25 text-emerald-200 hover:bg-emerald-400/10"
+                                      onclick={() => updateConnection(conn.id, "met")}
+                                    >
+                                      <CheckCircle2 size={16} /> Mark as met
+                                    </Button>
+                                  {/if}
                                 </div>
                               {/if}
                               <!-- Action buttons based on status -->
@@ -7148,15 +7157,24 @@
                           </div>
                         {/if}
                         {#if conn.status === "accepted"}
-                          <div class="mt-2">
+                          <div class="mt-2 flex gap-2">
                             <Button
                               variant="secondary"
-                              class="w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                              class="flex-1 gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
                               onclick={() => openChatForConnection(conn)}
                             >
                               <MessageCircle size={16} />
                               Chat
                             </Button>
+                            {#if !conn.met_at}
+                              <Button
+                                variant="outline"
+                                class="flex-1 gap-2 border-emerald-400/25 text-emerald-200 hover:bg-emerald-400/10"
+                                onclick={() => updateConnection(conn.id, "met")}
+                              >
+                                <CheckCircle2 size={16} /> Mark as met
+                              </Button>
+                            {/if}
                           </div>
                         {/if}
                         <!-- Action buttons based on status -->

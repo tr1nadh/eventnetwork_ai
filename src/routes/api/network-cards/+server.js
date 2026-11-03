@@ -11,7 +11,10 @@ function cardPayload(body) {
   const what_i_do = clean(body?.what_i_do);
   const about_me = clean(body?.about_me);
   if (!display_name || !what_i_do || !about_me) return null;
-  return { title: 'My network card', display_name, what_i_do, about_me };
+  // Network Cards are reusable identity cards, so they do not ask for an
+  // event-specific networking intent. Keep this empty value for older
+  // schemas where `network_cards.looking_for` is still NOT NULL.
+  return { title: 'My network card', display_name, what_i_do, about_me, looking_for: '' };
 }
 
 async function getUser(cookies) {

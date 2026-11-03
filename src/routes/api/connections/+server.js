@@ -19,7 +19,7 @@ export async function GET({ url, cookies }) {
   // Base query for connections of the event
   let query = supabase
     .from('connections')
-    .select('id, event_id, status, met_at, created_at, updated_at, match_id, sender_user_id, receiver_user_id, matches(match_details), events(name, slug)', { count: 'exact' });
+    .select('id, event_id, connection_type, status, met_at, created_at, updated_at, match_id, sender_user_id, receiver_user_id, matches(match_details), events(name, slug)', { count: 'exact' });
 
   if (eventId) {
     query = query.eq('event_id', eventId);
@@ -86,8 +86,9 @@ export async function GET({ url, cookies }) {
     return {
       id: c.id,
       event_id: c.event_id,
-      event_name: c.events?.name ?? 'Unknown Event',
+      event_name: c.connection_type === 'network_card' ? 'Met via Network Card' : (c.events?.name ?? 'Unknown Event'),
       event_slug: c.events?.slug ?? '',
+      connection_type: c.connection_type ?? 'event',
       status: c.status,
       met_at: c.met_at,
       created_at: c.created_at,

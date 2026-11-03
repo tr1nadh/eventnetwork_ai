@@ -1,8 +1,15 @@
 <script>
   import { tick, onDestroy } from 'svelte';
-  import { MessageCircle, LoaderCircle, Send } from '@lucide/svelte';
+  import { MessageCircle, LoaderCircle, Send, Sparkles } from '@lucide/svelte';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
-  import { chatMessagesStore, setConnectionMessages, appendConnectionMessage } from '$lib/stores/chatStore';
+  import {
+    chatMessagesStore,
+    icebreakersStore,
+    setConnectionMessages,
+    appendConnectionMessage,
+    setConnectionIcebreakers
+  } from '$lib/stores/chatStore';
+  import { aiCreditsStore } from '$lib/stores/ai-credits';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
@@ -23,6 +30,11 @@
   let activeConnectionId = null;
   let channel = null;
   let loadVersion = 0;
+  let messageInput;
+  let icebreakerDialogOpen = false;
+  let icebreakerConfirmOpen = false;
+  let generatingIcebreakers = false;
+  let icebreakerError = '';
 
   const timeFormatter = new Intl.DateTimeFormat([], {
     hour: 'numeric',
@@ -31,6 +43,7 @@
 
   $: messages = connection?.id ? ($chatMessagesStore[connection.id] ?? []) : [];
   $: isAcceptedConnection = connection?.status === 'accepted';
+  $: icebreakerData = connection?.id ? ($icebreakersStore[connection.id] ?? null) : null;
 
   $: if (open && connection?.id && connection.id !== activeConnectionId) {
     void openChat(connection);
@@ -44,6 +57,9 @@
     sendingMessage = false;
     loadError = '';
     draftMessage = '';
+    icebreakerDialogOpen = false;
+    icebreakerConfirmOpen = false;
+    icebreakerError = '';
   }
 
   $: if (open && connection?.id && !loadingMessages) {
@@ -206,26 +222,97 @@
       void sendMessage();
     }
   }
+
+  function openIcebreakers() {
+    if (!isAcceptedConnection) return;
+    icebreakerError = '';
+    icebreakerConfirmOpen = !icebreakerData?.questions?.length;
+    icebreakerDialogOpen = true;
+  }
+
+  function cancelIcebreakerConfirmation() {
+    if (icebreakerData?.questions?.length) {
+      icebreakerConfirmOpen = false;
+      return;
+    }
+
+    icebreakerDialogOpen = false;
+  }
+
+  async function generateIcebreakers() {
+    if (!connection?.id || generatingIcebreakers) return;
+
+    generatingIcebreakers = true;
+    icebreakerError = '';
+
+    try {
+      const res = await fetch('/api/icebreakers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ connection_id: connection.id })
+      });
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (res.status === 429 && payload.error === 'MONTHLY_AI_LIMIT_EXCEEDED') {
+          aiCreditsStore.showExhaustedModal();
+          icebreakerDialogOpen = false;
+          return;
+        }
+        throw new Error(payload.message || payload.error || 'Could not generate icebreakers');
+      }
+
+      setConnectionIcebreakers(connection.id, payload.questions ?? []);
+      aiCreditsStore.useCredit();
+      icebreakerConfirmOpen = false;
+      toast.success('Icebreakers generated');
+    } catch (err) {
+      icebreakerError = err instanceof Error ? err.message : 'Could not generate icebreakers';
+    } finally {
+      generatingIcebreakers = false;
+    }
+  }
+
+  async function selectIcebreaker(question) {
+    draftMessage = question;
+    icebreakerDialogOpen = false;
+    await tick();
+    messageInput?.focus();
+  }
 </script>
 
 <Dialog.Root bind:open>
   <Dialog.Content class="flex h-[88vh] max-h-[760px] w-[min(92vw,720px)] flex-col overflow-hidden border border-white/10 bg-[#0f0f11] p-0 text-white">
     <Dialog.Header class="border-b border-white/8 bg-gradient-to-r from-cyan-400/10 via-transparent to-transparent px-6 py-5">
-      <div class="flex items-center gap-4">
-        <Avatar size="lg" class="size-12 border border-white/10 bg-white/5">
-          <AvatarImage src={connection?.profile?.avatar_url ?? undefined} alt={connection?.profile?.display_name ?? 'Connection'} />
-          <AvatarFallback class="bg-cyan-400/15 text-cyan-200">
-            {getInitials(connection?.profile?.display_name)}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <Dialog.Title class="text-xl font-bold text-white">
-            {connection?.profile?.display_name ?? 'Connection'}
-          </Dialog.Title>
-          <Dialog.Description class="mt-1 text-sm text-emerald-300">
-            Connected
-          </Dialog.Description>
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex min-w-0 items-center gap-4">
+          <Avatar size="lg" class="size-12 border border-white/10 bg-white/5">
+            <AvatarImage src={connection?.profile?.avatar_url ?? undefined} alt={connection?.profile?.display_name ?? 'Connection'} />
+            <AvatarFallback class="bg-cyan-400/15 text-cyan-200">
+              {getInitials(connection?.profile?.display_name)}
+            </AvatarFallback>
+          </Avatar>
+          <div class="min-w-0">
+            <Dialog.Title class="truncate text-xl font-bold text-white">
+              {connection?.profile?.display_name ?? 'Connection'}
+            </Dialog.Title>
+            <Dialog.Description class="mt-1 text-sm text-emerald-300">
+              Connected
+            </Dialog.Description>
+          </div>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          class="shrink-0 gap-1.5 border-amber-400/25 bg-amber-400/8 text-amber-200 hover:bg-amber-400/15 hover:text-amber-100"
+          onclick={openIcebreakers}
+          disabled={!isAcceptedConnection}
+        >
+          <Sparkles size={14} />
+          <span class="hidden sm:inline">Generate icebreakers</span>
+          <span class="sm:hidden">Icebreakers</span>
+        </Button>
       </div>
     </Dialog.Header>
 
@@ -278,6 +365,7 @@
       <div class="border-t border-white/8 px-6 py-4">
         <div class="flex items-center gap-3">
           <Input
+            bind:this={messageInput}
             bind:value={draftMessage}
             placeholder="Write a message..."
             class="h-11 border-white/10 bg-white/5 text-white placeholder:text-ink-500 focus:border-cyan-400/40 focus:ring-cyan-400/20"
@@ -299,5 +387,66 @@
         </div>
       </div>
     </div>
+  </Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={icebreakerDialogOpen}>
+  <Dialog.Content class="w-[min(92vw,560px)] border border-white/10 bg-[#0f0f11] text-white">
+    <Dialog.Header>
+      <div class="flex items-center gap-3">
+        <div class="flex size-10 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/10">
+          <Sparkles size={18} class="text-amber-300" />
+        </div>
+        <div>
+          <Dialog.Title class="text-lg font-bold">AI icebreakers</Dialog.Title>
+          <Dialog.Description class="mt-1 text-sm text-ink-300">
+            Personalized prompts for your conversation with {connection?.profile?.display_name ?? 'this connection'}.
+          </Dialog.Description>
+        </div>
+      </div>
+    </Dialog.Header>
+
+    {#if generatingIcebreakers}
+      <div class="flex flex-col items-center gap-3 py-10 text-center">
+        <LoaderCircle size={24} class="animate-spin text-amber-300" />
+        <p class="text-sm text-ink-300">Creating conversation starters…</p>
+      </div>
+    {:else if icebreakerConfirmOpen}
+      <div class="space-y-5 pt-4">
+        <p class="text-sm leading-6 text-ink-300">
+          {icebreakerData?.questions?.length
+            ? 'Generate a fresh set of icebreakers?'
+            : 'Generate personalized icebreakers from both of your networking profiles?'}
+          This uses <span class="font-semibold text-amber-200">1 AI credit</span>.
+        </p>
+        {#if icebreakerError}
+          <p class="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{icebreakerError}</p>
+        {/if}
+        <div class="flex justify-end gap-3">
+          <Button variant="outline" onclick={cancelIcebreakerConfirmation}>Cancel</Button>
+          <Button class="gap-2 bg-amber-400 text-slate-950 hover:bg-amber-300" onclick={generateIcebreakers}>
+            <Sparkles size={15} /> Generate for 1 credit
+          </Button>
+        </div>
+      </div>
+    {:else if icebreakerData?.questions?.length}
+      <div class="space-y-3 pt-4">
+        <p class="text-sm text-ink-300">Select a question to add it to your message.</p>
+        {#each icebreakerData.questions as question}
+          <button
+            type="button"
+            class="w-full rounded-xl border border-white/8 bg-white/5 p-3 text-left text-sm leading-6 text-ink-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/8 hover:text-white"
+            onclick={() => selectIcebreaker(question)}
+          >
+            {question}
+          </button>
+        {/each}
+        <div class="flex justify-end pt-2">
+          <Button variant="outline" size="sm" class="gap-1.5 border-white/10 text-ink-300 hover:text-white" onclick={() => (icebreakerConfirmOpen = true)}>
+            <Sparkles size={14} /> Regenerate · 1 credit
+          </Button>
+        </div>
+      </div>
+    {/if}
   </Dialog.Content>
 </Dialog.Root>

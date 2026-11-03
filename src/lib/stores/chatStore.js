@@ -1,6 +1,8 @@
 import { persisted } from 'svelte-persisted-store';
 
 export const chatMessagesStore = persisted('event-chat-messages', {});
+// AI-generated icebreaker questions, keyed by accepted connection ID.
+export const icebreakersStore = persisted('event-chat-icebreakers', {});
 
 function normalizeMessages(messages) {
   return [...messages]
@@ -33,6 +35,17 @@ export function appendConnectionMessage(connectionId, message) {
   });
 }
 
+export function setConnectionIcebreakers(connectionId, questions) {
+  icebreakersStore.update((existing) => ({
+    ...existing,
+    [connectionId]: {
+      questions,
+      generatedAt: new Date().toISOString()
+    }
+  }));
+}
+
 export function clearAllChatStores() {
   chatMessagesStore.set({});
+  icebreakersStore.set({});
 }

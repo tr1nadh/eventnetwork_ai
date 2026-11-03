@@ -23,6 +23,18 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+function shorten(value, limit) {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit - 1).trimEnd()}…`;
+}
+
+function fallbackExplanation(currentProfile, match) {
+  const whatTheyDo = shorten(match.role, 130) || 'relevant experience';
+  const lookingFor = shorten(currentProfile.looking_for, 140) || 'the connections you are seeking';
+  return `Their experience in ${whatTheyDo} aligns with what you are looking for. Your interest in ${lookingFor} gives you a concrete reason to connect.`;
+}
+
 export async function GET({ url, cookies }) {
   const eventId = url.searchParams.get('event_id');
   if (!eventId) {
@@ -84,6 +96,7 @@ export async function GET({ url, cookies }) {
       user_id: p.user_id,
       name: p.display_name,
       role: p.what_i_do,
+      looking_for: p.looking_for,
       about: p.about_me,
       matchPercentage: Math.round(p.similarity * 100),
       is_dummy: false // will be updated below
@@ -124,7 +137,11 @@ I am looking for: ${currentProfile.looking_for}
 
       let aiSuccessCount = 0;
 
-      const promises = scored.map(async (match) => {
+      try {
+        // Generate one explanation at a time. Firing all five requests at once
+        // can cause provider throttling, which previously exposed generic UI
+        // fallbacks instead of useful reasons.
+        for (const match of scored) {
         const matchContext = `
 Their name is ${match.name}.
 What i do: ${match.role}
@@ -149,10 +166,15 @@ Return exactly one or two complete sentences. Be brief and punchy. No greetings,
             temperature: 0.4,
             max_tokens: 100
           });
-          match.explanation = llmRes.choices?.[0]?.message?.content?.trim();
+          const explanation = llmRes.choices?.[0]?.message?.content?.trim();
+          if (!explanation || !/[.!?]$/.test(explanation)) {
+            throw new Error('LLM returned an incomplete explanation');
+          }
+          match.explanation = explanation;
           aiSuccessCount++;
         } catch (err) {
           console.error('Failed to generate explanation for', match.name, err);
+          match.explanation = fallbackExplanation(currentProfile, match);
         }
 
         // Upsert this match into the database
@@ -187,11 +209,7 @@ Return exactly one or two complete sentences. Be brief and punchy. No greetings,
         // Enqueue the match to the stream
         const encoder = new TextEncoder();
         controller.enqueue(encoder.encode(JSON.stringify(match) + '\n'));
-      });
-
-
-      try {
-        await Promise.all(promises);
+        }
         controller.close();
 
         // If no AI generations succeeded, refund the credit

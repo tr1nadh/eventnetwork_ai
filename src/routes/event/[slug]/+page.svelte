@@ -1849,6 +1849,23 @@
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
   }
+
+  function formatMatchExplanation(explanation) {
+    const fallback = "This person is a relevant match based on your networking profile.";
+    const text = explanation?.trim() || fallback;
+    const fullName = networkingProfile.whoTheyAre?.trim();
+    const firstName = fullName?.split(/\s+/)[0];
+    const names = [fullName, firstName].filter(Boolean).sort((a, b) => b.length - a.length);
+
+    for (const name of names) {
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const withoutOpeningName = text.replace(new RegExp(`^${escapedName}[,!:—–\\s]+`, "i"), "").trim();
+      if (withoutOpeningName !== text) return withoutOpeningName;
+    }
+
+    return text;
+  }
+
   let canUseEventNetworking = Boolean(data.isParticipant || data.isOrganizer);
   $: canUseEventNetworking = Boolean(data.isParticipant || data.isOrganizer);
   let networkProfileCheckComplete = Boolean(data.networkProfile) || !(data.isParticipant || data.isOrganizer);
@@ -5159,7 +5176,7 @@
                                   Why you should meet
                                 </p>
                                 <p class="text-sm leading-6 text-ink-300">
-                                  {match.explanation || "This person is a relevant match based on your networking profile."}
+                                  {formatMatchExplanation(match.explanation)}
                                 </p>
                               </div>
                             </Tabs.Content>

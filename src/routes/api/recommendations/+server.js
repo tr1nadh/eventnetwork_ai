@@ -38,7 +38,7 @@ export async function GET({ url, cookies }) {
   // Fetch current user's networking profile for the event
   const { data: currentProfile, error: curErr } = await supabase
     .from('network_profiles')
-    .select('display_name, what_i_do, looking_for, about_me, looking_for_embed')
+    .select('display_name, what_i_do, looking_for, about_me, about_user_embed, looking_for_embed')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .single();
@@ -55,7 +55,7 @@ export async function GET({ url, cookies }) {
   // Fetch other participants in the same event
   const { data: participants, error: partErr } = await supabase
     .from('network_profiles')
-    .select('user_id, display_name, what_i_do, about_me, about_user_embed')
+    .select('user_id, display_name, what_i_do, looking_for, about_me, about_user_embed, looking_for_embed')
     .eq('event_id', eventId)
     .neq('user_id', user.id)
     .not('about_user_embed', 'is', null);
@@ -64,10 +64,18 @@ export async function GET({ url, cookies }) {
     return json({ recommendations: [] });
   }
 
-  // Compute similarity scores and take top 5 matches
+  // Match each person's networking intent to what the other person offers.
+  // The viewer's intent has a slightly higher weight so their request drives
+  // the recommendations, while reciprocal intent rewards mutually useful fits.
   const scored = participants
     .map(p => {
-      const similarity = cosineSimilarity(userEmbedding, p.about_user_embed);
+      const intentFit = cosineSimilarity(userEmbedding, p.about_user_embed);
+      const reciprocalFit = currentProfile.about_user_embed && p.looking_for_embed
+        ? cosineSimilarity(currentProfile.about_user_embed, p.looking_for_embed)
+        : 0;
+      const similarity = p.looking_for_embed
+        ? (intentFit * 0.65) + (reciprocalFit * 0.35)
+        : intentFit;
       return { ...p, similarity };
     })
     .filter(p => p.similarity > 0)
@@ -122,12 +130,15 @@ I am looking for: ${currentProfile.looking_for}
 Their name is ${match.name}.
 What they do: ${match.role}
 About them: ${match.about}
+They are looking for: ${match.looking_for}
 `;
 
         const systemPrompt = `You are an AI matchmaker for a professional networking event.
 Given my profile and a matched attendee's profile, write a concise 1-2 sentence explanation of WHY we are a good match.
+Use a concrete detail from the viewer's "looking for" field and, when relevant, the attendee's "looking for" field.
 Focus on the single strongest connection point: a shared interest, complementary skill, or collaboration opportunity.
-Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
+Speak directly to the viewer using "you". Do not mention either person's name—the card already shows the matched attendee's name.
+Return exactly one or two complete sentences. Be brief and punchy. No greetings, pleasantries, headings, or bullet points.`;
 
         try {
           const llmRes = await createChatCompletion({
@@ -136,8 +147,8 @@ Speak directly to me. Be brief and punchy. No greetings or pleasantries.`;
               { role: 'system', content: systemPrompt },
               { role: 'user', content: `My Profile:\n${myProfileContext}\n\nMatched Profile:\n${matchContext}` }
             ],
-            temperature: 0.7,
-            max_tokens: 80
+            temperature: 0.4,
+            max_tokens: 100
           });
           match.explanation = llmRes.choices?.[0]?.message?.content?.trim();
           aiSuccessCount++;

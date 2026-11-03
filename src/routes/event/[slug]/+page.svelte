@@ -58,7 +58,6 @@
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
   import ConnectionChatModal from "$lib/components/connection-chat-modal.svelte";
-  import AiMeetingPrepModal from "$lib/components/ai-meeting-prep-modal.svelte";
   import AmdAiLoading from "$lib/components/amd-ai-loading.svelte";
   import ConnectionToast from "$lib/components/connection-toast.svelte";
   import VenueMap from "$lib/components/venue-map.svelte";
@@ -76,7 +75,6 @@
     activeTab,
     matchesStore,
     connectionsStore,
-    aiMeetingPrepStore,
     clearAllEventStores,
   } from "$lib/stores/eventStore";
   import { clearAllChatStores } from "$lib/stores/chatStore";
@@ -1884,14 +1882,7 @@
   let chatOpen = false;
   let venueLocation = null;
   let activeChatConnectionId = null;
-  let prepModalOpen = false;
-  let activePrepConnection = null;
   let connectingIds = [];
-
-  function openMeetingPrep(connection) {
-    activePrepConnection = connection;
-    prepModalOpen = true;
-  }
 
   // Reactive derived array for filtered connections
   $: filteredConnections = $connectionsStore.filter((conn) => {
@@ -5062,9 +5053,6 @@
               {#each [
                 { value: "matches", label: "✨ AI Matches", count: $matchesStore.length, color: "amber" },
                 { value: "received", label: "📥 Received", count: $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length, color: "violet" },
-                { value: "connected", label: "🤝 Connected", count: $connectionsStore.filter(c => (c.sender_user_id === data.user?.id || c.receiver_user_id === data.user?.id) && c.status === 'accepted').length, color: "emerald" },
-                { value: "sent", label: "📤 Sent", count: $connectionsStore.filter(c => c.sender_user_id === data.user?.id && c.status === 'pending').length, color: "cyan" },
-                { value: "met", label: "📍 Met", count: $connectionsStore.filter(c => (c.sender_user_id === data.user?.id || c.receiver_user_id === data.user?.id) && c.status === 'accepted' && !!c.met_at).length, color: "teal" },
               ] as pill}
                 <button
                   onclick={() => { networkFilter = pill.value; if (pill.value !== 'matches') connectionFilter = pill.value; }}
@@ -5354,21 +5342,14 @@
                           </div>
                         {/if}
                         {#if conn.status === "accepted"}
-                          <div class="flex gap-2 mt-2">
+                          <div class="mt-2">
                             <Button
                               variant="secondary"
-                              class="flex-1 gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                              class="w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
                               onclick={() => openChatForConnection(conn)}
                             >
                               <MessageCircle size={16} />
                               Chat
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              class="flex-1 gap-2 border border-amber-400/20 bg-amber-400/12 text-amber-200 hover:bg-amber-400/18"
-                              onclick={() => openMeetingPrep(conn)}
-                            >
-                              ✨ AI Meeting Prep
                             </Button>
                           </div>
                         {/if}
@@ -5395,13 +5376,6 @@
                             class="mt-2 w-full"
                             onclick={() => updateConnection(conn.id, "cancelled")}
                             >Cancel Request</Button
-                          >
-                        {:else if conn.status === "accepted" && !conn.met_at}
-                          <Button
-                            variant="outline"
-                            class="mt-2 w-full"
-                            onclick={() => updateConnection(conn.id, "met")}
-                            >Mark as Met</Button
                           >
                         {:else if conn.status === "accepted" && conn.met_at}
                           <span
@@ -5446,10 +5420,6 @@
                       You have no pending incoming requests. Check back later.
                     {:else if networkFilter === "sent"}
                       No outgoing requests. Head to AI Matches to find people to connect with.
-                    {:else if networkFilter === "connected"}
-                      No accepted connections yet. Browse AI Matches to get started.
-                    {:else if networkFilter === "met"}
-                      No one marked as met yet. Accept connections and meet people!
                     {/if}
                   </p>
                   <button
@@ -5460,15 +5430,11 @@
               {/if}
             {/if}
 
-            <!-- Chat & Meeting Prep Modals (moved into Network tab) -->
+            <!-- Chat modal -->
             <ConnectionChatModal
               bind:open={chatOpen}
               connection={activeChatConnection}
               currentUserId={data.user?.id}
-            />
-            <AiMeetingPrepModal
-              bind:open={prepModalOpen}
-              connection={activePrepConnection}
             />
 
             <!-- Create Dummy Users confirmation modal -->
@@ -6202,21 +6168,14 @@
                         </div>
                       {/if}
                       {#if conn.status === "accepted"}
-                        <div class="flex gap-2 mt-2">
+                        <div class="mt-2">
                           <Button
                             variant="secondary"
-                            class="flex-1 gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                            class="w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
                             onclick={() => openChatForConnection(conn)}
                           >
                             <MessageCircle size={16} />
                             Chat
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            class="flex-1 gap-2 border border-amber-400/20 bg-amber-400/12 text-amber-200 hover:bg-amber-400/18"
-                            onclick={() => openMeetingPrep(conn)}
-                          >
-                            ✨ AI Meeting Prep
                           </Button>
                         </div>
                       {/if}
@@ -6243,13 +6202,6 @@
                           class="mt-2 w-full"
                           onclick={() => updateConnection(conn.id, "cancelled")}
                           >Cancel Request</Button
-                        >
-                      {:else if conn.status === "accepted" && !conn.met_at}
-                        <Button
-                          variant="outline"
-                          class="mt-2 w-full"
-                          onclick={() => updateConnection(conn.id, "met")}
-                          >Mark as Met</Button
                         >
                       {:else if conn.status === "accepted" && conn.met_at}
                         <span

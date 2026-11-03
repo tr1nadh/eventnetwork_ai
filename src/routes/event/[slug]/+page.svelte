@@ -5118,7 +5118,7 @@
                       ></div>
 
                       <div class="flex-1 flex flex-col p-5">
-                        <div class="flex-1 space-y-4">
+                        <div class="flex-1">
                           <div class="flex items-start justify-between gap-3">
                             <h3 class="text-base font-bold text-white">
                               {match.name}
@@ -5130,32 +5130,52 @@
                             </span>
                           </div>
 
-                          <div class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-4">
-                            <p class="mb-2 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
-                              Reason for match
-                            </p>
-                            <p class="text-sm leading-6 text-ink-300">
-                              {match.explanation || "This person is a relevant match based on your networking profile."}
-                            </p>
-                          </div>
+                          <Tabs.Root value="why" class="mt-4">
+                            <Tabs.List class="grid w-full grid-cols-2 rounded-xl border border-white/10 bg-white/5 p-1">
+                              <Tabs.Trigger
+                                value="why"
+                                class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-200"
+                              >
+                                Why
+                              </Tabs.Trigger>
+                              <Tabs.Trigger
+                                value="profile"
+                                class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                              >
+                                Profile
+                              </Tabs.Trigger>
+                            </Tabs.List>
 
-                          <div>
-                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500">
-                              What they do
-                            </p>
-                            <p class="text-sm leading-6 text-ink-300">
-                              {match.role}{match.company ? ` · ${match.company}` : ""}
-                            </p>
-                          </div>
+                            <Tabs.Content value="why" class="m-0 pt-4 outline-none">
+                              <div class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-3.5">
+                                <p class="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
+                                  Why you should meet
+                                </p>
+                                <p class="text-sm leading-6 text-ink-300">
+                                  {match.explanation || "This person is a relevant match based on your networking profile."}
+                                </p>
+                              </div>
+                            </Tabs.Content>
 
-                          <div>
-                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500">
-                              About them
-                            </p>
-                            <p class="text-sm leading-6 text-ink-300">
-                              {match.about}
-                            </p>
-                          </div>
+                            <Tabs.Content value="profile" class="m-0 space-y-3 pt-4 outline-none">
+                              <div>
+                                <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500">
+                                  What they do
+                                </p>
+                                <p class="text-sm leading-6 text-ink-300">
+                                  {match.role}{match.company ? ` · ${match.company}` : ""}
+                                </p>
+                              </div>
+                              <div>
+                                <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500">
+                                  About them
+                                </p>
+                                <p class="text-sm leading-6 text-ink-300">
+                                  {match.about}
+                                </p>
+                              </div>
+                            </Tabs.Content>
+                          </Tabs.Root>
                         </div>
                         <!-- Connect Button -->
                         <div class="pt-4 mt-auto">

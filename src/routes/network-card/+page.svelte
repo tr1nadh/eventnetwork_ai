@@ -72,9 +72,8 @@
     {#if loading}
       <div class="text-sm text-ink-400">Loading…</div>
     {:else}
-      <div class="w-full max-w-xl">
-        <section class:share-active={sharing} class="network-card relative min-h-[430px] rounded-3xl border border-white/10 p-6 sm:min-h-[520px] sm:p-10 {sharing ? 'pointer-events-auto' : ''}">
-          {#if sharing}<button type="button" class="absolute right-4 top-4 rounded-full p-1.5 text-ink-400 hover:bg-white/10 hover:text-white" onclick={() => sharing = false} aria-label="Close sharing"><X size={17} /></button>{/if}
+      <div class="w-full max-w-xl pb-24 sm:pb-32">
+        <section class:share-active={sharing} class="network-card relative rounded-3xl border border-white/10 p-6 sm:p-10 {sharing ? 'pointer-events-auto' : ''}">
           {#if editing}
             <div class="space-y-4">
               <label class="block text-sm text-ink-300">Display name<Input bind:value={card.display_name} class="mt-1.5 border-white/10 bg-white/5 text-white" /></label>
@@ -89,7 +88,7 @@
             {#if sharing}<div class="mt-7 border-t border-white/10 pt-6"><div class="qr-code mx-auto" aria-label="Temporary sharing QR code">{#each Array(81) as _, index}<i class:dark={(index * 17 + Math.floor(index / 9) * 11) % 7 < 3}></i>{/each}</div><p class="mt-3 text-center text-xs text-ink-400">Temporary QR code</p></div>{/if}
           {/if}
         </section>
-        {#if !editing}<div class="mt-4 flex justify-center gap-3"><Button variant="outline" class="gap-2 border-white/10" onclick={() => sharing = !sharing}><Share2 size={16} /> Share</Button><Button class="gap-2" onclick={startEditing}><Edit3 size={16} /> Edit</Button></div>{/if}
+        {#if !editing}<div class="card-actions pointer-events-auto flex justify-center gap-3 rounded-2xl bg-ink-950/80 p-2 backdrop-blur-md">{#if sharing}<Button variant="outline" class="gap-2 border-white/10" onclick={() => sharing = false}><X size={16} /> Close</Button>{:else}<Button variant="outline" class="gap-2 border-white/10" onclick={() => sharing = true}><Share2 size={16} /> Share</Button><Button class="gap-2" onclick={startEditing}><Edit3 size={16} /> Edit</Button>{/if}</div>{/if}
       </div>
     {/if}
   </main>
@@ -102,4 +101,6 @@
   .qr-code { display: grid; grid-template-columns: repeat(9, 1fr); width: 162px; height: 162px; padding: 9px; gap: 2px; border-radius: 12px; background: white; }
   .qr-code i { border-radius: 1px; background: transparent; }
   .qr-code i.dark { background: #09090b; }
+  .card-actions { position: fixed; z-index: 120; bottom: calc(4.5rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); }
+  @media (min-width: 768px) { .card-actions { bottom: 1.25rem; left: calc(50% + 120px); } }
 </style>

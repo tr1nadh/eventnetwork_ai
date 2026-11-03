@@ -4,7 +4,7 @@
 
 Evenai helps attendees Events the **right people**, not just **more people**, at hackathons, conferences, meetups, and networking events using AI-powered semantic matching.
 
-Instead of relying on random conversations, Evenai understands who attendees are, what they do, and who they are looking for, then recommends meaningful professional connections.
+Instead of relying on random conversations, Evenai understands who attendees are, What i do, and who they are looking for, then recommends meaningful professional connections.
 
 Built for **AMD Developer Hackathon – ACT II**.
 

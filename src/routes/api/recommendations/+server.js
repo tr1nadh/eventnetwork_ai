@@ -128,8 +128,8 @@ I am looking for: ${currentProfile.looking_for}
       const promises = scored.map(async (match) => {
         const matchContext = `
 Their name is ${match.name}.
-What they do: ${match.role}
-About them: ${match.about}
+What i do: ${match.role}
+About me: ${match.about}
 They are looking for: ${match.looking_for}
 `;
 

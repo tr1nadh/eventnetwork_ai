@@ -66,9 +66,9 @@ export async function POST({ request, locals }) {
       userContext = `
 The current user's networking profile (create profiles relevant to this person):
 - Display Name: ${myProfile.display_name}
-- What they do: ${myProfile.what_i_do}
+- What i do: ${myProfile.what_i_do}
 - Looking for: ${myProfile.looking_for}
-- About them: ${myProfile.about_me}
+- About me: ${myProfile.about_me}
 `.trim();
     }
   }

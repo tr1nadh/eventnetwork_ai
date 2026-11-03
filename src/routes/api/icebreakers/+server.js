@@ -74,7 +74,7 @@ export async function POST({ request, cookies }) {
         },
         {
           role: 'user',
-          content: `Sender profile:\nName: ${myProfile.display_name}\nWhat they do: ${myProfile.what_i_do}\nAbout: ${myProfile.about_me}\nLooking for: ${myProfile.looking_for}\n\nRecipient profile:\nName: ${theirProfile.display_name}\nWhat they do: ${theirProfile.what_i_do}\nAbout: ${theirProfile.about_me}\nLooking for: ${theirProfile.looking_for}`
+          content: `Sender profile:\nName: ${myProfile.display_name}\nWhat i do: ${myProfile.what_i_do}\nAbout: ${myProfile.about_me}\nLooking for: ${myProfile.looking_for}\n\nRecipient profile:\nName: ${theirProfile.display_name}\nWhat i do: ${theirProfile.what_i_do}\nAbout: ${theirProfile.about_me}\nLooking for: ${theirProfile.looking_for}`
         }
       ]
     });

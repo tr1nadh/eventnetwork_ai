@@ -107,7 +107,12 @@
   }
 
   function eventInitial(name) {
-    return String(name || 'E').trim().charAt(0).toUpperCase() || 'E';
+    return (
+      String(name || "E")
+        .trim()
+        .charAt(0)
+        .toUpperCase() || "E"
+    );
   }
 
   let realtimeChannel;
@@ -128,7 +133,9 @@
   function prevPinnedSlide() {
     if (!pinnedAnnouncements.length) return;
     pinnedSlideDirection = -1;
-    pinnedSlideIndex = (pinnedSlideIndex - 1 + pinnedAnnouncements.length) % pinnedAnnouncements.length;
+    pinnedSlideIndex =
+      (pinnedSlideIndex - 1 + pinnedAnnouncements.length) %
+      pinnedAnnouncements.length;
   }
 
   function selectPinnedSlide(index) {
@@ -147,39 +154,44 @@
 
   $: announcementsList = data.announcements ?? [];
 
-  $: pinnedAnnouncements = announcementsList.filter(a => a.is_pinned).slice(0, 3);
+  $: pinnedAnnouncements = announcementsList
+    .filter((a) => a.is_pinned)
+    .slice(0, 3);
 
-  $: filteredAnnouncements = announcementsList.filter(item => {
+  $: filteredAnnouncements = announcementsList.filter((item) => {
     if (!announcementSearchQuery.trim()) return true;
     const q = announcementSearchQuery.toLowerCase();
-    return item.title.toLowerCase().includes(q) || item.content.toLowerCase().includes(q);
+    return (
+      item.title.toLowerCase().includes(q) ||
+      item.content.toLowerCase().includes(q)
+    );
   });
 
   function getPriorityBorderClass(priority) {
-    if (priority === 'urgent') {
-      return 'border border-white/10 border-l-4 border-l-rose-500 bg-white/[0.03] hover:border-white/20 transition-all';
+    if (priority === "urgent") {
+      return "border border-white/10 border-l-4 border-l-rose-500 bg-white/[0.03] hover:border-white/20 transition-all";
     }
-    if (priority === 'high') {
-      return 'border border-white/10 border-l-4 border-l-amber-500 bg-white/[0.03] hover:border-white/20 transition-all';
+    if (priority === "high") {
+      return "border border-white/10 border-l-4 border-l-amber-500 bg-white/[0.03] hover:border-white/20 transition-all";
     }
-    if (priority === 'low') {
-      return 'border border-white/10 border-l-4 border-l-slate-500 bg-white/[0.03] hover:border-white/20 transition-all';
+    if (priority === "low") {
+      return "border border-white/10 border-l-4 border-l-slate-500 bg-white/[0.03] hover:border-white/20 transition-all";
     }
-    return 'border border-white/10 border-l-4 border-l-indigo-500 bg-white/[0.03] hover:border-white/20 transition-all';
+    return "border border-white/10 border-l-4 border-l-indigo-500 bg-white/[0.03] hover:border-white/20 transition-all";
   }
 
   function formatAnnouncementDateTime(dateInput) {
-    if (!dateInput) return '';
+    if (!dateInput) return "";
     const d = new Date(dateInput);
     if (isNaN(d.getTime())) return String(dateInput);
-    const dateStr = d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    const dateStr = d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
-    const timeStr = d.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit'
+    const timeStr = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
     });
     return `${dateStr} at ${timeStr}`;
   }
@@ -209,7 +221,9 @@
     }
 
     if (announcementIsPinned) {
-      const currentlyPinned = announcementsList.filter(a => a.is_pinned && a.id !== editingAnnouncement?.id);
+      const currentlyPinned = announcementsList.filter(
+        (a) => a.is_pinned && a.id !== editingAnnouncement?.id,
+      );
       if (currentlyPinned.length >= 3) {
         toast.error("Maximum 3 announcements can be pinned at a time.");
         return;
@@ -220,12 +234,12 @@
     try {
       const isEditing = Boolean(editingAnnouncement);
       const url = `/api/events/${currentEvent.id}/announcements`;
-      const method = isEditing ? 'PUT' : 'POST';
+      const method = isEditing ? "PUT" : "POST";
       const body = {
         title: announcementTitle.trim(),
         content: announcementContent.trim(),
         priority: announcementPriority,
-        is_pinned: announcementIsPinned
+        is_pinned: announcementIsPinned,
       };
       if (isEditing) {
         body.id = editingAnnouncement.id;
@@ -233,19 +247,23 @@
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body)
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
       });
 
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(json?.message ?? json?.error ?? 'Failed to save announcement.');
+        toast.error(
+          json?.message ?? json?.error ?? "Failed to save announcement.",
+        );
         return;
       }
 
       if (isEditing) {
-        announcementsList = announcementsList.map(a => a.id === json.announcement.id ? json.announcement : a);
+        announcementsList = announcementsList.map((a) =>
+          a.id === json.announcement.id ? json.announcement : a,
+        );
         toast.success("Announcement updated!");
       } else {
         announcementsList = [json.announcement, ...announcementsList];
@@ -265,7 +283,7 @@
       const newPinned = !item.is_pinned;
 
       if (newPinned) {
-        const currentlyPinned = announcementsList.filter(a => a.is_pinned);
+        const currentlyPinned = announcementsList.filter((a) => a.is_pinned);
         if (currentlyPinned.length >= 3) {
           toast.error("Maximum 3 announcements can be pinned at a time.");
           return;
@@ -273,16 +291,16 @@
       }
 
       const res = await fetch(`/api/events/${currentEvent.id}/announcements`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           id: item.id,
           title: item.title,
           content: item.content,
           priority: item.priority,
-          is_pinned: newPinned
-        })
+          is_pinned: newPinned,
+        }),
       });
 
       const json = await res.json().catch(() => ({}));
@@ -291,8 +309,12 @@
         return;
       }
 
-      announcementsList = announcementsList.map(a => a.id === item.id ? json.announcement : a);
-      toast.success(newPinned ? "Announcement pinned to top" : "Announcement unpinned");
+      announcementsList = announcementsList.map((a) =>
+        a.id === item.id ? json.announcement : a,
+      );
+      toast.success(
+        newPinned ? "Announcement pinned to top" : "Announcement unpinned",
+      );
     } catch (e) {
       toast.error("An error occurred");
     }
@@ -301,10 +323,13 @@
   async function handleDeleteAnnouncement(id) {
     deletingAnnouncementId = id;
     try {
-      const res = await fetch(`/api/events/${currentEvent.id}/announcements?id=${id}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+      const res = await fetch(
+        `/api/events/${currentEvent.id}/announcements?id=${id}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -312,7 +337,7 @@
         return;
       }
 
-      announcementsList = announcementsList.filter(a => a.id !== id);
+      announcementsList = announcementsList.filter((a) => a.id !== id);
       toast.success("Announcement deleted");
     } catch (e) {
       toast.error("An error occurred");
@@ -332,15 +357,21 @@
       if (decoded === "discover" || decoded.startsWith("/discover")) {
         backUrl = decoded.startsWith("/") ? decoded : "/discover";
         backLabel = "Back to discover";
-        try { sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl); } catch (_) {}
+        try {
+          sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl);
+        } catch (_) {}
       } else if (decoded === "events" || decoded.startsWith("/events")) {
         backUrl = decoded.startsWith("/") ? decoded : "/events";
         backLabel = "Back to events";
-        try { sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl); } catch (_) {}
+        try {
+          sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl);
+        } catch (_) {}
       } else if (decoded === "dashboard" || decoded.startsWith("/dashboard")) {
         backUrl = "/events";
         backLabel = "Back to My Events";
-        try { sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl); } catch (_) {}
+        try {
+          sessionStorage.setItem(`event_back_${data.event?.slug}`, backUrl);
+        } catch (_) {}
       }
     } catch (_) {}
   }
@@ -382,14 +413,13 @@
     } catch (_) {}
     // Hide page loading indicator once mounted
     pageLoading = false;
-    
+
     timeInterval = setInterval(() => {
       currentTime = new Date();
     }, 1000);
 
     // Always clear the connections store on mount so we don't show stale data from another event
     connectionsStore.set([]);
-
 
     if (!data.user?.id) return;
 
@@ -589,15 +619,28 @@
   function formatEventDateRange(start, end) {
     if (!start) return "";
     const startDate = new Date(start);
-    const startDateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const startTimeStr = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const startDateStr = startDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const startTimeStr = startDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
     if (!end) return `${startDateStr}, ${startTimeStr}`;
     const endDate = new Date(end);
-    const endDateStr = endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const endTimeStr = endDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    const sameDay = startDate.getFullYear() === endDate.getFullYear() &&
-                    startDate.getMonth() === endDate.getMonth() &&
-                    startDate.getDate() === endDate.getDate();
+    const endDateStr = endDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const endTimeStr = endDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    const sameDay =
+      startDate.getFullYear() === endDate.getFullYear() &&
+      startDate.getMonth() === endDate.getMonth() &&
+      startDate.getDate() === endDate.getDate();
     if (sameDay) {
       return `${startDateStr} • ${startTimeStr} - ${endTimeStr}`;
     }
@@ -651,12 +694,16 @@
       const resData = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(
-          resData.message || resData.error || "Failed to update venue map status"
+          resData.message ||
+            resData.error ||
+            "Failed to update venue map status",
         );
       }
       currentEvent = { ...currentEvent, is_venue_enabled: newStatus };
       toast.success(
-        newStatus ? "Venue map enabled for attendees" : "Venue map disabled for attendees"
+        newStatus
+          ? "Venue map enabled for attendees"
+          : "Venue map disabled for attendees",
       );
     } catch (e) {
       toast.error(e.message || "Failed to update venue status");
@@ -679,9 +726,12 @@
     currentTime; // Bind reactivity
     if (!timelineItems?.length) return [];
     const now = Date.now();
-    return timelineItems.filter(it => {
+    return timelineItems.filter((it) => {
       if (!it.start_time || !it.end_time) return false;
-      return now >= new Date(it.start_time).getTime() && now < new Date(it.end_time).getTime();
+      return (
+        now >= new Date(it.start_time).getTime() &&
+        now < new Date(it.end_time).getTime()
+      );
     });
   })();
 
@@ -698,9 +748,14 @@
   $: nextSession = (() => {
     currentTime;
     const now = Date.now();
-    return timelineItems
-      ?.filter(it => it.start_time && new Date(it.start_time).getTime() > now)
-      .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0] ?? null;
+    return (
+      timelineItems
+        ?.filter(
+          (it) => it.start_time && new Date(it.start_time).getTime() > now,
+        )
+        .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0] ??
+      null
+    );
   })();
 
   // --- Live Sessions Carousel Slider State ---
@@ -720,7 +775,10 @@
       liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length;
     }, 4000);
   } else {
-    if (liveSlideTimer) { clearInterval(liveSlideTimer); liveSlideTimer = null; }
+    if (liveSlideTimer) {
+      clearInterval(liveSlideTimer);
+      liveSlideTimer = null;
+    }
     liveSlideIndex = 0;
   }
 
@@ -757,21 +815,21 @@
     timelineDescription = "";
     timelineLocation = "";
     timelineCategory = "general";
-    
+
     const now = new Date();
     const nextSlot = getNextFiveMinuteSlot(now);
 
     timelineStartDate = getFormattedDateStr(nextSlot);
-    const h = String(nextSlot.getHours()).padStart(2, '0');
-    const m = String(nextSlot.getMinutes()).padStart(2, '0');
+    const h = String(nextSlot.getHours()).padStart(2, "0");
+    const m = String(nextSlot.getMinutes()).padStart(2, "0");
     timelineStartTimeVal = `${h}:${m}`;
-    
+
     const defaultEnd = new Date(nextSlot.getTime() + 30 * 60 * 1000);
     timelineEndDate = getFormattedDateStr(defaultEnd);
-    const endH = String(defaultEnd.getHours()).padStart(2, '0');
-    const endM = String(defaultEnd.getMinutes()).padStart(2, '0');
+    const endH = String(defaultEnd.getHours()).padStart(2, "0");
+    const endM = String(defaultEnd.getMinutes()).padStart(2, "0");
     timelineEndTimeVal = `${endH}:${endM}`;
-    
+
     timelineSpeakerName = "";
     timelineSpeakerRole = "";
     timelineSpeakerAvatarUrl = "";
@@ -785,18 +843,18 @@
     timelineDescription = item.description || "";
     timelineLocation = item.location || "";
     timelineCategory = item.category || "general";
-    
+
     if (item.start_time) {
       const dt = new Date(item.start_time);
       timelineStartDate = getFormattedDateStr(dt);
-      timelineStartTimeVal = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+      timelineStartTimeVal = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
     }
     if (item.end_time) {
       const dt = new Date(item.end_time);
       timelineEndDate = getFormattedDateStr(dt);
-      timelineEndTimeVal = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+      timelineEndTimeVal = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
     }
-    
+
     timelineSpeakerName = item.speaker_name || "";
     timelineSpeakerRole = item.speaker_role || "";
     timelineSpeakerAvatarUrl = item.speaker_avatar_url || "";
@@ -805,15 +863,15 @@
   }
 
   const durationShortcuts = [
-    { label: '5m', minutes: 5 },
-    { label: '10m', minutes: 10 },
-    { label: '15m', minutes: 15 },
-    { label: '30m', minutes: 30 },
-    { label: '45m', minutes: 45 },
-    { label: '1h', minutes: 60 },
-    { label: '1.5h', minutes: 90 },
-    { label: '2h', minutes: 120 },
-    { label: '3h', minutes: 180 }
+    { label: "5m", minutes: 5 },
+    { label: "10m", minutes: 10 },
+    { label: "15m", minutes: 15 },
+    { label: "30m", minutes: 30 },
+    { label: "45m", minutes: 45 },
+    { label: "1h", minutes: 60 },
+    { label: "1.5h", minutes: 90 },
+    { label: "2h", minutes: 120 },
+    { label: "3h", minutes: 180 },
   ];
 
   function applyDurationShortcut(minutes) {
@@ -823,8 +881,8 @@
 
     const endDt = new Date(startDt.getTime() + minutes * 60 * 1000);
     timelineEndDate = getFormattedDateStr(endDt);
-    const endH = String(endDt.getHours()).padStart(2, '0');
-    const endM = String(endDt.getMinutes()).padStart(2, '0');
+    const endH = String(endDt.getHours()).padStart(2, "0");
+    const endM = String(endDt.getMinutes()).padStart(2, "0");
     timelineEndTimeVal = `${endH}:${endM}`;
   }
 
@@ -832,8 +890,8 @@
     const now = new Date();
     const nextSlot = getNextFiveMinuteSlot(now);
     timelineStartDate = getFormattedDateStr(nextSlot);
-    const h = String(nextSlot.getHours()).padStart(2, '0');
-    const m = String(nextSlot.getMinutes()).padStart(2, '0');
+    const h = String(nextSlot.getHours()).padStart(2, "0");
+    const m = String(nextSlot.getMinutes()).padStart(2, "0");
     timelineStartTimeVal = `${h}:${m}`;
     applyDurationShortcut(30);
   }
@@ -843,31 +901,44 @@
     const today = getFormattedDateStr(now);
     if (timelineStartDate === today) {
       const nextSlot = getNextFiveMinuteSlot(now);
-      const h = String(nextSlot.getHours()).padStart(2, '0');
-      const m = String(nextSlot.getMinutes()).padStart(2, '0');
+      const h = String(nextSlot.getHours()).padStart(2, "0");
+      const m = String(nextSlot.getMinutes()).padStart(2, "0");
       return `${h}:${m}`;
     }
     return undefined;
   })();
 
   $: minAllowedEndTime = (() => {
-    if (timelineStartDate && timelineEndDate && timelineStartDate === timelineEndDate && timelineStartTimeVal) {
+    if (
+      timelineStartDate &&
+      timelineEndDate &&
+      timelineStartDate === timelineEndDate &&
+      timelineStartTimeVal
+    ) {
       return timelineStartTimeVal;
     }
     return undefined;
   })();
 
   $: calculatedDurationText = (() => {
-    if (!timelineStartDate || !timelineStartTimeVal || !timelineEndDate || !timelineEndTimeVal) return null;
+    if (
+      !timelineStartDate ||
+      !timelineStartTimeVal ||
+      !timelineEndDate ||
+      !timelineEndTimeVal
+    )
+      return null;
     const startDt = new Date(`${timelineStartDate}T${timelineStartTimeVal}`);
     const endDt = new Date(`${timelineEndDate}T${timelineEndTimeVal}`);
     if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) return null;
-    const diffMins = Math.round((endDt.getTime() - startDt.getTime()) / (1000 * 60));
+    const diffMins = Math.round(
+      (endDt.getTime() - startDt.getTime()) / (1000 * 60),
+    );
     if (diffMins <= 0) return "Invalid duration";
     const hours = Math.floor(diffMins / 60);
     const mins = diffMins % 60;
     if (hours === 0) return `${mins} mins`;
-    if (mins === 0) return `${hours} hr${hours > 1 ? 's' : ''}`;
+    if (mins === 0) return `${hours} hr${hours > 1 ? "s" : ""}`;
     return `${hours}h ${mins}m`;
   })();
 
@@ -880,7 +951,13 @@
   })();
 
   $: isEndTimeBeforeStart = (() => {
-    if (!timelineStartDate || !timelineStartTimeVal || !timelineEndDate || !timelineEndTimeVal) return false;
+    if (
+      !timelineStartDate ||
+      !timelineStartTimeVal ||
+      !timelineEndDate ||
+      !timelineEndTimeVal
+    )
+      return false;
     const startDt = new Date(`${timelineStartDate}T${timelineStartTimeVal}`);
     const endDt = new Date(`${timelineEndDate}T${timelineEndTimeVal}`);
     if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) return false;
@@ -893,7 +970,12 @@
       timelineError = "Title is required.";
       return;
     }
-    if (!timelineStartDate || !timelineStartTimeVal || !timelineEndDate || !timelineEndTimeVal) {
+    if (
+      !timelineStartDate ||
+      !timelineStartTimeVal ||
+      !timelineEndDate ||
+      !timelineEndTimeVal
+    ) {
       timelineError = "Start and End times are required.";
       return;
     }
@@ -925,7 +1007,7 @@
     try {
       const isEdit = Boolean(editingTimelineItem);
       const url = `/api/events/${currentEvent.id}/timeline`;
-      const method = isEdit ? 'PUT' : 'POST';
+      const method = isEdit ? "PUT" : "POST";
       const bodyPayload = {
         title: timelineTitle,
         description: timelineDescription,
@@ -935,7 +1017,7 @@
         end_time: endISO,
         speaker_name: timelineSpeakerName,
         speaker_role: timelineSpeakerRole,
-        speaker_avatar_url: timelineSpeakerAvatarUrl
+        speaker_avatar_url: timelineSpeakerAvatarUrl,
       };
 
       if (isEdit) {
@@ -944,24 +1026,30 @@
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPayload)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyPayload),
       });
 
       const resData = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(resData.message || resData.error || 'Failed to save timeline item.');
+        throw new Error(
+          resData.message || resData.error || "Failed to save timeline item.",
+        );
       }
 
       if (isEdit) {
-        timelineItems = timelineItems.map(it => it.id === resData.item.id ? resData.item : it);
+        timelineItems = timelineItems.map((it) =>
+          it.id === resData.item.id ? resData.item : it,
+        );
         toast.success("Schedule session updated!");
       } else {
         timelineItems = [...timelineItems, resData.item];
         toast.success("Schedule session added!");
       }
 
-      timelineItems.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      timelineItems.sort(
+        (a, b) => new Date(a.start_time) - new Date(b.start_time),
+      );
       timelineModalOpen = false;
     } catch (err) {
       timelineError = err.message;
@@ -974,14 +1062,17 @@
     if (deletingTimelineItemId) return;
     deletingTimelineItemId = id;
     try {
-      const res = await fetch(`/api/events/${currentEvent.id}/timeline?id=${id}`, {
-        method: 'DELETE'
-      });
+      const res = await fetch(
+        `/api/events/${currentEvent.id}/timeline?id=${id}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (!res.ok) {
         const resData = await res.json().catch(() => ({}));
-        throw new Error(resData.message || 'Failed to delete timeline item.');
+        throw new Error(resData.message || "Failed to delete timeline item.");
       }
-      timelineItems = timelineItems.filter(it => it.id !== id);
+      timelineItems = timelineItems.filter((it) => it.id !== id);
       toast.success("Session removed from timeline.");
     } catch (err) {
       toast.error(err.message);
@@ -995,15 +1086,24 @@
     const startDate = new Date(start);
     if (isNaN(startDate.getTime())) return "";
 
-    const startTimeStr = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const startTimeStr = startDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
     if (!end) return startTimeStr;
 
     const endDate = new Date(end);
     if (isNaN(endDate.getTime())) return startTimeStr;
 
-    const endTimeStr = endDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const endTimeStr = endDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
 
-    const diffMins = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60)));
+    const diffMins = Math.max(
+      0,
+      Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60)),
+    );
     let durStr = "";
     if (diffMins > 0) {
       if (diffMins < 60) {
@@ -1044,29 +1144,87 @@
   }
 
   const categorySuggestions = [
-    'Keynote',
-    'Workshop',
-    'Panel',
-    'Networking',
-    'Break',
-    'Q&A',
-    'Hackathon',
-    'Demo',
-    'General'
+    "Keynote",
+    "Workshop",
+    "Panel",
+    "Networking",
+    "Break",
+    "Q&A",
+    "Hackathon",
+    "Demo",
+    "General",
   ];
 
   function getCategoryColor(cat) {
-    const cleaned = (cat || '').toLowerCase().trim();
+    const cleaned = (cat || "").toLowerCase().trim();
     switch (cleaned) {
-      case 'keynote': return { bg: 'bg-amber-400/15', text: 'text-amber-300', border: 'border-amber-400/30', dot: 'bg-amber-400' };
-      case 'workshop': return { bg: 'bg-cyan-400/15', text: 'text-cyan-300', border: 'border-cyan-400/30', dot: 'bg-cyan-400' };
-      case 'panel': case 'panel discussion': return { bg: 'bg-indigo-400/15', text: 'text-indigo-300', border: 'border-indigo-400/30', dot: 'bg-indigo-400' };
-      case 'networking': return { bg: 'bg-emerald-400/15', text: 'text-emerald-300', border: 'border-emerald-400/30', dot: 'bg-emerald-400' };
-      case 'break': case 'refreshments': return { bg: 'bg-slate-400/15', text: 'text-slate-300', border: 'border-slate-400/30', dot: 'bg-slate-400' };
-      case 'hackathon': return { bg: 'bg-rose-400/15', text: 'text-rose-300', border: 'border-rose-400/30', dot: 'bg-rose-400' };
-      case 'q&a': case 'qa': return { bg: 'bg-teal-400/15', text: 'text-teal-300', border: 'border-teal-400/30', dot: 'bg-teal-400' };
-      case 'demo': case 'demo day': return { bg: 'bg-fuchsia-400/15', text: 'text-fuchsia-300', border: 'border-fuchsia-400/30', dot: 'bg-fuchsia-400' };
-      default: return { bg: 'bg-violet-400/15', text: 'text-violet-300', border: 'border-violet-400/30', dot: 'bg-violet-400' };
+      case "keynote":
+        return {
+          bg: "bg-amber-400/15",
+          text: "text-amber-300",
+          border: "border-amber-400/30",
+          dot: "bg-amber-400",
+        };
+      case "workshop":
+        return {
+          bg: "bg-cyan-400/15",
+          text: "text-cyan-300",
+          border: "border-cyan-400/30",
+          dot: "bg-cyan-400",
+        };
+      case "panel":
+      case "panel discussion":
+        return {
+          bg: "bg-indigo-400/15",
+          text: "text-indigo-300",
+          border: "border-indigo-400/30",
+          dot: "bg-indigo-400",
+        };
+      case "networking":
+        return {
+          bg: "bg-emerald-400/15",
+          text: "text-emerald-300",
+          border: "border-emerald-400/30",
+          dot: "bg-emerald-400",
+        };
+      case "break":
+      case "refreshments":
+        return {
+          bg: "bg-slate-400/15",
+          text: "text-slate-300",
+          border: "border-slate-400/30",
+          dot: "bg-slate-400",
+        };
+      case "hackathon":
+        return {
+          bg: "bg-rose-400/15",
+          text: "text-rose-300",
+          border: "border-rose-400/30",
+          dot: "bg-rose-400",
+        };
+      case "q&a":
+      case "qa":
+        return {
+          bg: "bg-teal-400/15",
+          text: "text-teal-300",
+          border: "border-teal-400/30",
+          dot: "bg-teal-400",
+        };
+      case "demo":
+      case "demo day":
+        return {
+          bg: "bg-fuchsia-400/15",
+          text: "text-fuchsia-300",
+          border: "border-fuchsia-400/30",
+          dot: "bg-fuchsia-400",
+        };
+      default:
+        return {
+          bg: "bg-violet-400/15",
+          text: "text-violet-300",
+          border: "border-violet-400/30",
+          dot: "bg-violet-400",
+        };
     }
   }
 
@@ -1082,25 +1240,29 @@
       return;
     }
 
-    activeTab.set('venue');
+    activeTab.set("venue");
 
     const defaultZones = [
-      { id: 'main-stage', name: 'Main Stage' },
-      { id: 'coffee', name: 'Coffee Station' },
-      { id: 'lounge', name: 'Networking Lounge' },
-      { id: 'booth-a', name: 'Sponsor Booth A' },
-      { id: 'booth-b', name: 'Sponsor Booth B' },
-      { id: 'entrance', name: 'Entrance / Reg' }
+      { id: "main-stage", name: "Main Stage" },
+      { id: "coffee", name: "Coffee Station" },
+      { id: "lounge", name: "Networking Lounge" },
+      { id: "booth-a", name: "Sponsor Booth A" },
+      { id: "booth-b", name: "Sponsor Booth B" },
+      { id: "entrance", name: "Entrance / Reg" },
     ];
-    const zones = (currentEvent.venue_map && Array.isArray(currentEvent.venue_map) && currentEvent.venue_map.length > 0)
-      ? currentEvent.venue_map
-      : defaultZones;
+    const zones =
+      currentEvent.venue_map &&
+      Array.isArray(currentEvent.venue_map) &&
+      currentEvent.venue_map.length > 0
+        ? currentEvent.venue_map
+        : defaultZones;
 
     const locLower = locationName.toLowerCase().trim();
-    const matchedZone = zones.find(z =>
-      z.name.toLowerCase().trim() === locLower ||
-      locLower.includes(z.name.toLowerCase().trim()) ||
-      z.name.toLowerCase().trim().includes(locLower)
+    const matchedZone = zones.find(
+      (z) =>
+        z.name.toLowerCase().trim() === locLower ||
+        locLower.includes(z.name.toLowerCase().trim()) ||
+        z.name.toLowerCase().trim().includes(locLower),
     );
 
     if (matchedZone) {
@@ -1111,83 +1273,103 @@
     }
   }
 
-  $: mapZoneSuggestions = (currentEvent?.venue_map && Array.isArray(currentEvent.venue_map) && currentEvent.venue_map.length > 0)
-    ? currentEvent.venue_map
-    : [
-        { id: 'main-stage', name: 'Main Stage' },
-        { id: 'coffee', name: 'Coffee Station' },
-        { id: 'lounge', name: 'Networking Lounge' },
-        { id: 'booth-a', name: 'Sponsor Booth A' },
-        { id: 'booth-b', name: 'Sponsor Booth B' },
-        { id: 'entrance', name: 'Entrance / Reg' }
-      ];
+  $: mapZoneSuggestions =
+    currentEvent?.venue_map &&
+    Array.isArray(currentEvent.venue_map) &&
+    currentEvent.venue_map.length > 0
+      ? currentEvent.venue_map
+      : [
+          { id: "main-stage", name: "Main Stage" },
+          { id: "coffee", name: "Coffee Station" },
+          { id: "lounge", name: "Networking Lounge" },
+          { id: "booth-a", name: "Sponsor Booth A" },
+          { id: "booth-b", name: "Sponsor Booth B" },
+          { id: "entrance", name: "Entrance / Reg" },
+        ];
 
   // --- Event Settings Tab State & Handlers ---
-  let settingsName = currentEvent?.name ?? '';
-  let settingsDescription = currentEvent?.description ?? '';
-  let settingsSlug = currentEvent?.slug ?? '';
-  let settingsLocation = currentEvent?.location ?? '';
-  let settingsGoogleMapUrl = currentEvent?.google_map_url ?? '';
-  let settingsEventFormat = currentEvent?.event_format ?? 'offline';
-  let settingsLogoUrl = currentEvent?.event_logo_url ?? '';
-  let settingsBannerUrl = currentEvent?.event_banner_url ?? '';
+  let settingsName = currentEvent?.name ?? "";
+  let settingsDescription = currentEvent?.description ?? "";
+  let settingsSlug = currentEvent?.slug ?? "";
+  let settingsLocation = currentEvent?.location ?? "";
+  let settingsGoogleMapUrl = currentEvent?.google_map_url ?? "";
+  let settingsEventFormat = currentEvent?.event_format ?? "offline";
+  let settingsLogoUrl = currentEvent?.event_logo_url ?? "";
+  let settingsBannerUrl = currentEvent?.event_banner_url ?? "";
   let settingsLogoFile = null;
   let settingsBannerFile = null;
   let settingsLogoPreview = settingsLogoUrl;
   let settingsBannerPreview = settingsBannerUrl;
   let settingsImagePathsToRemove = [];
 
-  let settingsStartTime = currentEvent?.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : '';
-  let settingsEndTime = currentEvent?.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
+  let settingsStartTime = currentEvent?.start_time
+    ? formatDatetimeLocal(new Date(currentEvent.start_time))
+    : "";
+  let settingsEndTime = currentEvent?.end_time
+    ? formatDatetimeLocal(new Date(currentEvent.end_time))
+    : "";
   let settingsIsApprovalRequired = Boolean(currentEvent?.is_approval_required);
   let settingsIsPublic = currentEvent?.is_public !== false;
-  let settingsAllowJoinAfterStart = currentEvent?.allow_join_after_start !== false;
+  let settingsAllowJoinAfterStart =
+    currentEvent?.allow_join_after_start !== false;
   let settingsIsVenueEnabled = currentEvent?.is_venue_enabled !== false;
   let settingsIsNetworkEnabled = Boolean(currentEvent?.is_network_enabled);
-  let settingsIsAnnouncementsEnabled = currentEvent?.is_announcements_enabled !== false;
+  let settingsIsAnnouncementsEnabled =
+    currentEvent?.is_announcements_enabled !== false;
 
   $: if (currentEvent) {
-    settingsName = currentEvent.name ?? '';
-    settingsDescription = currentEvent.description ?? '';
-    settingsSlug = currentEvent.slug ?? '';
-    settingsLocation = currentEvent.location ?? '';
-    settingsGoogleMapUrl = currentEvent.google_map_url ?? '';
-    settingsEventFormat = currentEvent.event_format ?? 'offline';
-    settingsLogoUrl = currentEvent.event_logo_url ?? '';
-    settingsBannerUrl = currentEvent.event_banner_url ?? '';
+    settingsName = currentEvent.name ?? "";
+    settingsDescription = currentEvent.description ?? "";
+    settingsSlug = currentEvent.slug ?? "";
+    settingsLocation = currentEvent.location ?? "";
+    settingsGoogleMapUrl = currentEvent.google_map_url ?? "";
+    settingsEventFormat = currentEvent.event_format ?? "offline";
+    settingsLogoUrl = currentEvent.event_logo_url ?? "";
+    settingsBannerUrl = currentEvent.event_banner_url ?? "";
     settingsLogoPreview = settingsLogoUrl;
     settingsBannerPreview = settingsBannerUrl;
-    settingsStartTime = currentEvent.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : '';
-    settingsEndTime = currentEvent.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : '';
+    settingsStartTime = currentEvent.start_time
+      ? formatDatetimeLocal(new Date(currentEvent.start_time))
+      : "";
+    settingsEndTime = currentEvent.end_time
+      ? formatDatetimeLocal(new Date(currentEvent.end_time))
+      : "";
     settingsIsApprovalRequired = Boolean(currentEvent.is_approval_required);
     settingsIsPublic = currentEvent.is_public !== false;
     settingsAllowJoinAfterStart = currentEvent.allow_join_after_start !== false;
     settingsIsVenueEnabled = currentEvent.is_venue_enabled !== false;
     settingsIsNetworkEnabled = Boolean(currentEvent.is_network_enabled);
-    settingsIsAnnouncementsEnabled = currentEvent.is_announcements_enabled !== false;
+    settingsIsAnnouncementsEnabled =
+      currentEvent.is_announcements_enabled !== false;
   }
 
-  let settingsStartDate = settingsStartTime ? settingsStartTime.split('T')[0] : '';
-  let settingsStartTimeVal = settingsStartTime ? settingsStartTime.split('T')[1]?.slice(0, 5) : '09:00';
-  let settingsEndDate = settingsEndTime ? settingsEndTime.split('T')[0] : '';
-  let settingsEndTimeVal = settingsEndTime ? settingsEndTime.split('T')[1]?.slice(0, 5) : '17:00';
+  let settingsStartDate = settingsStartTime
+    ? settingsStartTime.split("T")[0]
+    : "";
+  let settingsStartTimeVal = settingsStartTime
+    ? settingsStartTime.split("T")[1]?.slice(0, 5)
+    : "09:00";
+  let settingsEndDate = settingsEndTime ? settingsEndTime.split("T")[0] : "";
+  let settingsEndTimeVal = settingsEndTime
+    ? settingsEndTime.split("T")[1]?.slice(0, 5)
+    : "17:00";
 
   $: if (settingsStartDate && settingsStartTimeVal) {
     settingsStartTime = `${settingsStartDate}T${settingsStartTimeVal}`;
   } else if (!settingsStartDate) {
-    settingsStartTime = '';
+    settingsStartTime = "";
   }
 
   $: if (settingsEndDate && settingsEndTimeVal) {
     settingsEndTime = `${settingsEndDate}T${settingsEndTimeVal}`;
   } else if (!settingsEndDate) {
-    settingsEndTime = '';
+    settingsEndTime = "";
   }
 
   function getFormattedDateStr(dateObj) {
     const y = dateObj.getFullYear();
-    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const d = String(dateObj.getDate()).padStart(2, '0');
+    const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const d = String(dateObj.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
   }
 
@@ -1195,8 +1377,8 @@
 
   function setStartDateQuick(type) {
     const d = new Date();
-    if (type === 'tomorrow') d.setDate(d.getDate() + 1);
-    else if (type === 'nextweek') d.setDate(d.getDate() + 7);
+    if (type === "tomorrow") d.setDate(d.getDate() + 1);
+    else if (type === "nextweek") d.setDate(d.getDate() + 7);
     settingsStartDate = getFormattedDateStr(d);
     if (!settingsEndDate || settingsEndDate < settingsStartDate) {
       settingsEndDate = settingsStartDate;
@@ -1204,46 +1386,66 @@
   }
 
   function setEndDateQuick(type) {
-    if (!settingsStartDate) setStartDateQuick('today');
-    const d = new Date(settingsStartDate ? new Date(settingsStartDate) : new Date());
-    if (type === 'sameday') {
+    if (!settingsStartDate) setStartDateQuick("today");
+    const d = new Date(
+      settingsStartDate ? new Date(settingsStartDate) : new Date(),
+    );
+    if (type === "sameday") {
       settingsEndDate = settingsStartDate;
-    } else if (type === 'nextday') {
+    } else if (type === "nextday") {
       d.setDate(d.getDate() + 1);
       settingsEndDate = getFormattedDateStr(d);
     }
   }
 
   function formatTime12h(timeStr) {
-    if (!timeStr) return '12:00 PM';
-    const [h, m] = timeStr.split(':').map(Number);
-    const period = h >= 12 ? 'PM' : 'AM';
+    if (!timeStr) return "12:00 PM";
+    const [h, m] = timeStr.split(":").map(Number);
+    const period = h >= 12 ? "PM" : "AM";
     const displayH = h % 12 || 12;
-    const displayHStr = String(displayH).padStart(2, '0');
-    const displayMStr = String(m || 0).padStart(2, '0');
+    const displayHStr = String(displayH).padStart(2, "0");
+    const displayMStr = String(m || 0).padStart(2, "0");
     return `${displayHStr}:${displayMStr} ${period}`;
   }
 
   function formatDateHuman(dateInput) {
-    if (!dateInput) return 'Select Date';
-    if (typeof dateInput === 'string' && dateInput.includes('T')) {
+    if (!dateInput) return "Select Date";
+    if (typeof dateInput === "string" && dateInput.includes("T")) {
       const parsedDate = new Date(dateInput);
       if (!isNaN(parsedDate.getTime())) {
-        return parsedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return parsedDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
       }
     }
-    if (typeof dateInput === 'string' && dateInput.includes('-')) {
-      const parts = dateInput.split('T')[0].split('-').map(Number);
-      if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+    if (typeof dateInput === "string" && dateInput.includes("-")) {
+      const parts = dateInput.split("T")[0].split("-").map(Number);
+      if (
+        parts.length >= 3 &&
+        !isNaN(parts[0]) &&
+        !isNaN(parts[1]) &&
+        !isNaN(parts[2])
+      ) {
         const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
         if (!isNaN(dateObj.getTime())) {
-          return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+          return dateObj.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
         }
       }
     }
     const d = new Date(dateInput);
     if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
     }
     return String(dateInput);
   }
@@ -1253,17 +1455,28 @@
   let viewYear = new Date().getFullYear();
 
   const MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
 
   // --- Timeline Calendar & Clock Logic ---
   let activeTimelineDatePicker = null; // 'start' | 'end' | null
   function openTimelineCalendar(target) {
     activeTimelineDatePicker = target;
-    const targetDateStr = target === 'start' ? timelineStartDate : timelineEndDate;
-    if (targetDateStr && targetDateStr.includes('-')) {
-      const parts = targetDateStr.split('-').map(Number);
+    const targetDateStr =
+      target === "start" ? timelineStartDate : timelineEndDate;
+    if (targetDateStr && targetDateStr.includes("-")) {
+      const parts = targetDateStr.split("-").map(Number);
       viewYear = parts[0];
       viewMonth = parts[1] - 1;
     } else {
@@ -1273,12 +1486,12 @@
   }
 
   function selectTimelineCalendarDate(dateStr) {
-    if (activeTimelineDatePicker === 'start') {
+    if (activeTimelineDatePicker === "start") {
       timelineStartDate = dateStr;
       if (!timelineEndDate || timelineEndDate < timelineStartDate) {
         timelineEndDate = timelineStartDate;
       }
-    } else if (activeTimelineDatePicker === 'end') {
+    } else if (activeTimelineDatePicker === "end") {
       timelineEndDate = dateStr;
     }
     activeTimelineDatePicker = null;
@@ -1287,54 +1500,67 @@
   let activeTimelineTimePicker = null; // 'start' | 'end' | null
   function openTimelineClock(target) {
     activeTimelineTimePicker = target;
-    const timeVal = target === 'start' ? timelineStartTimeVal : timelineEndTimeVal;
+    const timeVal =
+      target === "start" ? timelineStartTimeVal : timelineEndTimeVal;
     if (timeVal) {
-      const [h24, m] = timeVal.split(':').map(Number);
-      clockPeriod = h24 >= 12 ? 'PM' : 'AM';
+      const [h24, m] = timeVal.split(":").map(Number);
+      clockPeriod = h24 >= 12 ? "PM" : "AM";
       clockHour = h24 % 12 || 12;
       clockMinute = m || 0;
     } else {
       clockHour = 9;
       clockMinute = 0;
-      clockPeriod = 'AM';
+      clockPeriod = "AM";
     }
   }
 
   function applyTimelineClockTime() {
     let h24 = clockHour % 12;
-    if (clockPeriod === 'PM') h24 += 12;
-    const hStr = String(h24).padStart(2, '0');
-    const mStr = String(clockMinute).padStart(2, '0');
+    if (clockPeriod === "PM") h24 += 12;
+    const hStr = String(h24).padStart(2, "0");
+    const mStr = String(clockMinute).padStart(2, "0");
     const newTimeVal = `${hStr}:${mStr}`;
 
-    if (activeTimelineTimePicker === 'start') {
+    if (activeTimelineTimePicker === "start") {
       timelineStartTimeVal = newTimeVal;
-      if (timelineStartDate === timelineEndDate && timelineEndTimeVal <= timelineStartTimeVal) {
+      if (
+        timelineStartDate === timelineEndDate &&
+        timelineEndTimeVal <= timelineStartTimeVal
+      ) {
         const nextH24 = (h24 + 1) % 24;
-        timelineEndTimeVal = `${String(nextH24).padStart(2, '0')}:${mStr}`;
+        timelineEndTimeVal = `${String(nextH24).padStart(2, "0")}:${mStr}`;
       }
-    } else if (activeTimelineTimePicker === 'end') {
+    } else if (activeTimelineTimePicker === "end") {
       timelineEndTimeVal = newTimeVal;
     }
     activeTimelineTimePicker = null;
   }
 
   function isTimelineTimeDisabled(h, m, period, target) {
-    if (target !== 'start') return false;
+    if (target !== "start") return false;
     const now = new Date();
     const today = getFormattedDateStr(now);
     if (timelineStartDate !== today) return false;
     let h24 = h % 12;
-    if (period === 'PM') h24 += 12;
-    const selectedTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h24, m, 0, 0);
+    if (period === "PM") h24 += 12;
+    const selectedTime = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      h24,
+      m,
+      0,
+      0,
+    );
     return selectedTime <= now;
   }
 
   function openCalendar(target) {
     activeDatePicker = target;
-    const targetDateStr = target === 'start' ? settingsStartDate : settingsEndDate;
-    if (targetDateStr && targetDateStr.includes('-')) {
-      const parts = targetDateStr.split('-').map(Number);
+    const targetDateStr =
+      target === "start" ? settingsStartDate : settingsEndDate;
+    if (targetDateStr && targetDateStr.includes("-")) {
+      const parts = targetDateStr.split("-").map(Number);
       viewYear = parts[0];
       viewMonth = parts[1] - 1;
     } else {
@@ -1351,8 +1577,8 @@
       grid.push(null);
     }
     for (let d = 1; d <= numDays; d++) {
-      const monthStr = String(month + 1).padStart(2, '0');
-      const dayStr = String(d).padStart(2, '0');
+      const monthStr = String(month + 1).padStart(2, "0");
+      const dayStr = String(d).padStart(2, "0");
       grid.push({ day: d, dateStr: `${year}-${monthStr}-${dayStr}` });
     }
     return grid;
@@ -1377,12 +1603,12 @@
   }
 
   function selectCalendarDate(dateStr) {
-    if (activeDatePicker === 'start') {
+    if (activeDatePicker === "start") {
       settingsStartDate = dateStr;
       if (!settingsEndDate || settingsEndDate < settingsStartDate) {
         settingsEndDate = settingsStartDate;
       }
-    } else if (activeDatePicker === 'end') {
+    } else if (activeDatePicker === "end") {
       settingsEndDate = dateStr;
     }
     activeDatePicker = null;
@@ -1391,61 +1617,85 @@
   let activeTimePicker = null;
   let clockHour = 9;
   let clockMinute = 0;
-  let clockPeriod = 'AM';
+  let clockPeriod = "AM";
 
   function openClock(target) {
     activeTimePicker = target;
-    const timeVal = target === 'start' ? settingsStartTimeVal : settingsEndTimeVal;
+    const timeVal =
+      target === "start" ? settingsStartTimeVal : settingsEndTimeVal;
     if (timeVal) {
-      const [h24, m] = timeVal.split(':').map(Number);
-      clockPeriod = h24 >= 12 ? 'PM' : 'AM';
+      const [h24, m] = timeVal.split(":").map(Number);
+      clockPeriod = h24 >= 12 ? "PM" : "AM";
       clockHour = h24 % 12 || 12;
       clockMinute = m || 0;
     } else {
       clockHour = 9;
       clockMinute = 0;
-      clockPeriod = 'AM';
+      clockPeriod = "AM";
     }
   }
 
   function applyClockTime() {
     let h24 = clockHour % 12;
-    if (clockPeriod === 'PM') h24 += 12;
-    const hStr = String(h24).padStart(2, '0');
-    const mStr = String(clockMinute).padStart(2, '0');
+    if (clockPeriod === "PM") h24 += 12;
+    const hStr = String(h24).padStart(2, "0");
+    const mStr = String(clockMinute).padStart(2, "0");
     const newTimeVal = `${hStr}:${mStr}`;
 
-    if (activeTimePicker === 'start') {
+    if (activeTimePicker === "start") {
       settingsStartTimeVal = newTimeVal;
-      if (settingsStartDate === settingsEndDate && settingsEndTimeVal <= settingsStartTimeVal) {
+      if (
+        settingsStartDate === settingsEndDate &&
+        settingsEndTimeVal <= settingsStartTimeVal
+      ) {
         const nextH24 = (h24 + 1) % 24;
-        settingsEndTimeVal = `${String(nextH24).padStart(2, '0')}:${mStr}`;
+        settingsEndTimeVal = `${String(nextH24).padStart(2, "0")}:${mStr}`;
       }
-    } else if (activeTimePicker === 'end') {
+    } else if (activeTimePicker === "end") {
       settingsEndTimeVal = newTimeVal;
     }
     activeTimePicker = null;
   }
 
-  $: eventStart = currentEvent?.start_time ? new Date(currentEvent.start_time) : null;
+  $: eventStart = currentEvent?.start_time
+    ? new Date(currentEvent.start_time)
+    : null;
   $: eventEnd = currentEvent?.end_time ? new Date(currentEvent.end_time) : null;
-  $: isEventLive = Boolean(eventStart && eventStart <= currentTime && (!eventEnd || eventEnd >= currentTime));
+  $: isEventLive = Boolean(
+    eventStart &&
+      eventStart <= currentTime &&
+      (!eventEnd || eventEnd >= currentTime),
+  );
   $: isEventEnded = Boolean(eventEnd && eventEnd < currentTime);
-  $: isJoinAfterStartClosed = Boolean(isEventLive && currentEvent?.allow_join_after_start === false);
+  $: isJoinAfterStartClosed = Boolean(
+    isEventLive && currentEvent?.allow_join_after_start === false,
+  );
 
-  $: isStartInPast = Boolean(!isEventLive && !isEventEnded && settingsStartDate && settingsStartDate < getFormattedDateStr(currentTime));
+  $: isStartInPast = Boolean(
+    !isEventLive &&
+      !isEventEnded &&
+      settingsStartDate &&
+      settingsStartDate < getFormattedDateStr(currentTime),
+  );
   $: isEndBeforeStart = Boolean(
-    (settingsEndDate && settingsStartDate && settingsEndDate < settingsStartDate) ||
-    (settingsStartDate && settingsEndDate && settingsStartDate === settingsEndDate && settingsStartTimeVal && settingsEndTimeVal && settingsEndTimeVal <= settingsStartTimeVal)
+    (settingsEndDate &&
+      settingsStartDate &&
+      settingsEndDate < settingsStartDate) ||
+      (settingsStartDate &&
+        settingsEndDate &&
+        settingsStartDate === settingsEndDate &&
+        settingsStartTimeVal &&
+        settingsEndTimeVal &&
+        settingsEndTimeVal <= settingsStartTimeVal),
   );
   $: isTimeInvalid = isStartInPast || isEndBeforeStart;
 
   let savingTabSettings = false;
-  let saveTabSettingsError = '';
+  let saveTabSettingsError = "";
   let saveTabSettingsSuccess = false;
 
   let settingsDeleteConfirmOpen = false;
-  let settingsDeleteConfirmText = '';
+  let settingsDeleteConfirmText = "";
   let settingsDeleting = false;
 
   let copiedSlug = false;
@@ -1453,12 +1703,15 @@
   function selectSettingsImage(event, type) {
     const file = event.currentTarget.files?.[0] ?? null;
     if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
-      toast.error('Use a JPG, PNG, or WebP image smaller than 2 MB.');
+    if (
+      !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+      file.size > 2 * 1024 * 1024
+    ) {
+      toast.error("Use a JPG, PNG, or WebP image smaller than 2 MB.");
       return;
     }
     const preview = URL.createObjectURL(file);
-    if (type === 'logo') {
+    if (type === "logo") {
       settingsLogoFile = file;
       settingsLogoPreview = preview;
     } else {
@@ -1469,71 +1722,80 @@
 
   async function uploadSettingsImage(file, type) {
     const formData = new FormData();
-    formData.set('file', file);
-    formData.set('type', type);
-    formData.set('slug', settingsSlug);
-    const res = await fetch('/api/events/images', { method: 'POST', body: formData });
+    formData.set("file", file);
+    formData.set("type", type);
+    formData.set("slug", settingsSlug);
+    const res = await fetch("/api/events/images", {
+      method: "POST",
+      body: formData,
+    });
     const payload = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(payload.error || 'Could not upload event image.');
+    if (!res.ok)
+      throw new Error(payload.error || "Could not upload event image.");
     return payload.url;
   }
 
   function queueSettingsImageRemoval(path) {
-    if (!path || path.startsWith('blob:')) return;
-    settingsImagePathsToRemove = [...new Set([...settingsImagePathsToRemove, path])];
+    if (!path || path.startsWith("blob:")) return;
+    settingsImagePathsToRemove = [
+      ...new Set([...settingsImagePathsToRemove, path]),
+    ];
   }
 
   function removeSettingsImage(type) {
-    if (type === 'logo') {
+    if (type === "logo") {
       queueSettingsImageRemoval(settingsLogoUrl);
-      settingsLogoUrl = '';
+      settingsLogoUrl = "";
       settingsLogoFile = null;
-      settingsLogoPreview = '';
+      settingsLogoPreview = "";
     } else {
       queueSettingsImageRemoval(settingsBannerUrl);
-      settingsBannerUrl = '';
+      settingsBannerUrl = "";
       settingsBannerFile = null;
-      settingsBannerPreview = '';
+      settingsBannerPreview = "";
     }
   }
 
   async function deleteSettingsImage(path) {
-    await fetch('/api/events/images', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path })
+    await fetch("/api/events/images", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
     });
   }
 
   function copySlugUrl() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const fullUrl = `${window.location.origin}/event/${settingsSlug}`;
     navigator.clipboard.writeText(fullUrl);
     copiedSlug = true;
-    toast.success('Event link copied to clipboard!');
+    toast.success("Event link copied to clipboard!");
     setTimeout(() => (copiedSlug = false), 2000);
   }
 
   async function saveTabSettings() {
     savingTabSettings = true;
-    saveTabSettingsError = '';
+    saveTabSettingsError = "";
     saveTabSettingsSuccess = false;
 
     try {
       if (settingsLogoFile) {
         queueSettingsImageRemoval(settingsLogoUrl);
-        settingsLogoUrl = await uploadSettingsImage(settingsLogoFile, 'logo');
+        settingsLogoUrl = await uploadSettingsImage(settingsLogoFile, "logo");
         settingsLogoPreview = settingsLogoUrl;
       }
       if (settingsBannerFile) {
         queueSettingsImageRemoval(settingsBannerUrl);
-        settingsBannerUrl = await uploadSettingsImage(settingsBannerFile, 'banner');
+        settingsBannerUrl = await uploadSettingsImage(
+          settingsBannerFile,
+          "banner",
+        );
         settingsBannerPreview = settingsBannerUrl;
       }
       const res = await fetch(`/api/events/${currentEvent.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: settingsName,
           description: settingsDescription,
@@ -1543,8 +1805,12 @@
           event_format: settingsEventFormat,
           event_logo_url: settingsLogoUrl || null,
           event_banner_url: settingsBannerUrl || null,
-          start_time: settingsStartTime ? new Date(settingsStartTime).toISOString() : null,
-          end_time: settingsEndTime ? new Date(settingsEndTime).toISOString() : null,
+          start_time: settingsStartTime
+            ? new Date(settingsStartTime).toISOString()
+            : null,
+          end_time: settingsEndTime
+            ? new Date(settingsEndTime).toISOString()
+            : null,
           is_public: settingsIsPublic,
           allow_join_after_start: settingsAllowJoinAfterStart,
           is_approval_required: settingsIsApprovalRequired,
@@ -1557,7 +1823,8 @@
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        saveTabSettingsError = json?.message ?? json?.error ?? 'Failed to save changes.';
+        saveTabSettingsError =
+          json?.message ?? json?.error ?? "Failed to save changes.";
         toast.error(saveTabSettingsError);
         return;
       }
@@ -1570,16 +1837,20 @@
       settingsImagePathsToRemove = [];
       settingsLogoFile = null;
       settingsBannerFile = null;
-      await Promise.all(pathsToRemove.map((path) => deleteSettingsImage(path).catch(() => null)));
+      await Promise.all(
+        pathsToRemove.map((path) =>
+          deleteSettingsImage(path).catch(() => null),
+        ),
+      );
 
       saveTabSettingsSuccess = true;
-      toast.success('Event settings updated successfully.');
+      toast.success("Event settings updated successfully.");
 
       if (settingsSlug !== data.event.slug) {
         goto(`/event/${settingsSlug}`, { replaceState: true });
       }
     } catch (e) {
-      saveTabSettingsError = e.message ?? 'Something went wrong.';
+      saveTabSettingsError = e.message ?? "Something went wrong.";
       toast.error(saveTabSettingsError);
     } finally {
       savingTabSettings = false;
@@ -1590,20 +1861,20 @@
     settingsDeleting = true;
     try {
       const res = await fetch(`/api/events/${currentEvent.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
+        method: "DELETE",
+        credentials: "include",
       });
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        toast.error(json?.message ?? 'Failed to delete event.');
+        toast.error(json?.message ?? "Failed to delete event.");
         return;
       }
 
-      toast.success('Event deleted.');
-      await goto('/events');
+      toast.success("Event deleted.");
+      await goto("/events");
     } catch (e) {
-      toast.error('Something went wrong.');
+      toast.error("Something went wrong.");
     } finally {
       settingsDeleting = false;
     }
@@ -1613,14 +1884,19 @@
     editEventName = currentEvent.name || "";
     editEventSlug = currentEvent.slug || "";
     editEventDescription = currentEvent.description || "";
-    editEventStartTime = currentEvent.start_time ? formatDatetimeLocal(new Date(currentEvent.start_time)) : "";
-    editEventEndTime = currentEvent.end_time ? formatDatetimeLocal(new Date(currentEvent.end_time)) : "";
+    editEventStartTime = currentEvent.start_time
+      ? formatDatetimeLocal(new Date(currentEvent.start_time))
+      : "";
+    editEventEndTime = currentEvent.end_time
+      ? formatDatetimeLocal(new Date(currentEvent.end_time))
+      : "";
     editEventFormat = currentEvent.event_format || "offline";
     editEventLocation = currentEvent.location || "";
     editEventGoogleMapUrl = currentEvent.google_map_url || "";
     editEventApprovalRequired = Boolean(currentEvent.is_approval_required);
     editEventVenueEnabled = currentEvent.is_venue_enabled !== false;
-    editEventAnnouncementsEnabled = currentEvent.is_announcements_enabled !== false;
+    editEventAnnouncementsEnabled =
+      currentEvent.is_announcements_enabled !== false;
     editEventError = "";
     editEventModalOpen = true;
   }
@@ -1645,8 +1921,12 @@
           name: editEventName,
           slug: editEventSlug,
           description: editEventDescription,
-          start_time: editEventStartTime ? new Date(editEventStartTime).toISOString() : undefined,
-          end_time: editEventEndTime ? new Date(editEventEndTime).toISOString() : undefined,
+          start_time: editEventStartTime
+            ? new Date(editEventStartTime).toISOString()
+            : undefined,
+          end_time: editEventEndTime
+            ? new Date(editEventEndTime).toISOString()
+            : undefined,
           event_format: editEventFormat,
           location: editEventLocation,
           google_map_url: editEventGoogleMapUrl,
@@ -1851,15 +2131,20 @@
   }
 
   function formatMatchExplanation(explanation) {
-    const fallback = "This person is a relevant match based on your networking profile.";
+    const fallback =
+      "This person is a relevant match based on your networking profile.";
     const text = explanation?.trim() || fallback;
     const fullName = networkingProfile.whoTheyAre?.trim();
     const firstName = fullName?.split(/\s+/)[0];
-    const names = [fullName, firstName].filter(Boolean).sort((a, b) => b.length - a.length);
+    const names = [fullName, firstName]
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
 
     for (const name of names) {
       const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const withoutOpeningName = text.replace(new RegExp(`^${escapedName}[,!:—–\\s]+`, "i"), "").trim();
+      const withoutOpeningName = text
+        .replace(new RegExp(`^${escapedName}[,!:—–\\s]+`, "i"), "")
+        .trim();
       if (withoutOpeningName !== text) return withoutOpeningName;
     }
 
@@ -1868,14 +2153,23 @@
 
   let canUseEventNetworking = Boolean(data.isParticipant || data.isOrganizer);
   $: canUseEventNetworking = Boolean(data.isParticipant || data.isOrganizer);
-  let networkProfileCheckComplete = Boolean(data.networkProfile) || !(data.isParticipant || data.isOrganizer);
+  let networkProfileCheckComplete =
+    Boolean(data.networkProfile) || !(data.isParticipant || data.isOrganizer);
   let checkingStoredNetworkProfile = false;
 
   async function loadStoredNetworkProfile() {
-    if (networkProfileCheckComplete || checkingStoredNetworkProfile || !canUseEventNetworking) return;
+    if (
+      networkProfileCheckComplete ||
+      checkingStoredNetworkProfile ||
+      !canUseEventNetworking
+    )
+      return;
     checkingStoredNetworkProfile = true;
     try {
-      const res = await fetch(`/api/network_profiles?event_id=${encodeURIComponent(data.event.id)}`, { credentials: "include" });
+      const res = await fetch(
+        `/api/network_profiles?event_id=${encodeURIComponent(data.event.id)}`,
+        { credentials: "include" },
+      );
       const payload = await res.json().catch(() => ({}));
       if (res.ok && payload.profile) {
         networkingProfile = { ...networkingProfile, ...payload.profile };
@@ -1939,9 +2233,12 @@
     loadingAttendees = true;
     try {
       const q = encodeURIComponent(query.trim());
-      const res = await fetch(`/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}`, {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}`,
+        {
+          credentials: "include",
+        },
+      );
       if (!res.ok) throw new Error("Failed to fetch attendees");
       const { attendees } = await res.json();
       attendeesList = attendees || [];
@@ -1961,9 +2258,12 @@
   }
 
   async function handleConnectAttendee(attendee) {
-    await connectUser({ user_id: attendee.user_id, is_dummy: attendee.is_dummy });
+    await connectUser({
+      user_id: attendee.user_id,
+      is_dummy: attendee.is_dummy,
+    });
     attendeesList = attendeesList.map((a) =>
-      a.user_id === attendee.user_id ? { ...a, connectionStatus: "sent" } : a
+      a.user_id === attendee.user_id ? { ...a, connectionStatus: "sent" } : a,
     );
   }
 
@@ -1971,7 +2271,9 @@
     if (attendee.connectionId) {
       await updateConnection(attendee.connectionId, "accepted");
       attendeesList = attendeesList.map((a) =>
-        a.user_id === attendee.user_id ? { ...a, connectionStatus: "connected" } : a
+        a.user_id === attendee.user_id
+          ? { ...a, connectionStatus: "connected" }
+          : a,
       );
     }
   }
@@ -1988,7 +2290,11 @@
 
   // Auto-sync connections when Network tab is selected
   let lastSeenNetworkTab = "";
-  $: if ($activeTab === "network" && canUseEventNetworking && lastSeenNetworkTab !== "network") {
+  $: if (
+    $activeTab === "network" &&
+    canUseEventNetworking &&
+    lastSeenNetworkTab !== "network"
+  ) {
     lastSeenNetworkTab = "network";
     if (!loadingConnections) {
       fetchAllConnections();
@@ -1999,7 +2305,10 @@
   }
 
   // Redirect legacy tab values to network (only when networking is enabled)
-  $: if (($activeTab === "matches" || $activeTab === "connections") && Boolean(currentEvent.is_network_enabled)) {
+  $: if (
+    ($activeTab === "matches" || $activeTab === "connections") &&
+    Boolean(currentEvent.is_network_enabled)
+  ) {
     activeTab.set("network");
   }
 
@@ -2156,8 +2465,6 @@
     }
   }
 
-
-
   async function signOut() {
     signingOut = true;
     await supabase.auth.signOut();
@@ -2182,7 +2489,8 @@
     if (joining) return;
     if (isJoinAfterStartClosed) {
       toast.error("Registration closed", {
-        description: "This event has already started and is no longer accepting registrations.",
+        description:
+          "This event has already started and is no longer accepting registrations.",
       });
       return;
     }
@@ -2221,7 +2529,7 @@
         currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
         currentEvent = { ...currentEvent };
       }
-      activeTab.set('details');
+      activeTab.set("details");
       stage = "workspace";
       editProfileOpen = false;
       toast.success("Event joined");
@@ -2525,7 +2833,11 @@
             class="h-1 bg-gradient-to-r from-amber-400 via-amber-300/50 to-transparent"
           ></div>
           {#if currentEvent.event_banner_url}
-            <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="h-48 w-full object-cover sm:h-64" />
+            <img
+              src={eventImageSrc(currentEvent.event_banner_url)}
+              alt=""
+              class="h-48 w-full object-cover sm:h-64"
+            />
           {/if}
           <div class="p-8 sm:p-10 space-y-8">
             <Badge
@@ -2539,18 +2851,28 @@
             <div>
               <div class="mb-4 flex items-center gap-4">
                 {#if currentEvent.event_logo_url}
-                  <img src={eventImageSrc(currentEvent.event_logo_url)} alt="" class="h-16 w-16 rounded-2xl object-cover sm:h-20 sm:w-20" />
-                {:else}
-                  <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-2xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20 sm:text-3xl">{eventInitial(currentEvent.name)}</div>
-                {/if}
-                <h1 class="text-4xl font-black tracking-tight text-white sm:text-6xl">
-                {currentEvent.name}
-                {#if data.isParticipant}
-                  <CheckCircle2
-                    size={20}
-                    class="inline-block text-amber-400 ml-2"
+                  <img
+                    src={eventImageSrc(currentEvent.event_logo_url)}
+                    alt=""
+                    class="h-16 w-16 rounded-2xl object-cover sm:h-20 sm:w-20"
                   />
+                {:else}
+                  <div
+                    class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-2xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20 sm:text-3xl"
+                  >
+                    {eventInitial(currentEvent.name)}
+                  </div>
                 {/if}
+                <h1
+                  class="text-4xl font-black tracking-tight text-white sm:text-6xl"
+                >
+                  {currentEvent.name}
+                  {#if data.isParticipant}
+                    <CheckCircle2
+                      size={20}
+                      class="inline-block text-amber-400 ml-2"
+                    />
+                  {/if}
                 </h1>
               </div>
               <p class="text-lg leading-relaxed text-ink-300 max-w-2xl">
@@ -2601,11 +2923,15 @@
                   {/if}
                 </Button>
               {:else if data.isOrganizer}
-                <div class="flex items-center gap-2 text-amber-400 font-semibold">
+                <div
+                  class="flex items-center gap-2 text-amber-400 font-semibold"
+                >
                   <Crown size={18} /> Hosting
                 </div>
               {:else}
-                <div class="flex items-center gap-2 text-emerald-400 font-semibold">
+                <div
+                  class="flex items-center gap-2 text-emerald-400 font-semibold"
+                >
                   <CheckCheck size={18} /> Joined
                 </div>
               {/if}
@@ -2794,7 +3120,9 @@
     {:else}
       <div class="space-y-8 animate-fade-in min-h-[800px]">
         {#if pageLoading}
-          <div class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10">
+          <div
+            class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10"
+          >
             <div class="flex flex-col items-center gap-6 animate-pulse">
               <div class="h-8 w-48 bg-ink-400 rounded"></div>
               <div class="h-4 w-96 bg-ink-400 rounded"></div>
@@ -2805,44 +3133,67 @@
           <!-- ══ PUBLIC EVENT LANDING PAGE (VISITING USERS)                     ══ -->
           <!-- ═══════════════════════════════════════════════════════════════════ -->
           <div class="space-y-6 sm:space-y-8 animate-fade-in">
-
             <!-- ── Event Hero Banner ── -->
-            <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent backdrop-blur-xl shadow-2xl">
+            <div
+              class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent backdrop-blur-xl shadow-2xl"
+            >
               <!-- Top accent bar matching status -->
-              <div class="h-1 w-full {isEventLive ? 'bg-gradient-to-r from-emerald-400 via-emerald-300 to-teal-400' : isEventEnded ? 'bg-gradient-to-r from-slate-500 via-slate-400/50 to-transparent' : 'bg-gradient-to-r from-amber-400 via-amber-300 to-orange-400'}"></div>
+              <div
+                class="h-1 w-full {isEventLive
+                  ? 'bg-gradient-to-r from-emerald-400 via-emerald-300 to-teal-400'
+                  : isEventEnded
+                    ? 'bg-gradient-to-r from-slate-500 via-slate-400/50 to-transparent'
+                    : 'bg-gradient-to-r from-amber-400 via-amber-300 to-orange-400'}"
+              ></div>
 
               {#if currentEvent.event_banner_url}
-                <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="h-44 w-full object-cover sm:h-60" />
+                <img
+                  src={eventImageSrc(currentEvent.event_banner_url)}
+                  alt=""
+                  class="h-44 w-full object-cover sm:h-60"
+                />
               {/if}
 
               <div class="p-6 sm:p-10 lg:p-12 space-y-6">
                 <!-- Badges Row -->
                 <div class="flex flex-wrap items-center gap-2.5">
                   {#if isEventLive}
-                    <span class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.25)]">
+                    <span
+                      class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.25)]"
+                    >
                       <span class="relative flex h-2 w-2">
-                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
+                        <span
+                          class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
+                        ></span>
+                        <span
+                          class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"
+                        ></span>
                       </span>
                       Live Now
                     </span>
                   {:else if isEventEnded}
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ink-400">
+                    <span
+                      class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ink-400"
+                    >
                       <CheckCheck size={13} />
                       Event Ended
                     </span>
                   {:else}
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-300">
+                    <span
+                      class="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-300"
+                    >
                       <CalendarClock size={13} />
                       Upcoming
                     </span>
                   {/if}
 
                   {#if currentEvent.event_format}
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold capitalize text-ink-300">
-                      {#if currentEvent.event_format === 'online'}
+                    <span
+                      class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold capitalize text-ink-300"
+                    >
+                      {#if currentEvent.event_format === "online"}
                         <Globe size={13} class="text-cyan-400" /> Online Event
-                      {:else if currentEvent.event_format === 'hybrid'}
+                      {:else if currentEvent.event_format === "hybrid"}
                         <Globe size={13} class="text-amber-400" /> Hybrid Event
                       {:else}
                         <MapPin size={13} class="text-amber-400" /> In-Person Event
@@ -2850,12 +3201,15 @@
                     </span>
                   {/if}
 
-
-
                   {#if currentEvent.attendees_count > 0}
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-ink-300">
+                    <span
+                      class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-ink-300"
+                    >
                       <Users size={13} class="text-cyan-400" />
-                      {currentEvent.attendees_count} {currentEvent.attendees_count === 1 ? 'attendee' : 'attendees'}
+                      {currentEvent.attendees_count}
+                      {currentEvent.attendees_count === 1
+                        ? "attendee"
+                        : "attendees"}
                     </span>
                   {/if}
                 </div>
@@ -2863,35 +3217,73 @@
                 <!-- Event Title -->
                 <div class="flex items-center gap-4">
                   {#if currentEvent.event_logo_url}
-                    <img src={eventImageSrc(currentEvent.event_logo_url)} alt="" class="h-16 w-16 shrink-0 rounded-2xl object-cover sm:h-20 sm:w-20" />
+                    <img
+                      src={eventImageSrc(currentEvent.event_logo_url)}
+                      alt=""
+                      class="h-16 w-16 shrink-0 rounded-2xl object-cover sm:h-20 sm:w-20"
+                    />
                   {:else}
-                    <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-2xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20 sm:text-3xl">{eventInitial(currentEvent.name)}</div>
+                    <div
+                      class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-2xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20 sm:text-3xl"
+                    >
+                      {eventInitial(currentEvent.name)}
+                    </div>
                   {/if}
-                  <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]">{currentEvent.name}</h1>
+                  <h1
+                    class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]"
+                  >
+                    {currentEvent.name}
+                  </h1>
                 </div>
 
                 <!-- Live or Next Session Ticker -->
                 {#if liveSessions.length > 0}
-                  <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md">
+                  <div
+                    class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md"
+                  >
                     <span class="relative flex h-2.5 w-2.5">
-                      <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                      <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+                      <span
+                        class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
+                      ></span>
+                      <span
+                        class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400"
+                      ></span>
                     </span>
-                    <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Live Now:</span>
-                    <span class="text-sm font-semibold text-white truncate max-w-xs sm:max-w-md">{liveSessions[0].title}</span>
+                    <span
+                      class="text-xs font-bold uppercase tracking-wider text-emerald-400"
+                      >Live Now:</span
+                    >
+                    <span
+                      class="text-sm font-semibold text-white truncate max-w-xs sm:max-w-md"
+                      >{liveSessions[0].title}</span
+                    >
                     {#if liveSessions[0].location}
-                      <span class="text-xs text-emerald-300/80 hidden sm:inline-flex items-center gap-1">
-                        • <MapPin size={11} /> {liveSessions[0].location}
+                      <span
+                        class="text-xs text-emerald-300/80 hidden sm:inline-flex items-center gap-1"
+                      >
+                        • <MapPin size={11} />
+                        {liveSessions[0].location}
                       </span>
                     {/if}
                   </div>
                 {:else if nextSession}
-                  <div class="inline-flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/8 px-4 py-2.5 backdrop-blur-md">
+                  <div
+                    class="inline-flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/8 px-4 py-2.5 backdrop-blur-md"
+                  >
                     <Clock size={14} class="text-amber-400" />
-                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Next Up:</span>
-                    <span class="text-sm font-semibold text-white truncate max-w-xs sm:max-w-md">{nextSession.title}</span>
+                    <span
+                      class="text-xs font-bold uppercase tracking-wider text-amber-400"
+                      >Next Up:</span
+                    >
+                    <span
+                      class="text-sm font-semibold text-white truncate max-w-xs sm:max-w-md"
+                      >{nextSession.title}</span
+                    >
                     <span class="text-xs text-amber-300/70 hidden sm:inline">
-                      • {new Date(nextSession.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      • {new Date(nextSession.start_time).toLocaleTimeString(
+                        "en-US",
+                        { hour: "numeric", minute: "2-digit" },
+                      )}
                     </span>
                   </div>
                 {/if}
@@ -2899,38 +3291,65 @@
             </div>
 
             <!-- ── 2-Column Responsive Layout (Main Details + Sticky RSVP Card) ── -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
-
+            <div
+              class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start"
+            >
               <!-- Left 2 Columns: About + Schedule -->
               <div class="lg:col-span-2 space-y-6 sm:space-y-8">
-
                 <!-- About Card -->
                 {#if currentEvent.description}
-                  <div class="glass rounded-3xl border border-white/8 p-6 sm:p-8 space-y-4">
-                    <div class="flex items-center gap-2.5 pb-2 border-b border-white/6">
-                      <div class="h-4 w-1 rounded-full bg-gradient-to-b from-amber-400 to-amber-600"></div>
-                      <h2 class="text-base sm:text-lg font-bold text-white tracking-tight">About this Event</h2>
+                  <div
+                    class="glass rounded-3xl border border-white/8 p-6 sm:p-8 space-y-4"
+                  >
+                    <div
+                      class="flex items-center gap-2.5 pb-2 border-b border-white/6"
+                    >
+                      <div
+                        class="h-4 w-1 rounded-full bg-gradient-to-b from-amber-400 to-amber-600"
+                      ></div>
+                      <h2
+                        class="text-base sm:text-lg font-bold text-white tracking-tight"
+                      >
+                        About this Event
+                      </h2>
                     </div>
-                    <div class="text-sm sm:text-base leading-relaxed text-ink-200 whitespace-pre-line font-normal">
+                    <div
+                      class="text-sm sm:text-base leading-relaxed text-ink-200 whitespace-pre-line font-normal"
+                    >
                       {currentEvent.description}
                     </div>
                   </div>
                 {/if}
 
                 <!-- Event Schedule & Agenda -->
-                <div class="glass rounded-3xl border border-white/8 p-6 sm:p-8 space-y-5">
-                  <div class="flex items-center justify-between pb-2 border-b border-white/6">
+                <div
+                  class="glass rounded-3xl border border-white/8 p-6 sm:p-8 space-y-5"
+                >
+                  <div
+                    class="flex items-center justify-between pb-2 border-b border-white/6"
+                  >
                     <div class="flex items-center gap-2.5">
-                      <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-400">
+                      <div
+                        class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-400"
+                      >
                         <CalendarClock size={16} />
                       </div>
                       <div>
-                        <h2 class="text-base sm:text-lg font-bold text-white tracking-tight">Schedule & Agenda</h2>
-                        <p class="text-xs text-ink-500">{timelineItems.length} {timelineItems.length === 1 ? 'session' : 'sessions'} planned</p>
+                        <h2
+                          class="text-base sm:text-lg font-bold text-white tracking-tight"
+                        >
+                          Schedule & Agenda
+                        </h2>
+                        <p class="text-xs text-ink-500">
+                          {timelineItems.length}
+                          {timelineItems.length === 1 ? "session" : "sessions"} planned
+                        </p>
                       </div>
                     </div>
                     {#if timelineItems.length > 0}
-                      <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-amber-400/25 bg-amber-400/8 text-amber-300">
+                      <span
+                        class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-amber-400/25 bg-amber-400/8 text-amber-300"
+                      >
                         Agenda
                       </span>
                     {/if}
@@ -2938,82 +3357,136 @@
 
                   {#if timelineItems.length === 0}
                     <div class="py-12 text-center space-y-3">
-                      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-ink-500">
+                      <div
+                        class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-ink-500"
+                      >
                         <CalendarClock size={24} />
                       </div>
-                      <p class="text-sm font-semibold text-ink-300">No schedule announced yet</p>
-                      <p class="text-xs text-ink-500 max-w-xs mx-auto">The host hasn't published the agenda sessions yet. Check back soon for the timeline.</p>
+                      <p class="text-sm font-semibold text-ink-300">
+                        No schedule announced yet
+                      </p>
+                      <p class="text-xs text-ink-500 max-w-xs mx-auto">
+                        The host hasn't published the agenda sessions yet. Check
+                        back soon for the timeline.
+                      </p>
                     </div>
                   {:else}
                     <!-- Timeline Rail -->
                     <div class="relative pt-2">
-                      <div class="absolute left-[27px] top-4 bottom-4 w-px bg-gradient-to-b from-white/15 via-white/8 to-transparent pointer-events-none"></div>
+                      <div
+                        class="absolute left-[27px] top-4 bottom-4 w-px bg-gradient-to-b from-white/15 via-white/8 to-transparent pointer-events-none"
+                      ></div>
 
                       <div class="space-y-4">
                         {#each timelineItems as item, idx (item.id)}
                           {@const style = getCategoryColor(item.category)}
-                          {@const isLiveNow = item.start_time && item.end_time && new Date(item.start_time) <= currentTime && new Date(item.end_time) >= currentTime}
-                          {@const isPast = item.end_time && new Date(item.end_time) < currentTime}
+                          {@const isLiveNow =
+                            item.start_time &&
+                            item.end_time &&
+                            new Date(item.start_time) <= currentTime &&
+                            new Date(item.end_time) >= currentTime}
+                          {@const isPast =
+                            item.end_time &&
+                            new Date(item.end_time) < currentTime}
 
                           <div class="relative flex gap-4 group">
                             <!-- Timeline node -->
-                            <div class="relative flex-shrink-0 flex flex-col items-center" style="width: 56px;">
-                              <div class="relative flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-300
+                            <div
+                              class="relative flex-shrink-0 flex flex-col items-center"
+                              style="width: 56px;"
+                            >
+                              <div
+                                class="relative flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-300
                                 {isLiveNow
                                   ? 'bg-emerald-400/15 border-emerald-400/40 shadow-[0_0_16px_rgba(52,211,153,0.25)]'
                                   : isPast
-                                  ? 'bg-white/3 border-white/6'
-                                  : 'bg-white/5 border-white/10 group-hover:border-white/20'}">
+                                    ? 'bg-white/3 border-white/6'
+                                    : 'bg-white/5 border-white/10 group-hover:border-white/20'}"
+                              >
                                 {#if isLiveNow}
-                                  <span class="absolute inset-0 rounded-2xl animate-ping border border-emerald-400/40 opacity-50"></span>
+                                  <span
+                                    class="absolute inset-0 rounded-2xl animate-ping border border-emerald-400/40 opacity-50"
+                                  ></span>
                                 {/if}
-                                <div class="h-2.5 w-2.5 rounded-full {style.dot} {isLiveNow ? 'shadow-[0_0_8px_currentColor]' : ''} {isPast ? 'opacity-30' : ''}"></div>
+                                <div
+                                  class="h-2.5 w-2.5 rounded-full {style.dot} {isLiveNow
+                                    ? 'shadow-[0_0_8px_currentColor]'
+                                    : ''} {isPast ? 'opacity-30' : ''}"
+                                ></div>
                               </div>
                             </div>
 
                             <!-- Session Card -->
                             <div class="flex-1 min-w-0 pb-1">
-                              <div class="rounded-2xl border p-4 sm:p-5 transition-all duration-200
+                              <div
+                                class="rounded-2xl border p-4 sm:p-5 transition-all duration-200
                                 {isLiveNow
                                   ? 'border-emerald-400/30 bg-emerald-400/5 shadow-[0_4px_20px_rgba(16,185,129,0.08)]'
                                   : isPast
-                                  ? 'border-white/6 bg-white/[0.02] opacity-70'
-                                  : 'glass border-white/8 hover:border-white/15 hover:shadow-lg'}">
-
+                                    ? 'border-white/6 bg-white/[0.02] opacity-70'
+                                    : 'glass border-white/8 hover:border-white/15 hover:shadow-lg'}"
+                              >
                                 <!-- Top Row: Time + Live + Category -->
-                                <div class="flex flex-wrap items-center gap-2 mb-2">
-                                  <span class="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg">
+                                <div
+                                  class="flex flex-wrap items-center gap-2 mb-2"
+                                >
+                                  <span
+                                    class="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg"
+                                  >
                                     <Clock size={11} />
-                                    {formatTimelineTimeRange(item.start_time, item.end_time)}
+                                    {formatTimelineTimeRange(
+                                      item.start_time,
+                                      item.end_time,
+                                    )}
                                   </span>
 
                                   {#if isLiveNow}
-                                    <span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-400/15 border border-emerald-400/30 px-2 py-0.5 rounded-full">
-                                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                    <span
+                                      class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-400/15 border border-emerald-400/30 px-2 py-0.5 rounded-full"
+                                    >
+                                      <span
+                                        class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"
+                                      ></span>
                                       Live Now
                                     </span>
                                   {:else if isPast}
-                                    <span class="inline-flex items-center gap-1 text-[10px] font-medium text-ink-500 px-2 py-0.5 rounded-full border border-white/5 bg-white/3">
+                                    <span
+                                      class="inline-flex items-center gap-1 text-[10px] font-medium text-ink-500 px-2 py-0.5 rounded-full border border-white/5 bg-white/3"
+                                    >
                                       <CheckCheck size={10} /> Completed
                                     </span>
                                   {/if}
 
-                                  <span class="ml-auto text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border {style.bg} {style.text} {style.border}">
-                                    {item.category || 'General'}
+                                  <span
+                                    class="ml-auto text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border {style.bg} {style.text} {style.border}"
+                                  >
+                                    {item.category || "General"}
                                   </span>
                                 </div>
 
                                 <!-- Title -->
-                                <h3 class="text-sm sm:text-base font-bold text-white leading-snug mb-1 {isPast ? 'text-ink-300' : ''}">{item.title}</h3>
+                                <h3
+                                  class="text-sm sm:text-base font-bold text-white leading-snug mb-1 {isPast
+                                    ? 'text-ink-300'
+                                    : ''}"
+                                >
+                                  {item.title}
+                                </h3>
 
                                 <!-- Description -->
                                 {#if item.description}
-                                  <p class="text-xs sm:text-sm leading-relaxed text-ink-300/80 mb-3">{item.description}</p>
+                                  <p
+                                    class="text-xs sm:text-sm leading-relaxed text-ink-300/80 mb-3"
+                                  >
+                                    {item.description}
+                                  </p>
                                 {/if}
 
                                 <!-- Speaker + Location footer -->
                                 {#if item.speaker_name || item.location}
-                                  <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/6 mt-2">
+                                  <div
+                                    class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/6 mt-2"
+                                  >
                                     {#if item.speaker_name}
                                       <div class="flex items-center gap-2.5">
                                         {#if item.speaker_avatar_url}
@@ -3023,14 +3496,24 @@
                                             class="h-7 w-7 rounded-full object-cover border border-white/20"
                                           />
                                         {:else}
-                                          <div class="h-7 w-7 rounded-full {style.bg} border {style.border} flex items-center justify-center text-[10px] font-black {style.text}">
-                                            {item.speaker_name.charAt(0).toUpperCase()}
+                                          <div
+                                            class="h-7 w-7 rounded-full {style.bg} border {style.border} flex items-center justify-center text-[10px] font-black {style.text}"
+                                          >
+                                            {item.speaker_name
+                                              .charAt(0)
+                                              .toUpperCase()}
                                           </div>
                                         {/if}
                                         <div class="leading-tight">
-                                          <p class="text-xs font-bold text-white">{item.speaker_name}</p>
+                                          <p
+                                            class="text-xs font-bold text-white"
+                                          >
+                                            {item.speaker_name}
+                                          </p>
                                           {#if item.speaker_role}
-                                            <p class="text-[10px] text-ink-400">{item.speaker_role}</p>
+                                            <p class="text-[10px] text-ink-400">
+                                              {item.speaker_role}
+                                            </p>
                                           {/if}
                                         </div>
                                       </div>
@@ -3039,11 +3522,15 @@
                                     {#if item.location}
                                       <button
                                         type="button"
-                                        onclick={() => jumpToVenueLocation(item.location)}
+                                        onclick={() =>
+                                          jumpToVenueLocation(item.location)}
                                         class="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink-300 hover:text-amber-300 bg-white/4 hover:bg-white/8 transition-colors px-2.5 py-1 rounded-lg border border-white/8"
                                         title={item.location}
                                       >
-                                        <MapPin size={11} class="text-amber-400" />
+                                        <MapPin
+                                          size={11}
+                                          class="text-amber-400"
+                                        />
                                         {item.location}
                                       </button>
                                     {/if}
@@ -3057,23 +3544,32 @@
                     </div>
                   {/if}
                 </div>
-
               </div>
 
               <!-- Right 1 Column: Sticky RSVP & Registration Card -->
               <div class="lg:col-span-1">
-                <div class="sticky top-6 rounded-3xl border border-amber-400/20 bg-gradient-to-b from-amber-400/[0.08] via-white/[0.03] to-white/[0.01] p-6 sm:p-7 backdrop-blur-2xl shadow-2xl space-y-6">
-
+                <div
+                  class="sticky top-6 rounded-3xl border border-amber-400/20 bg-gradient-to-b from-amber-400/[0.08] via-white/[0.03] to-white/[0.01] p-6 sm:p-7 backdrop-blur-2xl shadow-2xl space-y-6"
+                >
                   <!-- Header & Register Action -->
                   <div class="space-y-4">
                     <div class="space-y-1">
-                      <span class="text-[10px] font-black uppercase tracking-widest text-amber-400">RSVP & Access</span>
-                      <h3 class="text-xl font-black text-white tracking-tight">Join this Event</h3>
-                      <p class="text-xs text-ink-400">Get access to live networking, sessions, and real-time updates.</p>
+                      <span
+                        class="text-[10px] font-black uppercase tracking-widest text-amber-400"
+                        >RSVP & Access</span
+                      >
+                      <h3 class="text-xl font-black text-white tracking-tight">
+                        Join this Event
+                      </h3>
+                      <p class="text-xs text-ink-400">
+                        Get access to live networking, sessions, and real-time
+                        updates.
+                      </p>
                     </div>
 
                     <p class="text-xs leading-5 text-ink-400">
-                      Your name and email will be shared with the event host for event communication.
+                      Your name and email will be shared with the event host for
+                      event communication.
                     </p>
 
                     <Button
@@ -3096,7 +3592,10 @@
                     </Button>
 
                     {#if isJoinAfterStartClosed}
-                      <p class="text-xs text-center text-amber-300">Registration is closed because this event has already started.</p>
+                      <p class="text-xs text-center text-amber-300">
+                        Registration is closed because this event has already
+                        started.
+                      </p>
                     {/if}
                     <p class="text-[11px] text-center text-ink-500">
                       Free registration · Instant confirmation
@@ -3107,18 +3606,31 @@
 
                   <!-- Key Event Details List -->
                   <div class="space-y-4">
-                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Event Details</h4>
+                    <h4
+                      class="text-[11px] font-bold uppercase tracking-wider text-ink-400"
+                    >
+                      Event Details
+                    </h4>
 
                     <!-- Date & Time -->
                     {#if currentEvent.start_time}
                       <div class="flex items-start gap-3">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-amber-400">
+                        <div
+                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-amber-400"
+                        >
                           <CalendarClock size={16} />
                         </div>
                         <div class="min-w-0">
-                          <p class="text-xs font-semibold text-white">Date & Time</p>
-                          <p class="text-xs text-ink-300 mt-0.5 leading-relaxed">
-                            {formatEventDateRange(currentEvent.start_time, currentEvent.end_time)}
+                          <p class="text-xs font-semibold text-white">
+                            Date & Time
+                          </p>
+                          <p
+                            class="text-xs text-ink-300 mt-0.5 leading-relaxed"
+                          >
+                            {formatEventDateRange(
+                              currentEvent.start_time,
+                              currentEvent.end_time,
+                            )}
                           </p>
                         </div>
                       </div>
@@ -3126,17 +3638,26 @@
 
                     <!-- Location / Venue -->
                     <div class="flex items-start gap-3">
-                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-amber-400">
+                      <div
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-amber-400"
+                      >
                         <MapPin size={16} />
                       </div>
                       <div class="min-w-0">
                         <p class="text-xs font-semibold text-white">Location</p>
-                        {#if currentEvent.event_format === 'online'}
-                          <p class="text-xs text-ink-300 mt-0.5">Online Event (Virtual link visible upon joining)</p>
+                        {#if currentEvent.event_format === "online"}
+                          <p class="text-xs text-ink-300 mt-0.5">
+                            Online Event (Virtual link visible upon joining)
+                          </p>
                         {:else if currentEvent.location}
-                          <p class="text-xs text-ink-300 mt-0.5 leading-relaxed">{currentEvent.location}</p>
+                          <p
+                            class="text-xs text-ink-300 mt-0.5 leading-relaxed"
+                          >
+                            {currentEvent.location}
+                          </p>
                           <a
-                            href={currentEvent.google_map_url || `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentEvent.location)}`}
+                            href={currentEvent.google_map_url ||
+                              `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentEvent.location)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 hover:text-amber-300 hover:underline mt-1 transition-colors"
@@ -3145,20 +3666,28 @@
                             <ArrowRight size={10} />
                           </a>
                         {:else}
-                          <p class="text-xs text-ink-400 mt-0.5">Location details to be announced</p>
+                          <p class="text-xs text-ink-400 mt-0.5">
+                            Location details to be announced
+                          </p>
                         {/if}
                       </div>
                     </div>
 
                     <!-- Attendees Count -->
                     <div class="flex items-start gap-3">
-                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-cyan-400">
+                      <div
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-cyan-400"
+                      >
                         <Users size={16} />
                       </div>
                       <div class="min-w-0">
-                        <p class="text-xs font-semibold text-white">Community</p>
+                        <p class="text-xs font-semibold text-white">
+                          Community
+                        </p>
                         <p class="text-xs text-ink-300 mt-0.5">
-                          {currentEvent.attendees_count > 0 ? `${currentEvent.attendees_count} people registered` : 'Be one of the first to join'}
+                          {currentEvent.attendees_count > 0
+                            ? `${currentEvent.attendees_count} people registered`
+                            : "Be one of the first to join"}
                         </p>
                       </div>
                     </div>
@@ -3168,7 +3697,11 @@
 
                   <!-- Included Highlights -->
                   <div class="space-y-3">
-                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Included with Your Pass</h4>
+                    <h4
+                      class="text-[11px] font-bold uppercase tracking-wider text-ink-400"
+                    >
+                      Included with Your Pass
+                    </h4>
                     <div class="space-y-2 text-xs text-ink-300">
                       <div class="flex items-center gap-2">
                         <Check size={14} class="text-amber-400 shrink-0" />
@@ -3190,12 +3723,9 @@
                       </div>
                     </div>
                   </div>
-
                 </div>
               </div>
-
             </div>
-
           </div>
         {:else}
           <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -3205,7 +3735,11 @@
             class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10 relative"
           >
             {#if currentEvent.event_banner_url}
-              <img src={eventImageSrc(currentEvent.event_banner_url)} alt="" class="mb-6 h-36 w-full rounded-2xl object-cover sm:h-48" />
+              <img
+                src={eventImageSrc(currentEvent.event_banner_url)}
+                alt=""
+                class="mb-6 h-36 w-full rounded-2xl object-cover sm:h-48"
+              />
             {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
@@ -3215,7 +3749,7 @@
                       <DropdownMenu.Trigger
                         class="inline-flex items-center gap-2 rounded-xl bg-white/6 px-3.5 py-1.5 border border-white/10 text-xs font-bold shadow-lg transition-all hover:bg-white/10 hover:border-amber-400/40 focus-visible:outline-none"
                       >
-                        {#if ownerViewMode === 'organizer'}
+                        {#if ownerViewMode === "organizer"}
                           <Crown size={14} class="text-amber-400" />
                           <span class="text-amber-300">Host</span>
                         {:else}
@@ -3225,16 +3759,23 @@
                         <ChevronDown size={14} class="text-ink-400 ml-0.5" />
                       </DropdownMenu.Trigger>
 
-                      <DropdownMenu.Content class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-50">
-                        <DropdownMenu.Label class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5">
+                      <DropdownMenu.Content
+                        class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-50"
+                      >
+                        <DropdownMenu.Label
+                          class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5"
+                        >
                           View Mode
                         </DropdownMenu.Label>
                         <DropdownMenu.Separator class="my-1 border-white/10" />
                         <DropdownMenu.Item
-                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'organizer' ? 'bg-amber-400/15 text-amber-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode ===
+                          'organizer'
+                            ? 'bg-amber-400/15 text-amber-200 font-bold'
+                            : 'text-ink-200 hover:text-white hover:bg-white/5'}"
                           onSelect={() => {
-                            ownerViewMode = 'organizer';
-                            activeTab.set('analytics');
+                            ownerViewMode = "organizer";
+                            activeTab.set("analytics");
                           }}
                         >
                           <Crown size={15} class="text-amber-400 shrink-0" />
@@ -3242,10 +3783,13 @@
                         </DropdownMenu.Item>
 
                         <DropdownMenu.Item
-                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode === 'attendee' ? 'bg-cyan-400/15 text-cyan-200 font-bold' : 'text-ink-200 hover:text-white hover:bg-white/5'}"
+                          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-lg transition-colors {ownerViewMode ===
+                          'attendee'
+                            ? 'bg-cyan-400/15 text-cyan-200 font-bold'
+                            : 'text-ink-200 hover:text-white hover:bg-white/5'}"
                           onSelect={() => {
-                            ownerViewMode = 'attendee';
-                            activeTab.set('details');
+                            ownerViewMode = "attendee";
+                            activeTab.set("details");
                           }}
                         >
                           <Eye size={15} class="text-cyan-400 shrink-0" />
@@ -3270,35 +3814,50 @@
                       variant="secondary"
                       class="gap-1.5 border-white/10 bg-white/5 text-ink-300 text-xs font-semibold capitalize px-3 py-1.5"
                     >
-                      {#if currentEvent.event_format === 'online'}
+                      {#if currentEvent.event_format === "online"}
                         <Globe size={14} class="text-cyan-400" /> Online
-                      {:else if currentEvent.event_format === 'hybrid'}
+                      {:else if currentEvent.event_format === "hybrid"}
                         <Globe size={14} class="text-amber-400" /> Hybrid
                       {:else}
                         <MapPin size={14} class="text-amber-400" /> Offline
                       {/if}
                     </Badge>
                   {/if}
-
-
                 </div>
 
                 <div class="flex items-center justify-center gap-4">
                   {#if currentEvent.event_logo_url}
-                    <img src={eventImageSrc(currentEvent.event_logo_url)} alt="" class="h-14 w-14 shrink-0 rounded-2xl object-cover sm:h-16 sm:w-16" />
+                    <img
+                      src={eventImageSrc(currentEvent.event_logo_url)}
+                      alt=""
+                      class="h-14 w-14 shrink-0 rounded-2xl object-cover sm:h-16 sm:w-16"
+                    />
                   {:else}
-                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-16 sm:w-16 sm:text-2xl">{eventInitial(currentEvent.name)}</div>
+                    <div
+                      class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-16 sm:w-16 sm:text-2xl"
+                    >
+                      {eventInitial(currentEvent.name)}
+                    </div>
                   {/if}
-                  <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white">{currentEvent.name}</h1>
+                  <h1
+                    class="text-4xl sm:text-5xl font-black tracking-tight text-white"
+                  >
+                    {currentEvent.name}
+                  </h1>
                 </div>
 
                 {#if liveSessions.length > 0}
                   <div class="mt-4 w-full" transition:slide>
                     <!-- Desktop: left/right button carousel -->
-                    <div class="hidden sm:flex items-center justify-center gap-3">
+                    <div
+                      class="hidden sm:flex items-center justify-center gap-3"
+                    >
                       {#if liveSessions.length > 1}
                         <button
-                          onclick={() => liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length}
+                          onclick={() =>
+                            (liveSlideIndex =
+                              (liveSlideIndex - 1 + liveSessions.length) %
+                              liveSessions.length)}
                           class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
                           aria-label="Previous live session"
                         >
@@ -3308,35 +3867,68 @@
 
                       {#key liveSlideIndex}
                         {@const session = liveSessions[liveSlideIndex]}
-                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in max-w-sm">
-                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
-                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                        <div
+                          class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in max-w-sm"
+                        >
+                          <div
+                            class="relative flex h-3 w-3 items-center justify-center flex-shrink-0"
+                          >
+                            <span
+                              class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
+                            ></span>
+                            <span
+                              class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"
+                            ></span>
                           </div>
                           <div class="flex flex-col text-left min-w-0">
                             <div class="flex items-center gap-2">
-                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
+                              <span
+                                class="text-[10px] font-bold uppercase tracking-widest text-emerald-400"
+                                >Live Now</span
+                              >
                               {#if liveSessions.length > 1}
-                                <span class="text-[10px] text-emerald-400/60 font-semibold">{liveSlideIndex + 1}/{liveSessions.length}</span>
+                                <span
+                                  class="text-[10px] text-emerald-400/60 font-semibold"
+                                  >{liveSlideIndex +
+                                    1}/{liveSessions.length}</span
+                                >
                               {/if}
                             </div>
-                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
+                            <span
+                              class="text-sm font-semibold text-white truncate"
+                              >{session.title}</span
+                            >
                           </div>
                           {#if session.location && currentEvent.is_venue_enabled}
-                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
-                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
+                            <div
+                              class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0"
+                            >
+                              <span
+                                class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70"
+                                >Location</span
+                              >
                               <button
-                                onclick={() => jumpToVenueLocation(session.location)}
+                                onclick={() =>
+                                  jumpToVenueLocation(session.location)}
                                 class="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline flex items-center gap-1 transition-colors"
                               >
-                                <MapPin size={10} /> {session.location}
+                                <MapPin size={10} />
+                                {session.location}
                               </button>
                             </div>
                           {:else if session.location}
-                            <div class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0">
-                              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">Location</span>
-                              <span class="text-xs font-semibold text-emerald-300 flex items-center gap-1">
-                                <MapPin size={10} /> {session.location}
+                            <div
+                              class="ml-2 pl-3 border-l border-emerald-500/20 flex flex-col items-start text-left flex-shrink-0"
+                            >
+                              <span
+                                class="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70"
+                                >Location</span
+                              >
+                              <span
+                                class="text-xs font-semibold text-emerald-300 flex items-center gap-1"
+                              >
+                                <MapPin size={10} />
+                                {session.location}
                               </span>
                             </div>
                           {/if}
@@ -3345,7 +3937,9 @@
 
                       {#if liveSessions.length > 1}
                         <button
-                          onclick={() => liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length}
+                          onclick={() =>
+                            (liveSlideIndex =
+                              (liveSlideIndex + 1) % liveSessions.length)}
                           class="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all flex-shrink-0"
                           aria-label="Next live session"
                         >
@@ -3359,28 +3953,53 @@
                       class="flex sm:hidden flex-col items-center gap-3"
                       role="region"
                       aria-label="Live sessions"
-                      ontouchstart={(e) => { liveSwipeStartX = e.touches[0].clientX; }}
+                      ontouchstart={(e) => {
+                        liveSwipeStartX = e.touches[0].clientX;
+                      }}
                       ontouchend={(e) => {
-                        const dx = e.changedTouches[0].clientX - liveSwipeStartX;
+                        const dx =
+                          e.changedTouches[0].clientX - liveSwipeStartX;
                         if (Math.abs(dx) > 40) {
-                          if (dx < 0) liveSlideIndex = (liveSlideIndex + 1) % liveSessions.length;
-                          else liveSlideIndex = (liveSlideIndex - 1 + liveSessions.length) % liveSessions.length;
+                          if (dx < 0)
+                            liveSlideIndex =
+                              (liveSlideIndex + 1) % liveSessions.length;
+                          else
+                            liveSlideIndex =
+                              (liveSlideIndex - 1 + liveSessions.length) %
+                              liveSessions.length;
                         }
                       }}
                     >
                       {#key liveSlideIndex}
                         {@const session = liveSessions[liveSlideIndex]}
-                        <div class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in w-full max-w-sm">
-                          <div class="relative flex h-3 w-3 items-center justify-center flex-shrink-0">
-                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                        <div
+                          class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md shadow-lg shadow-emerald-500/5 animate-fade-in w-full max-w-sm"
+                        >
+                          <div
+                            class="relative flex h-3 w-3 items-center justify-center flex-shrink-0"
+                          >
+                            <span
+                              class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
+                            ></span>
+                            <span
+                              class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"
+                            ></span>
                           </div>
                           <div class="flex flex-col text-left min-w-0 flex-1">
-                            <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Live Now</span>
-                            <span class="text-sm font-semibold text-white truncate">{session.title}</span>
+                            <span
+                              class="text-[10px] font-bold uppercase tracking-widest text-emerald-400"
+                              >Live Now</span
+                            >
+                            <span
+                              class="text-sm font-semibold text-white truncate"
+                              >{session.title}</span
+                            >
                             {#if session.location}
-                              <span class="text-[11px] text-emerald-300/80 flex items-center gap-1 mt-0.5">
-                                <MapPin size={9} /> {session.location}
+                              <span
+                                class="text-[11px] text-emerald-300/80 flex items-center gap-1 mt-0.5"
+                              >
+                                <MapPin size={9} />
+                                {session.location}
                               </span>
                             {/if}
                           </div>
@@ -3391,9 +4010,12 @@
                         <div class="flex items-center gap-1.5">
                           {#each liveSessions as _, i}
                             <button
-                              onclick={() => liveSlideIndex = i}
+                              onclick={() => (liveSlideIndex = i)}
                               aria-label="Go to session {i + 1}"
-                              class="h-1.5 rounded-full transition-all duration-300 {liveSlideIndex === i ? 'w-4 bg-emerald-400' : 'w-1.5 bg-emerald-400/30'}"
+                              class="h-1.5 rounded-full transition-all duration-300 {liveSlideIndex ===
+                              i
+                                ? 'w-4 bg-emerald-400'
+                                : 'w-1.5 bg-emerald-400/30'}"
                             ></button>
                           {/each}
                         </div>
@@ -3403,28 +4025,57 @@
                 {/if}
 
                 {#if nextSession}
-                  <div class="flex justify-center mt-2 animate-fade-in" transition:slide>
-                    <div class="inline-flex items-center gap-3 rounded-2xl border px-4 py-2 backdrop-blur-md shadow-lg
+                  <div
+                    class="flex justify-center mt-2 animate-fade-in"
+                    transition:slide
+                  >
+                    <div
+                      class="inline-flex items-center gap-3 rounded-2xl border px-4 py-2 backdrop-blur-md shadow-lg
                       {isEndingSoon
                         ? 'border-orange-500/25 bg-orange-500/10 shadow-orange-500/5'
-                        : 'border-amber-400/20 bg-amber-400/8 shadow-amber-400/5'}">
-                      <div class="relative flex h-3 w-3 items-center justify-center">
+                        : 'border-amber-400/20 bg-amber-400/8 shadow-amber-400/5'}"
+                    >
+                      <div
+                        class="relative flex h-3 w-3 items-center justify-center"
+                      >
                         {#if isEndingSoon}
-                          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-60"></span>
-                          <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-400"></span>
+                          <span
+                            class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-60"
+                          ></span>
+                          <span
+                            class="relative inline-flex h-2 w-2 rounded-full bg-orange-400"
+                          ></span>
                         {:else}
-                          <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-80"></span>
+                          <span
+                            class="relative inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-80"
+                          ></span>
                         {/if}
                       </div>
                       <div class="flex flex-col text-left">
-                        <span class="text-[10px] font-bold uppercase tracking-widest {isEndingSoon ? 'text-orange-400' : 'text-amber-400'}">Coming Up Next</span>
-                        <span class="text-sm font-semibold {isEndingSoon ? 'text-orange-200' : 'text-amber-200'}">{nextSession.title}</span>
-                        <span class="text-[11px] {isEndingSoon ? 'text-orange-300/70' : 'text-amber-300/70'} flex items-center gap-1 mt-0.5">
+                        <span
+                          class="text-[10px] font-bold uppercase tracking-widest {isEndingSoon
+                            ? 'text-orange-400'
+                            : 'text-amber-400'}">Coming Up Next</span
+                        >
+                        <span
+                          class="text-sm font-semibold {isEndingSoon
+                            ? 'text-orange-200'
+                            : 'text-amber-200'}">{nextSession.title}</span
+                        >
+                        <span
+                          class="text-[11px] {isEndingSoon
+                            ? 'text-orange-300/70'
+                            : 'text-amber-300/70'} flex items-center gap-1 mt-0.5"
+                        >
                           <Clock size={9} />
-                          {new Date(nextSession.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          {new Date(nextSession.start_time).toLocaleTimeString(
+                            "en-US",
+                            { hour: "numeric", minute: "2-digit" },
+                          )}
                           {#if nextSession.location}
                             <span class="opacity-50">·</span>
-                            <MapPin size={9} /> {nextSession.location}
+                            <MapPin size={9} />
+                            {nextSession.location}
                           {/if}
                         </span>
                       </div>
@@ -3435,8 +4086,11 @@
                 <!-- Join button below date & time block -->
                 {#if !data.isOrganizer && !data.isParticipant}
                   <div class="flex flex-col items-center pt-4">
-                    <p class="mb-2 max-w-sm text-center text-xs leading-5 text-ink-400">
-                      Your name and email will be shared with the event host for event communication.
+                    <p
+                      class="mb-2 max-w-sm text-center text-xs leading-5 text-ink-400"
+                    >
+                      Your name and email will be shared with the event host for
+                      event communication.
                     </p>
                     <Button
                       id="join-event-btn"
@@ -3453,7 +4107,10 @@
                       {/if}
                     </Button>
                     {#if isJoinAfterStartClosed}
-                      <p class="mt-2 text-xs text-center text-amber-300">Registration is closed because this event has already started.</p>
+                      <p class="mt-2 text-xs text-center text-amber-300">
+                        Registration is closed because this event has already
+                        started.
+                      </p>
                     {/if}
                   </div>
                 {/if}
@@ -3461,84 +4118,52 @@
             </div>
           </div>
 
-        <Tabs.Root
-          value={$activeTab}
-          onValueChange={(v) => {
-            activeTab.set(v);
-          }}
-        >
-          <!-- Scrollable tabs wrapper -->
-          <div
-            class="flex items-center justify-between gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide rounded-xl"
+          <Tabs.Root
+            value={$activeTab}
+            onValueChange={(v) => {
+              activeTab.set(v);
+            }}
           >
-            <Tabs.List
-              class="glass rounded-xl flex min-w-max divide-x divide-white/10"
+            <!-- Scrollable tabs wrapper -->
+            <div
+              class="flex items-center justify-between gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide rounded-xl"
             >
-              {#if data.isOrganizer && ownerViewMode === "organizer"}
-                <!-- Host Mode Tabs -->
-                <Tabs.Trigger
-                  value="analytics"
-                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
-                >
-                  <BarChart3 size={16} />
-                  <span>Analytics</span>
-                </Tabs.Trigger>
-
-                <Tabs.Trigger
-                  value="attendees"
-                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
-                >
-                  <Users size={16} />
-                  <span class="flex items-center gap-1.5"
-                    >Attendees {#if attendeesList.length || currentEvent.attendees_count}<span
-                        class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300"
-                        >{attendeesList.length || currentEvent.attendees_count}</span
-                      >
-                    {/if}</span
+              <Tabs.List
+                class="glass rounded-xl flex min-w-max divide-x divide-white/10"
+              >
+                {#if data.isOrganizer && ownerViewMode === "organizer"}
+                  <!-- Host Mode Tabs -->
+                  <Tabs.Trigger
+                    value="analytics"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
                   >
-                </Tabs.Trigger>
+                    <BarChart3 size={16} />
+                    <span>Analytics</span>
+                  </Tabs.Trigger>
 
-                <Tabs.Trigger
-                  value="timeline"
-                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
-                >
-                  <CalendarClock size={16} />
-                  <span>Timeline</span>
-                </Tabs.Trigger>
+                  <Tabs.Trigger
+                    value="attendees"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
+                  >
+                    <Users size={16} />
+                    <span class="flex items-center gap-1.5"
+                      >Attendees {#if attendeesList.length || currentEvent.attendees_count}<span
+                          class="rounded-full bg-indigo-400/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300"
+                          >{attendeesList.length ||
+                            currentEvent.attendees_count}</span
+                        >
+                      {/if}</span
+                    >
+                  </Tabs.Trigger>
 
-                <Tabs.Trigger
-                  value="announcements"
-                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-rose-400/15 data-[state=active]:text-rose-200 data-[state=inactive]:text-ink-500 hover:text-rose-200"
-                >
-                  <Megaphone size={16} />
-                  <span class="flex items-center gap-1.5">
-                    Announcements
-                    {#if announcementsList.length}
-                      <span class="rounded-full bg-rose-400/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">
-                        {announcementsList.length}
-                      </span>
-                    {/if}
-                  </span>
-                </Tabs.Trigger>
+                  <Tabs.Trigger
+                    value="timeline"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-amber-400/15 data-[state=active]:text-amber-200 data-[state=inactive]:text-ink-500 hover:text-amber-200"
+                  >
+                    <CalendarClock size={16} />
+                    <span>Timeline</span>
+                  </Tabs.Trigger>
 
-                <Tabs.Trigger
-                  value="settings"
-                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
-                >
-                  <Settings size={16} />
-                  <span>Settings</span>
-                </Tabs.Trigger>
-              {:else}
-                <!-- Attendee Mode Tabs -->
-                <Tabs.Trigger
-                  value="details"
-                  class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
-                >
-                  <Info size={16} />
-                  <span>Overview</span>
-                </Tabs.Trigger>
-
-                {#if Boolean(currentEvent.is_announcements_enabled ?? true)}
                   <Tabs.Trigger
                     value="announcements"
                     class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-rose-400/15 data-[state=active]:text-rose-200 data-[state=inactive]:text-ink-500 hover:text-rose-200"
@@ -3547,1561 +4172,2516 @@
                     <span class="flex items-center gap-1.5">
                       Announcements
                       {#if announcementsList.length}
-                        <span class="rounded-full bg-rose-400/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">
+                        <span
+                          class="rounded-full bg-rose-400/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300"
+                        >
                           {announcementsList.length}
                         </span>
                       {/if}
                     </span>
                   </Tabs.Trigger>
-                {/if}
 
-                {#if Boolean(currentEvent.is_network_enabled)}
                   <Tabs.Trigger
-                    value="network"
-                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-violet-400/15 data-[state=active]:text-violet-200 data-[state=inactive]:text-ink-500 hover:text-violet-200"
+                    value="settings"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
                   >
-                    <Network size={16} />
-                    <span class="flex items-center gap-1.5"
-                      >Network
-                      {#if $matchesStore.length || $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length}
-                        <span class="rounded-full bg-violet-400/20 px-1.5 py-0.5 text-[10px] font-bold text-violet-300">
-                          {$matchesStore.length + $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length}
+                    <Settings size={16} />
+                    <span>Settings</span>
+                  </Tabs.Trigger>
+                {:else}
+                  <!-- Attendee Mode Tabs -->
+                  <Tabs.Trigger
+                    value="details"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=inactive]:text-ink-500 hover:text-white"
+                  >
+                    <Info size={16} />
+                    <span>Overview</span>
+                  </Tabs.Trigger>
+
+                  {#if Boolean(currentEvent.is_announcements_enabled ?? true)}
+                    <Tabs.Trigger
+                      value="announcements"
+                      class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-rose-400/15 data-[state=active]:text-rose-200 data-[state=inactive]:text-ink-500 hover:text-rose-200"
+                    >
+                      <Megaphone size={16} />
+                      <span class="flex items-center gap-1.5">
+                        Announcements
+                        {#if announcementsList.length}
+                          <span
+                            class="rounded-full bg-rose-400/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300"
+                          >
+                            {announcementsList.length}
+                          </span>
+                        {/if}
+                      </span>
+                    </Tabs.Trigger>
+                  {/if}
+
+                  {#if Boolean(currentEvent.is_network_enabled)}
+                    <Tabs.Trigger
+                      value="network"
+                      class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-violet-400/15 data-[state=active]:text-violet-200 data-[state=inactive]:text-ink-500 hover:text-violet-200"
+                    >
+                      <Network size={16} />
+                      <span class="flex items-center gap-1.5"
+                        >Network
+                        {#if $matchesStore.length || $connectionsStore.filter((c) => c.receiver_user_id === data.user?.id && c.status === "pending").length}
+                          <span
+                            class="rounded-full bg-violet-400/20 px-1.5 py-0.5 text-[10px] font-bold text-violet-300"
+                          >
+                            {$matchesStore.length +
+                              $connectionsStore.filter(
+                                (c) =>
+                                  c.receiver_user_id === data.user?.id &&
+                                  c.status === "pending",
+                              ).length}
+                          </span>
+                        {/if}
+                      </span>
+                    </Tabs.Trigger>
+                  {/if}
+
+                  {#if Boolean(currentEvent.is_venue_enabled)}
+                    <Tabs.Trigger
+                      value="venue"
+                      class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
+                    >
+                      <MapPin size={16} />
+                      <span>Venue</span>
+                    </Tabs.Trigger>
+                  {/if}
+                {/if}
+              </Tabs.List>
+            </div>
+
+            <!-- Details tab — Premium Overview redesign -->
+            <Tabs.Content value="details" class="mt-4">
+              <div class="space-y-5 animate-fade-in">
+                <!-- ── Hero Status Banner ── -->
+                <div
+                  class="relative overflow-hidden rounded-3xl border border-white/8 bg-gradient-to-br from-white/5 via-white/2 to-transparent backdrop-blur-xl"
+                >
+                  <!-- Accent top bar -->
+                  <div
+                    class="h-[3px] w-full {isEventLive
+                      ? 'bg-gradient-to-r from-emerald-400 via-emerald-300/60 to-transparent'
+                      : isEventEnded
+                        ? 'bg-gradient-to-r from-slate-500 via-slate-400/40 to-transparent'
+                        : 'bg-gradient-to-r from-amber-400 via-amber-300/60 to-transparent'}"
+                  ></div>
+
+                  <div class="p-6 sm:p-8 lg:p-10 space-y-5">
+                    <!-- Status pill row -->
+                    <div class="flex flex-wrap items-center gap-2">
+                      {#if isEventLive}
+                        <span
+                          class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-emerald-300"
+                        >
+                          <span class="relative flex h-2 w-2">
+                            <span
+                              class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
+                            ></span>
+                            <span
+                              class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"
+                            ></span>
+                          </span>
+                          Live Now
+                        </span>
+                      {:else if isEventEnded}
+                        <span
+                          class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-ink-400"
+                        >
+                          <CheckCheck size={12} />
+                          Event Ended
+                        </span>
+                      {:else if currentEvent.start_time}
+                        <span
+                          class="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/8 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-300"
+                        >
+                          <CalendarClock size={12} />
+                          Upcoming
                         </span>
                       {/if}
-                    </span>
-                  </Tabs.Trigger>
-                {/if}
 
-                {#if Boolean(currentEvent.is_venue_enabled)}
-                  <Tabs.Trigger
-                    value="venue"
-                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
-                  >
-                    <MapPin size={16} />
-                    <span>Venue</span>
-                  </Tabs.Trigger>
-                {/if}
-              {/if}
-            </Tabs.List>
-          </div>
-
-          <!-- Details tab — Premium Overview redesign -->
-          <Tabs.Content value="details" class="mt-4">
-            <div class="space-y-5 animate-fade-in">
-
-              <!-- ── Hero Status Banner ── -->
-              <div class="relative overflow-hidden rounded-3xl border border-white/8 bg-gradient-to-br from-white/5 via-white/2 to-transparent backdrop-blur-xl">
-                <!-- Accent top bar -->
-                <div class="h-[3px] w-full {isEventLive ? 'bg-gradient-to-r from-emerald-400 via-emerald-300/60 to-transparent' : isEventEnded ? 'bg-gradient-to-r from-slate-500 via-slate-400/40 to-transparent' : 'bg-gradient-to-r from-amber-400 via-amber-300/60 to-transparent'}"></div>
-
-                <div class="p-6 sm:p-8 lg:p-10 space-y-5">
-                  <!-- Status pill row -->
-                  <div class="flex flex-wrap items-center gap-2">
-                    {#if isEventLive}
-                      <span class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-emerald-300">
-                        <span class="relative flex h-2 w-2">
-                          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                          <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
-                        </span>
-                        Live Now
-                      </span>
-                    {:else if isEventEnded}
-                      <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-ink-400">
-                        <CheckCheck size={12} />
-                        Event Ended
-                      </span>
-                    {:else if currentEvent.start_time}
-                      <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/8 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-300">
-                        <CalendarClock size={12} />
-                        Upcoming
-                      </span>
-                    {/if}
-
-                    {#if currentEvent.event_format}
-                      <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold capitalize text-ink-300">
-                        {#if currentEvent.event_format === 'online'}
-                          <Globe size={12} class="text-cyan-400" /> Online
-                        {:else if currentEvent.event_format === 'hybrid'}
-                          <Globe size={12} class="text-amber-400" /> Hybrid
-                        {:else}
-                          <MapPin size={12} class="text-amber-400" /> In-Person
-                        {/if}
-                      </span>
-                    {/if}
-
-
-                  </div>
-
-                  <!-- About section -->
-                  {#if currentEvent.description}
-                    <div>
-                      <div class="flex items-center gap-2 mb-3">
-                        <div class="h-5 w-0.5 rounded-full bg-gradient-to-b from-indigo-400 to-violet-400"></div>
-                        <p class="text-[10px] font-black uppercase tracking-[0.15em] text-indigo-400">About this Event</p>
-                      </div>
-                      <p class="text-sm leading-7 text-ink-200 max-w-prose">{currentEvent.description}</p>
-                    </div>
-                  {/if}
-
-                  <!-- Date / Location / Attendees row -->
-                  <div class="flex flex-wrap gap-2">
-                    {#if currentEvent.start_time}
-                      <span class="inline-flex items-center gap-1.5 text-xs text-ink-300 bg-white/4 border border-white/8 px-3 py-1.5 rounded-lg">
-                        <CalendarClock size={13} class="text-amber-400" />
-                        {formatEventDateRange(currentEvent.start_time, currentEvent.end_time)}
-                      </span>
-                    {/if}
-
-                    {#if currentEvent.location && currentEvent.event_format !== 'online'}
-                      <a
-                        href={currentEvent.google_map_url || `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentEvent.location)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1.5 text-xs text-ink-300 hover:text-white bg-white/4 hover:bg-white/8 border border-white/8 px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        <MapPin size={13} class="text-amber-400" />
-                        {currentEvent.location}
-                      </a>
-                    {/if}
-
-                    {#if currentEvent.attendees_count > 0}
-                      <span class="inline-flex items-center gap-1.5 text-xs text-ink-300 bg-white/4 border border-white/8 px-3 py-1.5 rounded-lg">
-                        <Users size={13} class="text-cyan-400" />
-                        {currentEvent.attendees_count} attendee{currentEvent.attendees_count === 1 ? '' : 's'}
-                      </span>
-                    {/if}
-                  </div>
-                </div>
-              </div>
-
-              <!-- ── Event Schedule & Agenda (redesigned) ── -->
-              <div class="space-y-3 animate-slide-up-delay-1">
-                <!-- Section Header -->
-                <div class="flex items-center justify-between px-1">
-                  <div class="flex items-center gap-3">
-                    <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/12 border border-amber-400/20">
-                      <CalendarClock size={15} class="text-amber-400" />
-                    </div>
-                    <div>
-                      <h3 class="text-base font-black text-white tracking-tight">Event Schedule</h3>
-                      <p class="text-[11px] text-ink-500">{timelineItems.length} session{timelineItems.length === 1 ? '' : 's'} planned</p>
-                    </div>
-                  </div>
-
-                  {#if timelineItems.length > 0}
-                    <Badge variant="secondary" class="border-amber-400/20 bg-amber-400/8 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
-                      Agenda
-                    </Badge>
-                  {/if}
-                </div>
-
-                <!-- Timeline list or empty state -->
-                {#if timelineItems.length === 0}
-                  <div class="glass rounded-2xl border border-white/6 p-10 text-center space-y-4">
-                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/8 bg-white/4">
-                      <CalendarClock size={28} class="text-ink-600" />
-                    </div>
-                    <div>
-                      <p class="text-sm font-bold text-ink-300">No schedule published yet</p>
-                      <p class="text-xs text-ink-500 mt-1 max-w-xs mx-auto">The organizer hasn't added agenda sessions yet. Check back soon for the full event schedule.</p>
-                    </div>
-                  </div>
-                {:else}
-                  <!-- Timeline rail -->
-                  <div class="relative">
-                    <!-- Vertical rail line -->
-                    <div class="absolute left-[27px] top-6 bottom-6 w-px bg-gradient-to-b from-white/15 via-white/8 to-transparent pointer-events-none"></div>
-
-                    <div class="space-y-3">
-                      {#each timelineItems as item, idx (item.id)}
-                        {@const style = getCategoryColor(item.category)}
-                        {@const isLiveNow = item.start_time && item.end_time && new Date(item.start_time) <= currentTime && new Date(item.end_time) >= currentTime}
-                        {@const isPast = item.end_time && new Date(item.end_time) < currentTime}
-
-                        <div
-                          class="relative flex gap-4 group animate-slide-up"
-                          style="animation-delay: {idx * 60}ms; animation-fill-mode: both;"
+                      {#if currentEvent.event_format}
+                        <span
+                          class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold capitalize text-ink-300"
                         >
-                          <!-- Timeline node -->
-                          <div class="relative flex-shrink-0 flex flex-col items-center" style="width: 56px;">
-                            <div class="relative flex h-14 w-14 items-center justify-center rounded-2xl border transition-all duration-300
-                              {isLiveNow
-                                ? 'bg-emerald-400/12 border-emerald-400/35 shadow-[0_0_16px_rgba(52,211,153,0.2)]'
-                                : isPast
-                                ? 'bg-white/3 border-white/6'
-                                : 'bg-white/5 border-white/10 group-hover:border-white/20'}">
-
-                              {#if isLiveNow}
-                                <!-- Pulsing ring for live sessions -->
-                                <span class="absolute inset-0 rounded-2xl animate-ping border border-emerald-400/40 opacity-50"></span>
-                              {/if}
-
-                              <!-- Category-colored dot -->
-                              <div class="h-3 w-3 rounded-full {style.dot} {isLiveNow ? 'shadow-[0_0_8px_currentColor]' : ''} {isPast ? 'opacity-30' : ''}"></div>
-                            </div>
-                          </div>
-
-                          <!-- Session card -->
-                          <div class="flex-1 min-w-0 pb-1">
-                            <div class="rounded-2xl border transition-all duration-200 p-4 sm:p-5
-                              {isLiveNow
-                                ? 'border-emerald-400/25 bg-emerald-400/5 hover:border-emerald-400/40'
-                                : isPast
-                                ? 'border-white/5 bg-white/2 opacity-60 hover:opacity-80'
-                                : 'glass border-white/8 hover:border-white/18 hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 transition-transform'}">
-
-                              <!-- Top row: time + live badge + category -->
-                              <div class="flex flex-wrap items-center gap-2 mb-2.5">
-                                <span class="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg">
-                                  <Clock size={11} />
-                                  {formatTimelineTimeRange(item.start_time, item.end_time)}
-                                </span>
-
-                                {#if isLiveNow}
-                                  <span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-full">
-                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                    Live
-                                  </span>
-                                {:else if isPast}
-                                  <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-ink-600 px-2 py-0.5 rounded-full border border-white/5 bg-white/3">
-                                    <CheckCheck size={10} /> Done
-                                  </span>
-                                {/if}
-
-                                <span class="ml-auto text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border {style.bg} {style.text} {style.border}">
-                                  {item.category || 'General'}
-                                </span>
-                              </div>
-
-                              <!-- Title -->
-                              <h4 class="text-sm font-bold text-white leading-snug mb-1.5 {isPast ? 'text-ink-300' : ''}">{item.title}</h4>
-
-                              <!-- Description -->
-                              {#if item.description}
-                                <p class="text-xs leading-relaxed text-ink-400 mb-3">{item.description}</p>
-                              {/if}
-
-                              <!-- Speaker + Location footer -->
-                              {#if item.speaker_name || item.location}
-                                <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/6">
-                                  {#if item.speaker_name}
-                                    <div class="flex items-center gap-2.5">
-                                      {#if item.speaker_avatar_url}
-                                        <img
-                                          src={item.speaker_avatar_url}
-                                          alt={item.speaker_name}
-                                          class="h-7 w-7 rounded-full object-cover border-2 border-white/15 shadow-md"
-                                        />
-                                      {:else}
-                                        <div class="h-7 w-7 rounded-full {style.bg} border {style.border} flex items-center justify-center text-[11px] font-black {style.text}">
-                                          {item.speaker_name.charAt(0).toUpperCase()}
-                                        </div>
-                                      {/if}
-                                      <div class="leading-tight">
-                                        <p class="text-xs font-bold text-white">{item.speaker_name}</p>
-                                        {#if item.speaker_role}
-                                          <p class="text-[10px] text-ink-500">{item.speaker_role}</p>
-                                        {/if}
-                                      </div>
-                                    </div>
-                                  {/if}
-
-                                  {#if item.location}
-                                    <button
-                                      type="button"
-                                      onclick={() => jumpToVenueLocation(item.location)}
-                                      class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-300 bg-white/4 hover:bg-amber-400/12 hover:text-amber-300 hover:border-amber-400/25 transition-all px-2.5 py-1 rounded-lg border border-white/8 cursor-pointer"
-                                      title={currentEvent.is_venue_enabled ? `View ${item.location} on Venue Map` : item.location}
-                                    >
-                                      <MapPin size={11} class="text-amber-400" />
-                                      {item.location}
-                                    </button>
-                                  {/if}
-                                </div>
-                              {/if}
-                            </div>
-                          </div>
-                        </div>
-                      {/each}
-                    </div>
-                  </div>
-                {/if}
-              </div>
-
-            </div>
-          </Tabs.Content>
-
-          <!-- Attendees Tab -->
-          <Tabs.Content value="attendees" class="mt-4">
-            <div class="space-y-6">
-              <!-- Attendees Header with Search and Refresh -->
-              <div
-                class="glass rounded-2xl border border-white/8 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-              >
-                <div>
-                  <div class="flex items-center gap-2 mb-1">
-                    <Users size={18} class="text-indigo-400" />
-                    <h2 class="text-xl font-bold text-white">Joined Attendees</h2>
-                  </div>
-                  <p class="text-xs text-ink-400">
-                    Explore all members who have joined {currentEvent.name} and build your network.
-                  </p>
-                </div>
-
-                <div class="flex items-center gap-3 w-full sm:w-auto">
-                  <div class="relative flex-1 sm:w-64">
-                    <Search
-                      size={15}
-                      class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500"
-                    />
-                    <Input
-                      type="search"
-                      placeholder="Search by name, role, bio..."
-                      value={attendeeSearchQuery}
-                      oninput={handleAttendeeSearchInput}
-                      class="pl-9 bg-white/5 border-white/10 text-white placeholder:text-ink-500 h-9 text-xs focus:border-indigo-400/50 focus:ring-indigo-400/20"
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    class="h-9 w-9 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 shrink-0"
-                    onclick={() => fetchAttendees()}
-                    disabled={loadingAttendees}
-                    title="Refresh Attendees"
-                  >
-                    <RefreshCw
-                      size={15}
-                      class={loadingAttendees ? "animate-spin" : ""}
-                    />
-                  </Button>
-                </div>
-              </div>
-
-              <!-- Attendees Grid / Skeleton / Empty state -->
-              {#if loadingAttendees && !attendeesList.length}
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {#each Array(6) as _}
-                    <div
-                      class="glass rounded-2xl border border-white/8 p-5 space-y-4 animate-pulse"
-                    >
-                      <div class="flex items-center gap-3">
-                        <div class="h-12 w-12 rounded-full bg-white/10"></div>
-                        <div class="space-y-2 flex-1">
-                          <div class="h-4 w-28 rounded bg-white/10"></div>
-                          <div class="h-3 w-20 rounded bg-white/10"></div>
-                        </div>
-                      </div>
-                      <div class="h-12 rounded bg-white/5"></div>
-                      <div class="h-9 rounded bg-white/10 w-full"></div>
-                    </div>
-                  {/each}
-                </div>
-              {:else if attendeesList.length === 0}
-                <div
-                  class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"
-                >
-                  <div
-                    class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
-                  >
-                    <Ghost size={28} class="text-ink-500" />
-                  </div>
-                  <h3 class="text-white font-bold mb-1">No attendees found</h3>
-                  <p class="text-sm text-ink-400 max-w-sm mb-4">
-                    {#if attendeeSearchQuery}
-                      No participants match "{attendeeSearchQuery}". Try a different search term.
-                    {:else}
-                      No joined attendees yet. Share this event link to get participants to join!
-                    {/if}
-                  </p>
-                  {#if attendeeSearchQuery}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onclick={() => {
-                        attendeeSearchQuery = "";
-                        fetchAttendees("");
-                      }}
-                    >
-                      Clear Search
-                    </Button>
-                  {/if}
-                </div>
-              {:else}
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {#each attendeesList as attendee (attendee.user_id)}
-                    <div
-                      class="glass card-hover rounded-2xl border border-white/8 p-5 flex flex-col justify-between space-y-4 relative overflow-hidden"
-                    >
-                      <!-- Header: Avatar + Info -->
-                      <div class="flex items-start gap-3">
-                        <div
-                          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-indigo-400/30 text-indigo-200 font-bold text-lg shadow-inner"
-                        >
-                          {attendee.name ? attendee.name.charAt(0).toUpperCase() : "A"}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <div class="flex items-center gap-2 flex-wrap">
-                            <h3 class="text-base font-bold text-white truncate">
-                              {attendee.name}
-                            </h3>
-                            {#if attendee.is_host}
-                              <Badge
-                                variant="secondary"
-                                class="gap-1 border-amber-400/30 bg-amber-400/10 text-amber-300 text-[10px] font-bold px-2 py-0.5"
-                              >
-                                <Crown size={11} /> Host
-                              </Badge>
-                            {/if}
-                            {#if attendee.is_current_user}
-                              <Badge
-                                variant="secondary"
-                                class="border-indigo-400/30 bg-indigo-400/10 text-indigo-300 text-[10px] font-bold px-2 py-0.5"
-                              >
-                                You
-                              </Badge>
-                            {/if}
-                          </div>
-                          <p class="text-xs text-indigo-300 font-medium truncate mt-0.5">
-                            {attendee.role || "Participant"}
-                          </p>
-                          {#if data.isOrganizer && attendee.email}
-                            <p class="mt-1 truncate text-xs text-ink-400" title={attendee.email}>
-                              {attendee.email}
-                            </p>
+                          {#if currentEvent.event_format === "online"}
+                            <Globe size={12} class="text-cyan-400" /> Online
+                          {:else if currentEvent.event_format === "hybrid"}
+                            <Globe size={12} class="text-amber-400" /> Hybrid
+                          {:else}
+                            <MapPin size={12} class="text-amber-400" /> In-Person
                           {/if}
-                        </div>
-                      </div>
-
-                      <!-- Bio & Looking For -->
-                      <div class="space-y-2 flex-1">
-                        {#if attendee.about}
-                          <p
-                            class="text-xs text-ink-300 line-clamp-3 leading-relaxed bg-white/4 p-2.5 rounded-xl border border-white/5"
-                          >
-                            {attendee.about}
-                          </p>
-                        {/if}
-
-                        {#if attendee.looking_for}
-                          <div class="pt-1">
-                            <p
-                              class="text-[10px] uppercase tracking-wider font-semibold text-ink-500 mb-1"
-                            >
-                              Looking For
-                            </p>
-                            <p
-                              class="text-xs text-ink-300 bg-indigo-400/5 border border-indigo-400/15 p-2 rounded-lg line-clamp-2"
-                            >
-                              {attendee.looking_for}
-                            </p>
-                          </div>
-                        {/if}
-                      </div>
-
-                      <!-- Action Button -->
-                      <div class="pt-2 border-t border-white/6">
-                        {#if attendee.is_current_user}
-                          <Badge
-                            variant="outline"
-                            class="w-full justify-center py-2 text-ink-400 border-white/10 text-xs"
-                          >
-                            Your Profile
-                          </Badge>
-                        {:else if attendee.connectionStatus === "connected" || attendee.connectionStatus === "met"}
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            class="w-full gap-2 border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
-                            onclick={() => {
-                              networkFilter = "connected";
-                              activeTab.set("network");
-                            }}
-                          >
-                            <CheckCheck size={14} /> Connected
-                          </Button>
-                        {:else if attendee.connectionStatus === "sent"}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled
-                            class="w-full gap-2 border-amber-400/30 bg-amber-400/10 text-amber-300 opacity-90 cursor-not-allowed"
-                          >
-                            <Clock size={14} /> Request Sent
-                          </Button>
-                        {:else if attendee.connectionStatus === "received"}
-                          <Button
-                            size="sm"
-                            class="w-full gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:opacity-90 shadow-md"
-                            onclick={() => handleAcceptAttendee(attendee)}
-                          >
-                            <UserCheck size={14} /> Accept Request
-                          </Button>
-                        {:else}
-                          <Button
-                            size="sm"
-                            class="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-500 shadow-md"
-                            disabled={connectingIds.includes(attendee.user_id)}
-                            onclick={() => handleConnectAttendee(attendee)}
-                          >
-                            {#if connectingIds.includes(attendee.user_id)}
-                              <LoaderCircle size={14} class="animate-spin" /> Connecting…
-                            {:else}
-                              <UserPlus size={14} /> Connect
-                            {/if}
-                          </Button>
-                        {/if}
-                      </div>
+                        </span>
+                      {/if}
                     </div>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          </Tabs.Content>
 
-          <!-- Analytics tab -->
-          <Tabs.Content value="analytics" class="mt-4">
-            {#if data.isOrganizer && analytics}
-              <div class="space-y-5">
-                <div class="glass rounded-2xl border border-white/8 p-6">
-                  <div
-                    class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
-                  >
-                    <div>
-                      <div class="flex items-center gap-2 mb-2">
-                        <BarChart3 size={18} class="text-cyan-300" />
-                        <p
-                          class="text-xs font-bold uppercase tracking-widest text-cyan-300"
-                        >
-                          Organizer Analytics
+                    <!-- About section -->
+                    {#if currentEvent.description}
+                      <div>
+                        <div class="flex items-center gap-2 mb-3">
+                          <div
+                            class="h-5 w-0.5 rounded-full bg-gradient-to-b from-indigo-400 to-violet-400"
+                          ></div>
+                          <p
+                            class="text-[10px] font-black uppercase tracking-[0.15em] text-indigo-400"
+                          >
+                            About this Event
+                          </p>
+                        </div>
+                        <p class="text-sm leading-7 text-ink-200 max-w-prose">
+                          {currentEvent.description}
                         </p>
                       </div>
-                      <h2 class="text-2xl font-black text-white">
-                        Event performance dashboard
-                      </h2>
-                      <p class="mt-2 max-w-2xl text-sm leading-6 text-ink-400">
-                        Monitor participant engagement, AI match activity,
-                        connection momentum, and QR meet completion for this
-                        event.
-                      </p>
-                    </div>
-                    <div
-                      class="rounded-xl border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-right"
-                    >
-                      <p
-                        class="text-[10px] font-bold uppercase tracking-widest text-amber-300"
-                      >
-                        Live insight
-                      </p>
-                      <p class="mt-1 text-2xl font-black text-white">
-                        {analytics.connectionAcceptanceRate}%
-                      </p>
-                      <p class="text-xs text-ink-400">acceptance rate</p>
-                    </div>
-                  </div>
-                </div>
+                    {/if}
 
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {#each analyticsMetricCards as metric}
-                    <div
-                      class="glass card-hover rounded-2xl border border-white/8 p-5"
-                    >
-                      <p
-                        class="text-[10px] font-bold uppercase tracking-widest text-ink-500"
-                      >
-                        {metric.label}
-                      </p>
-                      <p class="mt-3 text-3xl font-black text-white">
-                        {metric.value}
-                      </p>
-                    </div>
-                  {/each}
-                </div>
-
-                <div class="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-                  <div class="glass rounded-2xl border border-white/8 p-6">
-                    <div class="mb-5 flex items-center gap-2">
-                      <Network size={17} class="text-amber-300" />
-                      <h3 class="text-lg font-bold text-white">
-                        Networking Funnel
-                      </h3>
-                    </div>
-                    <div class="space-y-4">
-                      {#each analytics.networkingFunnel as step}
-                        <div>
-                          <div
-                            class="mb-1.5 flex items-center justify-between gap-3"
-                          >
-                            <p class="text-sm font-semibold text-ink-200">
-                              {step.label}
-                            </p>
-                            <p class="text-sm font-bold text-white">
-                              {step.value}
-                            </p>
-                          </div>
-                          <div
-                            class="h-2 overflow-hidden rounded-full bg-white/8"
-                          >
-                            <div
-                              class="h-full rounded-full bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400"
-                              style="width: {Math.max(
-                                (step.value / maxFunnelValue) * 100,
-                                step.value ? 8 : 2,
-                              )}%"
-                            ></div>
-                          </div>
-                        </div>
-                      {/each}
-                    </div>
-                  </div>
-
-                  <div class="glass rounded-2xl border border-white/8 p-6">
-                    <div class="mb-5 flex items-center gap-2">
-                      <TrendingUp size={17} class="text-emerald-300" />
-                      <h3 class="text-lg font-bold text-white">
-                        AI Organizer Summary
-                      </h3>
-                    </div>
-                    <p class="text-sm leading-6 text-ink-300">
-                      {analytics.organizerSummary}
-                    </p>
-                  </div>
-                </div>
-
-                <div class="grid gap-5 lg:grid-cols-2">
-                  <div class="glass rounded-2xl border border-white/8 p-6">
-                    <div class="mb-5 flex items-center gap-2">
-                      <PieChart size={17} class="text-purple-300" />
-                      <h3 class="text-lg font-bold text-white">Top Skills</h3>
-                    </div>
-                    <div class="space-y-3">
-                      {#each analytics.topSkills as skill}
-                        <div
-                          class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3"
+                    <!-- Date / Location / Attendees row -->
+                    <div class="flex flex-wrap gap-2">
+                      {#if currentEvent.start_time}
+                        <span
+                          class="inline-flex items-center gap-1.5 text-xs text-ink-300 bg-white/4 border border-white/8 px-3 py-1.5 rounded-lg"
                         >
-                          <p class="text-sm font-semibold text-white">
-                            {skill.label}
-                          </p>
-                          <span
-                            class="rounded-full bg-purple-400/15 px-2.5 py-1 text-[11px] font-bold text-purple-200"
-                          >
-                            {skill.count
-                              ? `${skill.count} profile${skill.count === 1 ? "" : "s"}`
-                              : "Waiting"}
-                          </span>
-                        </div>
-                      {/each}
-                    </div>
-                  </div>
+                          <CalendarClock size={13} class="text-amber-400" />
+                          {formatEventDateRange(
+                            currentEvent.start_time,
+                            currentEvent.end_time,
+                          )}
+                        </span>
+                      {/if}
 
-                  <div class="glass rounded-2xl border border-white/8 p-6">
-                    <div class="mb-5 flex items-center gap-2">
-                      <Target size={17} class="text-cyan-300" />
-                      <h3 class="text-lg font-bold text-white">
-                        Most Requested Networking Goals
-                      </h3>
-                    </div>
-                    <div class="space-y-3">
-                      {#each analytics.topGoals as goal}
-                        <div
-                          class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3"
+                      {#if currentEvent.location && currentEvent.event_format !== "online"}
+                        <a
+                          href={currentEvent.google_map_url ||
+                            `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentEvent.location)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="inline-flex items-center gap-1.5 text-xs text-ink-300 hover:text-white bg-white/4 hover:bg-white/8 border border-white/8 px-3 py-1.5 rounded-lg transition-colors"
                         >
-                          <p class="text-sm font-semibold text-white">
-                            {goal.label}
-                          </p>
-                          <span
-                            class="rounded-full bg-cyan-400/15 px-2.5 py-1 text-[11px] font-bold text-cyan-200"
-                          >
-                            {goal.count
-                              ? `${goal.count} mention${goal.count === 1 ? "" : "s"}`
-                              : "Waiting"}
-                          </span>
-                        </div>
-                      {/each}
+                          <MapPin size={13} class="text-amber-400" />
+                          {currentEvent.location}
+                        </a>
+                      {/if}
+
+                      {#if currentEvent.attendees_count > 0}
+                        <span
+                          class="inline-flex items-center gap-1.5 text-xs text-ink-300 bg-white/4 border border-white/8 px-3 py-1.5 rounded-lg"
+                        >
+                          <Users size={13} class="text-cyan-400" />
+                          {currentEvent.attendees_count} attendee{currentEvent.attendees_count ===
+                          1
+                            ? ""
+                            : "s"}
+                        </span>
+                      {/if}
                     </div>
                   </div>
                 </div>
-              </div>
-            {:else}
-              <div class="glass rounded-2xl border border-white/8 p-8 sm:p-10">
-                <div
-                  class="mx-auto grid max-w-4xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center"
-                >
-                  <div class="relative mx-auto h-56 w-full max-w-xs">
-                    <div
-                      class="absolute inset-0 rounded-2xl border border-cyan-400/20 bg-cyan-400/8"
-                    ></div>
-                    <div
-                      class="absolute left-6 right-6 top-8 rounded-xl border border-white/10 bg-ink-950/70 p-4 shadow-glow-cyan"
-                    >
-                      <div class="mb-4 flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                          <BarChart3 size={17} class="text-cyan-300" />
-                          <span
-                            class="text-xs font-bold uppercase tracking-widest text-cyan-200"
-                            >Analytics</span
-                          >
-                        </div>
-                        <span class="h-2 w-2 rounded-full bg-emerald-300"
-                        ></span>
+
+                <!-- ── Event Schedule & Agenda (redesigned) ── -->
+                <div class="space-y-3 animate-slide-up-delay-1">
+                  <!-- Section Header -->
+                  <div class="flex items-center justify-between px-1">
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/12 border border-amber-400/20"
+                      >
+                        <CalendarClock size={15} class="text-amber-400" />
                       </div>
-                      <div class="space-y-3">
-                        <div
-                          class="h-2 w-3/4 rounded-full bg-amber-300/80"
-                        ></div>
-                        <div
-                          class="h-2 w-full rounded-full bg-cyan-300/70"
-                        ></div>
-                        <div
-                          class="h-2 w-1/2 rounded-full bg-emerald-300/70"
-                        ></div>
+                      <div>
+                        <h3
+                          class="text-base font-black text-white tracking-tight"
+                        >
+                          Event Schedule
+                        </h3>
+                        <p class="text-[11px] text-ink-500">
+                          {timelineItems.length} session{timelineItems.length ===
+                          1
+                            ? ""
+                            : "s"} planned
+                        </p>
                       </div>
                     </div>
-                    <div
-                      class="absolute bottom-7 left-10 flex h-20 w-20 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10"
-                    >
-                      <LineChart size={34} class="text-amber-300" />
-                    </div>
-                    <div
-                      class="absolute bottom-8 right-8 flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-400/20 bg-purple-400/10"
-                    >
-                      <PieChart size={28} class="text-purple-300" />
-                    </div>
-                  </div>
 
-                  <div class="text-center lg:text-left">
-                    <p
-                      class="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-300"
-                    >
-                      Event insights
-                    </p>
-                    <h2 class="text-2xl font-black text-white">
-                      Organizer Analytics
-                    </h2>
-                    <p
-                      class="mx-auto mt-4 max-w-xl whitespace-pre-line text-sm leading-6 text-ink-300 lg:mx-0"
-                    >
-                      Detailed event analytics are only available to the event
-                      organizer. Create your own event to unlock organizer
-                      analytics and monitor participant engagement, AI matches,
-                      networking activity, and event insights.
-                    </p>
-                    <Button onclick={goToCreateEvent} class="mt-6 gap-2">
-                      <Plus size={16} />
-                      Create Event
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            {/if}
-          </Tabs.Content>
-
-          <!-- Announcements tab -->
-          <Tabs.Content value="announcements" class="mt-4">
-            <div class="space-y-6 animate-fade-in">
-              <!-- Action & Search Bar -->
-              <div class="glass rounded-2xl border border-white/8 p-4 sm:p-5 relative overflow-hidden">
-                <div class="absolute top-0 left-0 h-[2px] w-full bg-gradient-to-r from-rose-500 via-pink-400 to-amber-400"></div>
-
-                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                  <!-- Search input -->
-                  <div class="relative flex-1">
-                    <Search size={15} class="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
-                    <Input
-                      bind:value={announcementSearchQuery}
-                      placeholder="Search announcements..."
-                      class="pl-9 bg-white/5 border-white/10 text-white placeholder:text-ink-500 focus:border-rose-400/50 rounded-xl h-10 text-xs sm:text-sm"
-                    />
-                    {#if announcementSearchQuery}
-                      <button
-                        onclick={() => (announcementSearchQuery = "")}
-                        class="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 hover:text-white"
+                    {#if timelineItems.length > 0}
+                      <Badge
+                        variant="secondary"
+                        class="border-amber-400/20 bg-amber-400/8 text-amber-300 text-[10px] font-bold uppercase tracking-wider"
                       >
-                        <X size={14} />
-                      </button>
+                        Agenda
+                      </Badge>
                     {/if}
                   </div>
 
-                  {#if data.isOrganizer && ownerViewMode === "organizer"}
-                    <Button
-                      onclick={openNewAnnouncementModal}
-                      class="gap-1.5 bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-600 hover:to-pink-600 text-white font-semibold text-xs shadow-lg shadow-rose-500/20 shrink-0 h-10 px-4 rounded-xl border border-rose-400/30"
+                  <!-- Timeline list or empty state -->
+                  {#if timelineItems.length === 0}
+                    <div
+                      class="glass rounded-2xl border border-white/6 p-10 text-center space-y-4"
                     >
-                      <Plus size={15} />
-                      New Announcement
-                    </Button>
+                      <div
+                        class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/8 bg-white/4"
+                      >
+                        <CalendarClock size={28} class="text-ink-600" />
+                      </div>
+                      <div>
+                        <p class="text-sm font-bold text-ink-300">
+                          No schedule published yet
+                        </p>
+                        <p class="text-xs text-ink-500 mt-1 max-w-xs mx-auto">
+                          The organizer hasn't added agenda sessions yet. Check
+                          back soon for the full event schedule.
+                        </p>
+                      </div>
+                    </div>
+                  {:else}
+                    <!-- Timeline rail -->
+                    <div class="relative">
+                      <!-- Vertical rail line -->
+                      <div
+                        class="absolute left-[27px] top-6 bottom-6 w-px bg-gradient-to-b from-white/15 via-white/8 to-transparent pointer-events-none"
+                      ></div>
+
+                      <div class="space-y-3">
+                        {#each timelineItems as item, idx (item.id)}
+                          {@const style = getCategoryColor(item.category)}
+                          {@const isLiveNow =
+                            item.start_time &&
+                            item.end_time &&
+                            new Date(item.start_time) <= currentTime &&
+                            new Date(item.end_time) >= currentTime}
+                          {@const isPast =
+                            item.end_time &&
+                            new Date(item.end_time) < currentTime}
+
+                          <div
+                            class="relative flex gap-4 group animate-slide-up"
+                            style="animation-delay: {idx *
+                              60}ms; animation-fill-mode: both;"
+                          >
+                            <!-- Timeline node -->
+                            <div
+                              class="relative flex-shrink-0 flex flex-col items-center"
+                              style="width: 56px;"
+                            >
+                              <div
+                                class="relative flex h-14 w-14 items-center justify-center rounded-2xl border transition-all duration-300
+                              {isLiveNow
+                                  ? 'bg-emerald-400/12 border-emerald-400/35 shadow-[0_0_16px_rgba(52,211,153,0.2)]'
+                                  : isPast
+                                    ? 'bg-white/3 border-white/6'
+                                    : 'bg-white/5 border-white/10 group-hover:border-white/20'}"
+                              >
+                                {#if isLiveNow}
+                                  <!-- Pulsing ring for live sessions -->
+                                  <span
+                                    class="absolute inset-0 rounded-2xl animate-ping border border-emerald-400/40 opacity-50"
+                                  ></span>
+                                {/if}
+
+                                <!-- Category-colored dot -->
+                                <div
+                                  class="h-3 w-3 rounded-full {style.dot} {isLiveNow
+                                    ? 'shadow-[0_0_8px_currentColor]'
+                                    : ''} {isPast ? 'opacity-30' : ''}"
+                                ></div>
+                              </div>
+                            </div>
+
+                            <!-- Session card -->
+                            <div class="flex-1 min-w-0 pb-1">
+                              <div
+                                class="rounded-2xl border transition-all duration-200 p-4 sm:p-5
+                              {isLiveNow
+                                  ? 'border-emerald-400/25 bg-emerald-400/5 hover:border-emerald-400/40'
+                                  : isPast
+                                    ? 'border-white/5 bg-white/2 opacity-60 hover:opacity-80'
+                                    : 'glass border-white/8 hover:border-white/18 hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 transition-transform'}"
+                              >
+                                <!-- Top row: time + live badge + category -->
+                                <div
+                                  class="flex flex-wrap items-center gap-2 mb-2.5"
+                                >
+                                  <span
+                                    class="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg"
+                                  >
+                                    <Clock size={11} />
+                                    {formatTimelineTimeRange(
+                                      item.start_time,
+                                      item.end_time,
+                                    )}
+                                  </span>
+
+                                  {#if isLiveNow}
+                                    <span
+                                      class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-full"
+                                    >
+                                      <span
+                                        class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"
+                                      ></span>
+                                      Live
+                                    </span>
+                                  {:else if isPast}
+                                    <span
+                                      class="inline-flex items-center gap-1 text-[10px] font-semibold text-ink-600 px-2 py-0.5 rounded-full border border-white/5 bg-white/3"
+                                    >
+                                      <CheckCheck size={10} /> Done
+                                    </span>
+                                  {/if}
+
+                                  <span
+                                    class="ml-auto text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border {style.bg} {style.text} {style.border}"
+                                  >
+                                    {item.category || "General"}
+                                  </span>
+                                </div>
+
+                                <!-- Title -->
+                                <h4
+                                  class="text-sm font-bold text-white leading-snug mb-1.5 {isPast
+                                    ? 'text-ink-300'
+                                    : ''}"
+                                >
+                                  {item.title}
+                                </h4>
+
+                                <!-- Description -->
+                                {#if item.description}
+                                  <p
+                                    class="text-xs leading-relaxed text-ink-400 mb-3"
+                                  >
+                                    {item.description}
+                                  </p>
+                                {/if}
+
+                                <!-- Speaker + Location footer -->
+                                {#if item.speaker_name || item.location}
+                                  <div
+                                    class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/6"
+                                  >
+                                    {#if item.speaker_name}
+                                      <div class="flex items-center gap-2.5">
+                                        {#if item.speaker_avatar_url}
+                                          <img
+                                            src={item.speaker_avatar_url}
+                                            alt={item.speaker_name}
+                                            class="h-7 w-7 rounded-full object-cover border-2 border-white/15 shadow-md"
+                                          />
+                                        {:else}
+                                          <div
+                                            class="h-7 w-7 rounded-full {style.bg} border {style.border} flex items-center justify-center text-[11px] font-black {style.text}"
+                                          >
+                                            {item.speaker_name
+                                              .charAt(0)
+                                              .toUpperCase()}
+                                          </div>
+                                        {/if}
+                                        <div class="leading-tight">
+                                          <p
+                                            class="text-xs font-bold text-white"
+                                          >
+                                            {item.speaker_name}
+                                          </p>
+                                          {#if item.speaker_role}
+                                            <p class="text-[10px] text-ink-500">
+                                              {item.speaker_role}
+                                            </p>
+                                          {/if}
+                                        </div>
+                                      </div>
+                                    {/if}
+
+                                    {#if item.location}
+                                      <button
+                                        type="button"
+                                        onclick={() =>
+                                          jumpToVenueLocation(item.location)}
+                                        class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-300 bg-white/4 hover:bg-amber-400/12 hover:text-amber-300 hover:border-amber-400/25 transition-all px-2.5 py-1 rounded-lg border border-white/8 cursor-pointer"
+                                        title={currentEvent.is_venue_enabled
+                                          ? `View ${item.location} on Venue Map`
+                                          : item.location}
+                                      >
+                                        <MapPin
+                                          size={11}
+                                          class="text-amber-400"
+                                        />
+                                        {item.location}
+                                      </button>
+                                    {/if}
+                                  </div>
+                                {/if}
+                              </div>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
                   {/if}
                 </div>
               </div>
+            </Tabs.Content>
 
-              <!-- Pinned Announcements Carousel (At Top, Max 3) -->
-              {#if pinnedAnnouncements.length > 0 && !announcementSearchQuery}
-                <div class="space-y-2">
-                  <div class="flex items-center justify-between px-1">
-                    <div class="flex items-center gap-2">
-                      <Pin size={13} class="text-amber-400 rotate-45" />
-                      <span class="text-xs font-bold uppercase tracking-widest text-amber-300">
-                        Pinned Updates ({pinnedAnnouncements.length}/3)
-                      </span>
+            <!-- Attendees Tab -->
+            <Tabs.Content value="attendees" class="mt-4">
+              <div class="space-y-6">
+                <!-- Attendees Header with Search and Refresh -->
+                <div
+                  class="glass rounded-2xl border border-white/8 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <div>
+                    <div class="flex items-center gap-2 mb-1">
+                      <Users size={18} class="text-indigo-400" />
+                      <h2 class="text-xl font-bold text-white">
+                        Joined Attendees
+                      </h2>
                     </div>
-
-                    <!-- Desktop Carousel Controls -->
-                    {#if pinnedAnnouncements.length > 1}
-                      <div class="hidden sm:flex items-center gap-1.5">
-                        <button
-                          onclick={prevPinnedSlide}
-                          class="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 transition-all"
-                          aria-label="Previous pinned announcement"
-                        >
-                          <ChevronLeft size={14} />
-                        </button>
-                        <span class="text-[11px] font-semibold text-amber-300/80 px-1">
-                          {pinnedSlideIndex + 1}/{pinnedAnnouncements.length}
-                        </span>
-                        <button
-                          onclick={nextPinnedSlide}
-                          class="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 transition-all"
-                          aria-label="Next pinned announcement"
-                        >
-                          <ChevronRight size={14} />
-                        </button>
-                      </div>
-                    {/if}
+                    <p class="text-xs text-ink-400">
+                      Explore all members who have joined {currentEvent.name} and
+                      build your network.
+                    </p>
                   </div>
 
-                  <!-- Desktop Slide -->
-                  <div class="hidden sm:grid grid-cols-1 grid-rows-1 overflow-hidden relative">
-                    {#key pinnedSlideIndex}
-                      {@const item = pinnedAnnouncements[pinnedSlideIndex || 0] || pinnedAnnouncements[0]}
-                      <div
-                        in:fade={{ duration: 200 }}
-                        out:fade={{ duration: 150 }}
-                        class="col-start-1 row-start-1 relative overflow-hidden rounded-2xl p-4 sm:p-5 backdrop-blur-md {getPriorityBorderClass(item.priority)}"
-                      >
-                        <div class="flex items-start justify-between gap-4">
-                          <div class="space-y-1 min-w-0 flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                              <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                                <Pin size={9} class="rotate-45" /> Pinned
-                              </span>
-                              {#if item.priority === 'urgent'}
-                                <span class="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300">Urgent</span>
-                              {:else if item.priority === 'high'}
-                                <span class="rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">High Priority</span>
-                              {/if}
-                              <span class="text-[11px] text-ink-400 flex items-center gap-1 ml-auto sm:ml-0">
-                                <Clock size={10} /> {formatAnnouncementDateTime(item.created_at)}
-                              </span>
-                            </div>
-                            <!-- Title -->
-                            <h4 class="text-base font-bold text-white truncate line-clamp-1">
-                              {item.title}
-                            </h4>
-                            <!-- One line description -->
-                            <p class="text-xs text-ink-300 line-clamp-1 truncate">
-                              {item.content}
-                            </p>
-                          </div>
+                  <div class="flex items-center gap-3 w-full sm:w-auto">
+                    <div class="relative flex-1 sm:w-64">
+                      <Search
+                        size={15}
+                        class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500"
+                      />
+                      <Input
+                        type="search"
+                        placeholder="Search by name, role, bio..."
+                        value={attendeeSearchQuery}
+                        oninput={handleAttendeeSearchInput}
+                        class="pl-9 bg-white/5 border-white/10 text-white placeholder:text-ink-500 h-9 text-xs focus:border-indigo-400/50 focus:ring-indigo-400/20"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      class="h-9 w-9 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 shrink-0"
+                      onclick={() => fetchAttendees()}
+                      disabled={loadingAttendees}
+                      title="Refresh Attendees"
+                    >
+                      <RefreshCw
+                        size={15}
+                        class={loadingAttendees ? "animate-spin" : ""}
+                      />
+                    </Button>
+                  </div>
+                </div>
 
-                          {#if data.isOrganizer && ownerViewMode === "organizer"}
-                            <div class="flex items-center gap-1 shrink-0 bg-white/5 border border-white/10 rounded-xl p-1">
-                              <button
-                                onclick={() => togglePinAnnouncement(item)}
-                                title="Unpin announcement"
-                                class="p-1.5 rounded-lg text-amber-400 hover:bg-white/10 transition-colors"
+                <!-- Attendees Grid / Skeleton / Empty state -->
+                {#if loadingAttendees && !attendeesList.length}
+                  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {#each Array(6) as _}
+                      <div
+                        class="glass rounded-2xl border border-white/8 p-5 space-y-4 animate-pulse"
+                      >
+                        <div class="flex items-center gap-3">
+                          <div class="h-12 w-12 rounded-full bg-white/10"></div>
+                          <div class="space-y-2 flex-1">
+                            <div class="h-4 w-28 rounded bg-white/10"></div>
+                            <div class="h-3 w-20 rounded bg-white/10"></div>
+                          </div>
+                        </div>
+                        <div class="h-12 rounded bg-white/5"></div>
+                        <div class="h-9 rounded bg-white/10 w-full"></div>
+                      </div>
+                    {/each}
+                  </div>
+                {:else if attendeesList.length === 0}
+                  <div
+                    class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"
+                  >
+                    <div
+                      class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
+                    >
+                      <Ghost size={28} class="text-ink-500" />
+                    </div>
+                    <h3 class="text-white font-bold mb-1">
+                      No attendees found
+                    </h3>
+                    <p class="text-sm text-ink-400 max-w-sm mb-4">
+                      {#if attendeeSearchQuery}
+                        No participants match "{attendeeSearchQuery}". Try a
+                        different search term.
+                      {:else}
+                        No joined attendees yet. Share this event link to get
+                        participants to join!
+                      {/if}
+                    </p>
+                    {#if attendeeSearchQuery}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onclick={() => {
+                          attendeeSearchQuery = "";
+                          fetchAttendees("");
+                        }}
+                      >
+                        Clear Search
+                      </Button>
+                    {/if}
+                  </div>
+                {:else}
+                  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {#each attendeesList as attendee (attendee.user_id)}
+                      <div
+                        class="glass card-hover rounded-2xl border border-white/8 p-5 flex flex-col justify-between space-y-4 relative overflow-hidden"
+                      >
+                        <!-- Header: Avatar + Info -->
+                        <div class="flex items-start gap-3">
+                          <div
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-indigo-400/30 text-indigo-200 font-bold text-lg shadow-inner"
+                          >
+                            {attendee.name
+                              ? attendee.name.charAt(0).toUpperCase()
+                              : "A"}
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                              <h3
+                                class="text-base font-bold text-white truncate"
                               >
-                                <PinOff size={14} />
-                              </button>
-                              <button
-                                onclick={() => openEditAnnouncementModal(item)}
-                                title="Edit announcement"
-                                class="p-1.5 rounded-lg text-ink-400 hover:text-indigo-300 hover:bg-white/10 transition-colors"
+                                {attendee.name}
+                              </h3>
+                              {#if attendee.is_host}
+                                <Badge
+                                  variant="secondary"
+                                  class="gap-1 border-amber-400/30 bg-amber-400/10 text-amber-300 text-[10px] font-bold px-2 py-0.5"
+                                >
+                                  <Crown size={11} /> Host
+                                </Badge>
+                              {/if}
+                              {#if attendee.is_current_user}
+                                <Badge
+                                  variant="secondary"
+                                  class="border-indigo-400/30 bg-indigo-400/10 text-indigo-300 text-[10px] font-bold px-2 py-0.5"
+                                >
+                                  You
+                                </Badge>
+                              {/if}
+                            </div>
+                            <p
+                              class="text-xs text-indigo-300 font-medium truncate mt-0.5"
+                            >
+                              {attendee.role || "Participant"}
+                            </p>
+                            {#if data.isOrganizer && attendee.email}
+                              <p
+                                class="mt-1 truncate text-xs text-ink-400"
+                                title={attendee.email}
                               >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                onclick={() => handleDeleteAnnouncement(item.id)}
-                                disabled={deletingAnnouncementId === item.id}
-                                title="Delete announcement"
-                                class="p-1.5 rounded-lg text-ink-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50"
+                                {attendee.email}
+                              </p>
+                            {/if}
+                          </div>
+                        </div>
+
+                        <!-- Bio & Looking For -->
+                        <div class="space-y-2 flex-1">
+                          {#if attendee.about}
+                            <p
+                              class="text-xs text-ink-300 line-clamp-3 leading-relaxed bg-white/4 p-2.5 rounded-xl border border-white/5"
+                            >
+                              {attendee.about}
+                            </p>
+                          {/if}
+
+                          {#if attendee.looking_for}
+                            <div class="pt-1">
+                              <p
+                                class="text-[10px] uppercase tracking-wider font-semibold text-ink-500 mb-1"
                               >
-                                {#if deletingAnnouncementId === item.id}
-                                  <LoaderCircle size={14} class="animate-spin text-rose-400" />
-                                {:else}
-                                  <Trash2 size={14} />
-                                {/if}
-                              </button>
+                                Looking For
+                              </p>
+                              <p
+                                class="text-xs text-ink-300 bg-indigo-400/5 border border-indigo-400/15 p-2 rounded-lg line-clamp-2"
+                              >
+                                {attendee.looking_for}
+                              </p>
                             </div>
                           {/if}
                         </div>
+
+                        <!-- Action Button -->
+                        <div class="pt-2 border-t border-white/6">
+                          {#if attendee.is_current_user}
+                            <Badge
+                              variant="outline"
+                              class="w-full justify-center py-2 text-ink-400 border-white/10 text-xs"
+                            >
+                              Your Profile
+                            </Badge>
+                          {:else if attendee.connectionStatus === "connected" || attendee.connectionStatus === "met"}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              class="w-full gap-2 border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
+                              onclick={() => {
+                                networkFilter = "connected";
+                                activeTab.set("network");
+                              }}
+                            >
+                              <CheckCheck size={14} /> Connected
+                            </Button>
+                          {:else if attendee.connectionStatus === "sent"}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled
+                              class="w-full gap-2 border-amber-400/30 bg-amber-400/10 text-amber-300 opacity-90 cursor-not-allowed"
+                            >
+                              <Clock size={14} /> Request Sent
+                            </Button>
+                          {:else if attendee.connectionStatus === "received"}
+                            <Button
+                              size="sm"
+                              class="w-full gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:opacity-90 shadow-md"
+                              onclick={() => handleAcceptAttendee(attendee)}
+                            >
+                              <UserCheck size={14} /> Accept Request
+                            </Button>
+                          {:else}
+                            <Button
+                              size="sm"
+                              class="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-500 shadow-md"
+                              disabled={connectingIds.includes(
+                                attendee.user_id,
+                              )}
+                              onclick={() => handleConnectAttendee(attendee)}
+                            >
+                              {#if connectingIds.includes(attendee.user_id)}
+                                <LoaderCircle size={14} class="animate-spin" /> Connecting…
+                              {:else}
+                                <UserPlus size={14} /> Connect
+                              {/if}
+                            </Button>
+                          {/if}
+                        </div>
                       </div>
-                    {/key}
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </Tabs.Content>
+
+            <!-- Analytics tab -->
+            <Tabs.Content value="analytics" class="mt-4">
+              {#if data.isOrganizer && analytics}
+                <div class="space-y-5">
+                  <div class="glass rounded-2xl border border-white/8 p-6">
+                    <div
+                      class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+                    >
+                      <div>
+                        <div class="flex items-center gap-2 mb-2">
+                          <BarChart3 size={18} class="text-cyan-300" />
+                          <p
+                            class="text-xs font-bold uppercase tracking-widest text-cyan-300"
+                          >
+                            Organizer Analytics
+                          </p>
+                        </div>
+                        <h2 class="text-2xl font-black text-white">
+                          Event performance dashboard
+                        </h2>
+                        <p
+                          class="mt-2 max-w-2xl text-sm leading-6 text-ink-400"
+                        >
+                          Monitor participant engagement, AI match activity,
+                          connection momentum, and QR meet completion for this
+                          event.
+                        </p>
+                      </div>
+                      <div
+                        class="rounded-xl border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-right"
+                      >
+                        <p
+                          class="text-[10px] font-bold uppercase tracking-widest text-amber-300"
+                        >
+                          Live insight
+                        </p>
+                        <p class="mt-1 text-2xl font-black text-white">
+                          {analytics.connectionAcceptanceRate}%
+                        </p>
+                        <p class="text-xs text-ink-400">acceptance rate</p>
+                      </div>
+                    </div>
                   </div>
 
-                  <!-- Mobile Slide + Touch Swipe + Dots -->
-                  <div class="flex sm:hidden flex-col gap-2.5">
+                  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {#each analyticsMetricCards as metric}
+                      <div
+                        class="glass card-hover rounded-2xl border border-white/8 p-5"
+                      >
+                        <p
+                          class="text-[10px] font-bold uppercase tracking-widest text-ink-500"
+                        >
+                          {metric.label}
+                        </p>
+                        <p class="mt-3 text-3xl font-black text-white">
+                          {metric.value}
+                        </p>
+                      </div>
+                    {/each}
+                  </div>
+
+                  <div class="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+                    <div class="glass rounded-2xl border border-white/8 p-6">
+                      <div class="mb-5 flex items-center gap-2">
+                        <Network size={17} class="text-amber-300" />
+                        <h3 class="text-lg font-bold text-white">
+                          Networking Funnel
+                        </h3>
+                      </div>
+                      <div class="space-y-4">
+                        {#each analytics.networkingFunnel as step}
+                          <div>
+                            <div
+                              class="mb-1.5 flex items-center justify-between gap-3"
+                            >
+                              <p class="text-sm font-semibold text-ink-200">
+                                {step.label}
+                              </p>
+                              <p class="text-sm font-bold text-white">
+                                {step.value}
+                              </p>
+                            </div>
+                            <div
+                              class="h-2 overflow-hidden rounded-full bg-white/8"
+                            >
+                              <div
+                                class="h-full rounded-full bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400"
+                                style="width: {Math.max(
+                                  (step.value / maxFunnelValue) * 100,
+                                  step.value ? 8 : 2,
+                                )}%"
+                              ></div>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+
+                    <div class="glass rounded-2xl border border-white/8 p-6">
+                      <div class="mb-5 flex items-center gap-2">
+                        <TrendingUp size={17} class="text-emerald-300" />
+                        <h3 class="text-lg font-bold text-white">
+                          AI Organizer Summary
+                        </h3>
+                      </div>
+                      <p class="text-sm leading-6 text-ink-300">
+                        {analytics.organizerSummary}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="grid gap-5 lg:grid-cols-2">
+                    <div class="glass rounded-2xl border border-white/8 p-6">
+                      <div class="mb-5 flex items-center gap-2">
+                        <PieChart size={17} class="text-purple-300" />
+                        <h3 class="text-lg font-bold text-white">Top Skills</h3>
+                      </div>
+                      <div class="space-y-3">
+                        {#each analytics.topSkills as skill}
+                          <div
+                            class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3"
+                          >
+                            <p class="text-sm font-semibold text-white">
+                              {skill.label}
+                            </p>
+                            <span
+                              class="rounded-full bg-purple-400/15 px-2.5 py-1 text-[11px] font-bold text-purple-200"
+                            >
+                              {skill.count
+                                ? `${skill.count} profile${skill.count === 1 ? "" : "s"}`
+                                : "Waiting"}
+                            </span>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+
+                    <div class="glass rounded-2xl border border-white/8 p-6">
+                      <div class="mb-5 flex items-center gap-2">
+                        <Target size={17} class="text-cyan-300" />
+                        <h3 class="text-lg font-bold text-white">
+                          Most Requested Networking Goals
+                        </h3>
+                      </div>
+                      <div class="space-y-3">
+                        {#each analytics.topGoals as goal}
+                          <div
+                            class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3"
+                          >
+                            <p class="text-sm font-semibold text-white">
+                              {goal.label}
+                            </p>
+                            <span
+                              class="rounded-full bg-cyan-400/15 px-2.5 py-1 text-[11px] font-bold text-cyan-200"
+                            >
+                              {goal.count
+                                ? `${goal.count} mention${goal.count === 1 ? "" : "s"}`
+                                : "Waiting"}
+                            </span>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {:else}
+                <div
+                  class="glass rounded-2xl border border-white/8 p-8 sm:p-10"
+                >
+                  <div
+                    class="mx-auto grid max-w-4xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center"
+                  >
+                    <div class="relative mx-auto h-56 w-full max-w-xs">
+                      <div
+                        class="absolute inset-0 rounded-2xl border border-cyan-400/20 bg-cyan-400/8"
+                      ></div>
+                      <div
+                        class="absolute left-6 right-6 top-8 rounded-xl border border-white/10 bg-ink-950/70 p-4 shadow-glow-cyan"
+                      >
+                        <div class="mb-4 flex items-center justify-between">
+                          <div class="flex items-center gap-2">
+                            <BarChart3 size={17} class="text-cyan-300" />
+                            <span
+                              class="text-xs font-bold uppercase tracking-widest text-cyan-200"
+                              >Analytics</span
+                            >
+                          </div>
+                          <span class="h-2 w-2 rounded-full bg-emerald-300"
+                          ></span>
+                        </div>
+                        <div class="space-y-3">
+                          <div
+                            class="h-2 w-3/4 rounded-full bg-amber-300/80"
+                          ></div>
+                          <div
+                            class="h-2 w-full rounded-full bg-cyan-300/70"
+                          ></div>
+                          <div
+                            class="h-2 w-1/2 rounded-full bg-emerald-300/70"
+                          ></div>
+                        </div>
+                      </div>
+                      <div
+                        class="absolute bottom-7 left-10 flex h-20 w-20 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10"
+                      >
+                        <LineChart size={34} class="text-amber-300" />
+                      </div>
+                      <div
+                        class="absolute bottom-8 right-8 flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-400/20 bg-purple-400/10"
+                      >
+                        <PieChart size={28} class="text-purple-300" />
+                      </div>
+                    </div>
+
+                    <div class="text-center lg:text-left">
+                      <p
+                        class="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-300"
+                      >
+                        Event insights
+                      </p>
+                      <h2 class="text-2xl font-black text-white">
+                        Organizer Analytics
+                      </h2>
+                      <p
+                        class="mx-auto mt-4 max-w-xl whitespace-pre-line text-sm leading-6 text-ink-300 lg:mx-0"
+                      >
+                        Detailed event analytics are only available to the event
+                        organizer. Create your own event to unlock organizer
+                        analytics and monitor participant engagement, AI
+                        matches, networking activity, and event insights.
+                      </p>
+                      <Button onclick={goToCreateEvent} class="mt-6 gap-2">
+                        <Plus size={16} />
+                        Create Event
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </Tabs.Content>
+
+            <!-- Announcements tab -->
+            <Tabs.Content value="announcements" class="mt-4">
+              <div class="space-y-6 animate-fade-in">
+                <!-- Action & Search Bar -->
+                <div
+                  class="glass rounded-2xl border border-white/8 p-4 sm:p-5 relative overflow-hidden"
+                >
+                  <div
+                    class="absolute top-0 left-0 h-[2px] w-full bg-gradient-to-r from-rose-500 via-pink-400 to-amber-400"
+                  ></div>
+
+                  <div
+                    class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3"
+                  >
+                    <!-- Search input -->
+                    <div class="relative flex-1">
+                      <Search
+                        size={15}
+                        class="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
+                      />
+                      <Input
+                        bind:value={announcementSearchQuery}
+                        placeholder="Search announcements..."
+                        class="pl-9 bg-white/5 border-white/10 text-white placeholder:text-ink-500 focus:border-rose-400/50 rounded-xl h-10 text-xs sm:text-sm"
+                      />
+                      {#if announcementSearchQuery}
+                        <button
+                          onclick={() => (announcementSearchQuery = "")}
+                          class="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 hover:text-white"
+                        >
+                          <X size={14} />
+                        </button>
+                      {/if}
+                    </div>
+
+                    {#if data.isOrganizer && ownerViewMode === "organizer"}
+                      <Button
+                        onclick={openNewAnnouncementModal}
+                        class="gap-1.5 bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-600 hover:to-pink-600 text-white font-semibold text-xs shadow-lg shadow-rose-500/20 shrink-0 h-10 px-4 rounded-xl border border-rose-400/30"
+                      >
+                        <Plus size={15} />
+                        New Announcement
+                      </Button>
+                    {/if}
+                  </div>
+                </div>
+
+                <!-- Pinned Announcements Carousel (At Top, Max 3) -->
+                {#if pinnedAnnouncements.length > 0 && !announcementSearchQuery}
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between px-1">
+                      <div class="flex items-center gap-2">
+                        <Pin size={13} class="text-amber-400 rotate-45" />
+                        <span
+                          class="text-xs font-bold uppercase tracking-widest text-amber-300"
+                        >
+                          Pinned Updates ({pinnedAnnouncements.length}/3)
+                        </span>
+                      </div>
+
+                      <!-- Desktop Carousel Controls -->
+                      {#if pinnedAnnouncements.length > 1}
+                        <div class="hidden sm:flex items-center gap-1.5">
+                          <button
+                            onclick={prevPinnedSlide}
+                            class="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 transition-all"
+                            aria-label="Previous pinned announcement"
+                          >
+                            <ChevronLeft size={14} />
+                          </button>
+                          <span
+                            class="text-[11px] font-semibold text-amber-300/80 px-1"
+                          >
+                            {pinnedSlideIndex + 1}/{pinnedAnnouncements.length}
+                          </span>
+                          <button
+                            onclick={nextPinnedSlide}
+                            class="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 transition-all"
+                            aria-label="Next pinned announcement"
+                          >
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      {/if}
+                    </div>
+
+                    <!-- Desktop Slide -->
                     <div
-                      class="grid grid-cols-1 grid-rows-1 overflow-hidden relative"
-                      role="region"
-                      aria-label="Pinned announcements"
-                      ontouchstart={(e) => { pinnedSwipeStartX = e.touches[0].clientX; }}
-                      ontouchend={(e) => {
-                        const dx = e.changedTouches[0].clientX - pinnedSwipeStartX;
-                        if (Math.abs(dx) > 40 && pinnedAnnouncements.length > 1) {
-                          if (dx < 0) nextPinnedSlide();
-                          else prevPinnedSlide();
-                        }
-                      }}
+                      class="hidden sm:grid grid-cols-1 grid-rows-1 overflow-hidden relative"
                     >
                       {#key pinnedSlideIndex}
-                        {@const item = pinnedAnnouncements[pinnedSlideIndex || 0] || pinnedAnnouncements[0]}
+                        {@const item =
+                          pinnedAnnouncements[pinnedSlideIndex || 0] ||
+                          pinnedAnnouncements[0]}
                         <div
                           in:fade={{ duration: 200 }}
                           out:fade={{ duration: 150 }}
-                          class="col-start-1 row-start-1 relative overflow-hidden rounded-2xl p-4 backdrop-blur-md w-full {getPriorityBorderClass(item.priority)}"
+                          class="col-start-1 row-start-1 relative overflow-hidden rounded-2xl p-4 sm:p-5 backdrop-blur-md {getPriorityBorderClass(
+                            item.priority,
+                          )}"
                         >
-                          <div class="flex flex-col gap-1.5">
-                            <div class="flex items-center justify-between gap-2">
-                              <div class="flex items-center gap-1.5">
-                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                          <div class="flex items-start justify-between gap-4">
+                            <div class="space-y-1 min-w-0 flex-1">
+                              <div class="flex items-center gap-2 mb-1">
+                                <span
+                                  class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300"
+                                >
                                   <Pin size={9} class="rotate-45" /> Pinned
                                 </span>
-                                {#if item.priority === 'urgent'}
-                                  <span class="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300">Urgent</span>
+                                {#if item.priority === "urgent"}
+                                  <span
+                                    class="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300"
+                                    >Urgent</span
+                                  >
+                                {:else if item.priority === "high"}
+                                  <span
+                                    class="rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300"
+                                    >High Priority</span
+                                  >
                                 {/if}
-                                <span class="text-[10px] text-ink-400 flex items-center gap-1 ml-auto">
-                                  <Clock size={10} /> {formatAnnouncementDateTime(item.created_at)}
+                                <span
+                                  class="text-[11px] text-ink-400 flex items-center gap-1 ml-auto sm:ml-0"
+                                >
+                                  <Clock size={10} />
+                                  {formatAnnouncementDateTime(item.created_at)}
                                 </span>
                               </div>
-                              {#if data.isOrganizer && ownerViewMode === "organizer"}
-                                <div class="flex items-center gap-1 shrink-0">
-                                  <button
-                                    onclick={() => togglePinAnnouncement(item)}
-                                    class="p-1 text-amber-400"
-                                  >
-                                    <PinOff size={13} />
-                                  </button>
-                                  <button
-                                    onclick={() => openEditAnnouncementModal(item)}
-                                    class="p-1 text-ink-400 hover:text-white"
-                                  >
-                                    <Pencil size={13} />
-                                  </button>
-                                </div>
-                              {/if}
+                              <!-- Title -->
+                              <h4
+                                class="text-base font-bold text-white truncate line-clamp-1"
+                              >
+                                {item.title}
+                              </h4>
+                              <!-- One line description -->
+                              <p
+                                class="text-xs text-ink-300 line-clamp-1 truncate"
+                              >
+                                {item.content}
+                              </p>
                             </div>
-                            <!-- Title -->
-                            <h4 class="text-sm font-bold text-white truncate line-clamp-1">
-                              {item.title}
-                            </h4>
-                            <!-- One line description -->
-                            <p class="text-xs text-ink-300 line-clamp-1 truncate">
-                              {item.content}
-                            </p>
+
+                            {#if data.isOrganizer && ownerViewMode === "organizer"}
+                              <div
+                                class="flex items-center gap-1 shrink-0 bg-white/5 border border-white/10 rounded-xl p-1"
+                              >
+                                <button
+                                  onclick={() => togglePinAnnouncement(item)}
+                                  title="Unpin announcement"
+                                  class="p-1.5 rounded-lg text-amber-400 hover:bg-white/10 transition-colors"
+                                >
+                                  <PinOff size={14} />
+                                </button>
+                                <button
+                                  onclick={() =>
+                                    openEditAnnouncementModal(item)}
+                                  title="Edit announcement"
+                                  class="p-1.5 rounded-lg text-ink-400 hover:text-indigo-300 hover:bg-white/10 transition-colors"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  onclick={() =>
+                                    handleDeleteAnnouncement(item.id)}
+                                  disabled={deletingAnnouncementId === item.id}
+                                  title="Delete announcement"
+                                  class="p-1.5 rounded-lg text-ink-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50"
+                                >
+                                  {#if deletingAnnouncementId === item.id}
+                                    <LoaderCircle
+                                      size={14}
+                                      class="animate-spin text-rose-400"
+                                    />
+                                  {:else}
+                                    <Trash2 size={14} />
+                                  {/if}
+                                </button>
+                              </div>
+                            {/if}
                           </div>
                         </div>
                       {/key}
                     </div>
 
-                    <!-- Dots indicator -->
-                    {#if pinnedAnnouncements.length > 1}
-                      <div class="flex items-center justify-center gap-1.5 pt-1">
-                        {#each pinnedAnnouncements as _, i}
-                          <button
-                            onclick={() => selectPinnedSlide(i)}
-                            aria-label="Go to pinned announcement {i + 1}"
-                            class="h-1.5 rounded-full transition-all duration-300 {pinnedSlideIndex === i ? 'w-4 bg-amber-400' : 'w-1.5 bg-amber-400/30'}"
-                          ></button>
-                        {/each}
+                    <!-- Mobile Slide + Touch Swipe + Dots -->
+                    <div class="flex sm:hidden flex-col gap-2.5">
+                      <div
+                        class="grid grid-cols-1 grid-rows-1 overflow-hidden relative"
+                        role="region"
+                        aria-label="Pinned announcements"
+                        ontouchstart={(e) => {
+                          pinnedSwipeStartX = e.touches[0].clientX;
+                        }}
+                        ontouchend={(e) => {
+                          const dx =
+                            e.changedTouches[0].clientX - pinnedSwipeStartX;
+                          if (
+                            Math.abs(dx) > 40 &&
+                            pinnedAnnouncements.length > 1
+                          ) {
+                            if (dx < 0) nextPinnedSlide();
+                            else prevPinnedSlide();
+                          }
+                        }}
+                      >
+                        {#key pinnedSlideIndex}
+                          {@const item =
+                            pinnedAnnouncements[pinnedSlideIndex || 0] ||
+                            pinnedAnnouncements[0]}
+                          <div
+                            in:fade={{ duration: 200 }}
+                            out:fade={{ duration: 150 }}
+                            class="col-start-1 row-start-1 relative overflow-hidden rounded-2xl p-4 backdrop-blur-md w-full {getPriorityBorderClass(
+                              item.priority,
+                            )}"
+                          >
+                            <div class="flex flex-col gap-1.5">
+                              <div
+                                class="flex items-center justify-between gap-2"
+                              >
+                                <div class="flex items-center gap-1.5">
+                                  <span
+                                    class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300"
+                                  >
+                                    <Pin size={9} class="rotate-45" /> Pinned
+                                  </span>
+                                  {#if item.priority === "urgent"}
+                                    <span
+                                      class="rounded-full border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300"
+                                      >Urgent</span
+                                    >
+                                  {/if}
+                                  <span
+                                    class="text-[10px] text-ink-400 flex items-center gap-1 ml-auto"
+                                  >
+                                    <Clock size={10} />
+                                    {formatAnnouncementDateTime(
+                                      item.created_at,
+                                    )}
+                                  </span>
+                                </div>
+                                {#if data.isOrganizer && ownerViewMode === "organizer"}
+                                  <div class="flex items-center gap-1 shrink-0">
+                                    <button
+                                      onclick={() =>
+                                        togglePinAnnouncement(item)}
+                                      class="p-1 text-amber-400"
+                                    >
+                                      <PinOff size={13} />
+                                    </button>
+                                    <button
+                                      onclick={() =>
+                                        openEditAnnouncementModal(item)}
+                                      class="p-1 text-ink-400 hover:text-white"
+                                    >
+                                      <Pencil size={13} />
+                                    </button>
+                                  </div>
+                                {/if}
+                              </div>
+                              <!-- Title -->
+                              <h4
+                                class="text-sm font-bold text-white truncate line-clamp-1"
+                              >
+                                {item.title}
+                              </h4>
+                              <!-- One line description -->
+                              <p
+                                class="text-xs text-ink-300 line-clamp-1 truncate"
+                              >
+                                {item.content}
+                              </p>
+                            </div>
+                          </div>
+                        {/key}
                       </div>
+
+                      <!-- Dots indicator -->
+                      {#if pinnedAnnouncements.length > 1}
+                        <div
+                          class="flex items-center justify-center gap-1.5 pt-1"
+                        >
+                          {#each pinnedAnnouncements as _, i}
+                            <button
+                              onclick={() => selectPinnedSlide(i)}
+                              aria-label="Go to pinned announcement {i + 1}"
+                              class="h-1.5 rounded-full transition-all duration-300 {pinnedSlideIndex ===
+                              i
+                                ? 'w-4 bg-amber-400'
+                                : 'w-1.5 bg-amber-400/30'}"
+                            ></button>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Announcements Cards Feed -->
+                {#if filteredAnnouncements.length === 0}
+                  <div
+                    class="glass rounded-2xl border border-white/8 p-12 text-center space-y-4"
+                  >
+                    <div
+                      class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400"
+                    >
+                      <Megaphone size={24} />
+                    </div>
+                    <div class="space-y-1">
+                      <h3 class="text-base font-bold text-white">
+                        {#if announcementSearchQuery}
+                          No matching announcements found
+                        {:else}
+                          No announcements yet
+                        {/if}
+                      </h3>
+                      <p class="text-xs text-ink-400 max-w-md mx-auto">
+                        {#if announcementSearchQuery}
+                          Try adjusting your search query.
+                        {:else}
+                          Organizers haven't posted any announcements for this
+                          event yet. Check back soon for updates!
+                        {/if}
+                      </p>
+                    </div>
+                    {#if data.isOrganizer && ownerViewMode === "organizer" && !announcementSearchQuery}
+                      <Button
+                        onclick={openNewAnnouncementModal}
+                        variant="outline"
+                        class="gap-2 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 mt-2 text-xs"
+                      >
+                        <Plus size={14} />
+                        Post First Announcement
+                      </Button>
                     {/if}
                   </div>
-                </div>
-              {/if}
+                {:else}
+                  <div class="space-y-4">
+                    {#each filteredAnnouncements as item (item.id)}
+                      <div
+                        class="relative overflow-hidden rounded-2xl border transition-all duration-200 {getPriorityBorderClass(
+                          item.priority,
+                        )}"
+                      >
+                        <div class="p-5 sm:p-6 space-y-3">
+                          <!-- Header Row -->
+                          <div
+                            class="flex flex-wrap items-start justify-between gap-3"
+                          >
+                            <div class="space-y-1.5 flex-1 min-w-[240px]">
+                              <div class="flex flex-wrap items-center gap-2">
+                                {#if item.is_pinned}
+                                  <span
+                                    class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300"
+                                  >
+                                    <Pin size={10} class="rotate-45" /> Pinned
+                                  </span>
+                                {/if}
 
-              <!-- Announcements Cards Feed -->
-              {#if filteredAnnouncements.length === 0}
-                <div class="glass rounded-2xl border border-white/8 p-12 text-center space-y-4">
-                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
-                    <Megaphone size={24} />
-                  </div>
-                  <div class="space-y-1">
-                    <h3 class="text-base font-bold text-white">
-                      {#if announcementSearchQuery}
-                        No matching announcements found
-                      {:else}
-                        No announcements yet
-                      {/if}
-                    </h3>
-                    <p class="text-xs text-ink-400 max-w-md mx-auto">
-                      {#if announcementSearchQuery}
-                        Try adjusting your search query.
-                      {:else}
-                        Organizers haven't posted any announcements for this event yet. Check back soon for updates!
-                      {/if}
-                    </p>
-                  </div>
-                  {#if data.isOrganizer && ownerViewMode === "organizer" && !announcementSearchQuery}
-                    <Button onclick={openNewAnnouncementModal} variant="outline" class="gap-2 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 mt-2 text-xs">
-                      <Plus size={14} />
-                      Post First Announcement
-                    </Button>
-                  {/if}
-                </div>
-              {:else}
-                <div class="space-y-4">
-                  {#each filteredAnnouncements as item (item.id)}
-                    <div
-                      class="relative overflow-hidden rounded-2xl border transition-all duration-200 {getPriorityBorderClass(item.priority)}"
-                    >
-                      <div class="p-5 sm:p-6 space-y-3">
-                        <!-- Header Row -->
-                        <div class="flex flex-wrap items-start justify-between gap-3">
-                          <div class="space-y-1.5 flex-1 min-w-[240px]">
-                            <div class="flex flex-wrap items-center gap-2">
-                              {#if item.is_pinned}
-                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                                  <Pin size={10} class="rotate-45" /> Pinned
-                                </span>
-                              {/if}
+                                <!-- Priority Pill -->
+                                {#if item.priority === "urgent"}
+                                  <span
+                                    class="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300"
+                                  >
+                                    Urgent
+                                  </span>
+                                {:else if item.priority === "high"}
+                                  <span
+                                    class="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300"
+                                  >
+                                    High Priority
+                                  </span>
+                                {:else if item.priority === "low"}
+                                  <span
+                                    class="inline-flex items-center gap-1 rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                                  >
+                                    Low Priority
+                                  </span>
+                                {/if}
 
-                              <!-- Priority Pill -->
-                              {#if item.priority === 'urgent'}
-                                <span class="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300">
-                                  Urgent
+                                <span
+                                  class="text-[11px] font-medium text-ink-400 flex items-center gap-1"
+                                >
+                                  <Clock size={11} class="text-ink-500" />
+                                  {formatAnnouncementDateTime(item.created_at)}
                                 </span>
-                              {:else if item.priority === 'high'}
-                                <span class="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                                  High Priority
-                                </span>
-                              {:else if item.priority === 'low'}
-                                <span class="inline-flex items-center gap-1 rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                  Low Priority
-                                </span>
-                              {/if}
+                              </div>
 
-                              <span class="text-[11px] font-medium text-ink-400 flex items-center gap-1">
-                                <Clock size={11} class="text-ink-500" />
-                                {formatAnnouncementDateTime(item.created_at)}
-                              </span>
+                              <h3
+                                class="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug"
+                              >
+                                {item.title}
+                              </h3>
                             </div>
 
-                            <h3 class="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug">
-                              {item.title}
-                            </h3>
+                            <!-- Organizer Action Buttons -->
+                            {#if data.isOrganizer && ownerViewMode === "organizer"}
+                              <div
+                                class="flex items-center gap-1.5 shrink-0 bg-white/5 border border-white/8 rounded-xl p-1"
+                              >
+                                <button
+                                  onclick={() => togglePinAnnouncement(item)}
+                                  title={item.is_pinned
+                                    ? "Unpin announcement"
+                                    : "Pin announcement to top (max 3)"}
+                                  class="p-2 rounded-lg text-ink-400 hover:text-amber-300 hover:bg-white/10 transition-colors"
+                                >
+                                  {#if item.is_pinned}
+                                    <PinOff size={14} class="text-amber-400" />
+                                  {:else}
+                                    <Pin size={14} class="rotate-45" />
+                                  {/if}
+                                </button>
+                                <button
+                                  onclick={() =>
+                                    openEditAnnouncementModal(item)}
+                                  title="Edit announcement"
+                                  class="p-2 rounded-lg text-ink-400 hover:text-indigo-300 hover:bg-white/10 transition-colors"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  onclick={() =>
+                                    handleDeleteAnnouncement(item.id)}
+                                  disabled={deletingAnnouncementId === item.id}
+                                  title="Delete announcement"
+                                  class="p-2 rounded-lg text-ink-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50"
+                                >
+                                  {#if deletingAnnouncementId === item.id}
+                                    <LoaderCircle
+                                      size={14}
+                                      class="animate-spin text-rose-400"
+                                    />
+                                  {:else}
+                                    <Trash2 size={14} />
+                                  {/if}
+                                </button>
+                              </div>
+                            {/if}
                           </div>
 
-                          <!-- Organizer Action Buttons -->
-                          {#if data.isOrganizer && ownerViewMode === "organizer"}
-                            <div class="flex items-center gap-1.5 shrink-0 bg-white/5 border border-white/8 rounded-xl p-1">
-                              <button
-                                onclick={() => togglePinAnnouncement(item)}
-                                title={item.is_pinned ? "Unpin announcement" : "Pin announcement to top (max 3)"}
-                                class="p-2 rounded-lg text-ink-400 hover:text-amber-300 hover:bg-white/10 transition-colors"
-                              >
-                                {#if item.is_pinned}
-                                  <PinOff size={14} class="text-amber-400" />
-                                {:else}
-                                  <Pin size={14} class="rotate-45" />
-                                {/if}
-                              </button>
-                              <button
-                                onclick={() => openEditAnnouncementModal(item)}
-                                title="Edit announcement"
-                                class="p-2 rounded-lg text-ink-400 hover:text-indigo-300 hover:bg-white/10 transition-colors"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                onclick={() => handleDeleteAnnouncement(item.id)}
-                                disabled={deletingAnnouncementId === item.id}
-                                title="Delete announcement"
-                                class="p-2 rounded-lg text-ink-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50"
-                              >
-                                {#if deletingAnnouncementId === item.id}
-                                  <LoaderCircle size={14} class="animate-spin text-rose-400" />
-                                {:else}
-                                  <Trash2 size={14} />
-                                {/if}
-                              </button>
-                            </div>
-                          {/if}
-                        </div>
-
-                        <!-- Content Text -->
-                        <div class="text-sm leading-relaxed text-ink-200 whitespace-pre-wrap font-normal">
-                          {item.content}
+                          <!-- Content Text -->
+                          <div
+                            class="text-sm leading-relaxed text-ink-200 whitespace-pre-wrap font-normal"
+                          >
+                            {item.content}
+                          </div>
                         </div>
                       </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </Tabs.Content>
+
+            <!-- Networking profile dialog (portaled outside) -->
+            <Dialog.Root bind:open={editProfileOpen}>
+              <Dialog.Content
+                class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto"
+              >
+                <Dialog.Header class="hidden">
+                  <Dialog.Title>Edit networking profile</Dialog.Title>
+                </Dialog.Header>
+                <div class="flex items-center gap-2 mb-5">
+                  <UserCircle2 size={15} class="text-white" />
+                  <p
+                    class="text-xs font-bold uppercase tracking-widest text-white"
+                  >
+                    Edit networking profile
+                  </p>
+                </div>
+
+                <!-- AI Auto-fill section in Edit Modal -->
+                <div
+                  class="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 mb-5"
+                >
+                  <p
+                    class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2 flex items-center gap-1.5"
+                  >
+                    <Brain size={12} /> Magic AI Auto-Fill
+                  </p>
+                  <textarea
+                    bind:value={aiProfileText}
+                    placeholder="Paste your LinkedIn About section or a short bio here..."
+                    class="min-h-[80px] w-full rounded-xl border border-white/10 bg-white/4 p-3 text-xs leading-5 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/15 mb-3"
+                  ></textarea>
+                  <div class="relative group w-full">
+                    <Button
+                      variant="outline"
+                      onclick={generateAiProfile}
+                      disabled={aiGenerating || !aiProfileText.trim()}
+                      class="w-full h-8 text-xs border-cyan-400/20 text-cyan-300 hover:bg-cyan-400/10"
+                    >
+                      {#if aiGenerating}
+                        <LoaderCircle size={12} class="animate-spin mr-2" />
+                        Generating fields...
+                      {:else}
+                        <Sparkles size={12} class="mr-2" />
+                        Auto-fill below fields
+                      {/if}
+                    </Button>
+                    <div
+                      class="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[10px] font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap z-50"
+                    >
+                      Uses 1 AI credit
+                    </div>
+                  </div>
+                  {#if aiGenerationError}
+                    <p class="mt-2 text-[10px] text-amber-400">
+                      {aiGenerationError}
+                    </p>
+                  {/if}
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2 mb-5">
+                  {#each profileFields as field}
+                    <div class="space-y-1.5">
+                      <Label
+                        for={field.wsId}
+                        class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+                      >
+                        {field.label}
+                      </Label>
+                      {#if field.key === "whoTheyAre"}
+                        <Input
+                          id={field.wsId}
+                          bind:value={networkingProfile[field.key]}
+                          class="bg-white/4 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+                        />
+                      {:else}
+                        <textarea
+                          id={field.wsId}
+                          bind:value={networkingProfile[field.key]}
+                          class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50 focus:ring-amber-400/20 w-full rounded-md p-2"
+                          rows="4"
+                          maxlength="500"></textarea>
+                        <div class="flex justify-between mt-1">
+                          <span class="text-[10px] text-amber-500/80"
+                            >{(networkingProfile[field.key]?.length || 0) < 20
+                              ? "Minimum 20 characters required"
+                              : ""}</span
+                          >
+                          <span class="text-[10px] text-ink-500 text-right"
+                            >{networkingProfile[field.key]?.length || 0} / 500</span
+                          >
+                        </div>
+                      {/if}
                     </div>
                   {/each}
                 </div>
-              {/if}
-            </div>
-          </Tabs.Content>
-
-          <!-- Networking profile dialog (portaled outside) -->
-          <Dialog.Root bind:open={editProfileOpen}>
-            <Dialog.Content
-              class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto"
-            >
-              <Dialog.Header class="hidden">
-                <Dialog.Title>Edit networking profile</Dialog.Title>
-              </Dialog.Header>
-              <div class="flex items-center gap-2 mb-5">
-                <UserCircle2 size={15} class="text-white" />
-                <p
-                  class="text-xs font-bold uppercase tracking-widest text-white"
-                >
-                  Edit networking profile
-                </p>
-              </div>
-
-              <!-- AI Auto-fill section in Edit Modal -->
-              <div
-                class="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 mb-5"
-              >
-                <p
-                  class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2 flex items-center gap-1.5"
-                >
-                  <Brain size={12} /> Magic AI Auto-Fill
-                </p>
-                <textarea
-                  bind:value={aiProfileText}
-                  placeholder="Paste your LinkedIn About section or a short bio here..."
-                  class="min-h-[80px] w-full rounded-xl border border-white/10 bg-white/4 p-3 text-xs leading-5 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/15 mb-3"
-                ></textarea>
-                <div class="relative group w-full">
+                <div class="flex flex-wrap gap-3">
                   <Button
-                    variant="outline"
-                    onclick={generateAiProfile}
-                    disabled={aiGenerating || !aiProfileText.trim()}
-                    class="w-full h-8 text-xs border-cyan-400/20 text-cyan-300 hover:bg-cyan-400/10"
+                    onclick={saveProfile}
+                    disabled={savingProfile || !profileValid}
+                    class="gap-2"
                   >
-                    {#if aiGenerating}
-                      <LoaderCircle size={12} class="animate-spin mr-2" />
-                      Generating fields...
+                    {#if savingProfile}
+                      <LoaderCircle size={15} class="animate-spin" />
+                      Saving…
                     {:else}
-                      <Sparkles size={12} class="mr-2" />
-                      Auto-fill below fields
+                      <CheckCircle2 size={15} />
+                      Save changes
                     {/if}
                   </Button>
-                  <div
-                    class="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[10px] font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap z-50"
-                  >
-                    Uses 1 AI credit
-                  </div>
                 </div>
-                {#if aiGenerationError}
-                  <p class="mt-2 text-[10px] text-amber-400">
-                    {aiGenerationError}
-                  </p>
+
+                {#if savingProfile}
+                  <AmdAiLoading
+                    message="AI is working..."
+                    detail="Generating embeddings and saving your networking profile."
+                    class="mt-4"
+                  />
                 {/if}
-              </div>
-              <div class="grid gap-4 sm:grid-cols-2 mb-5">
-                {#each profileFields as field}
-                  <div class="space-y-1.5">
-                    <Label
-                      for={field.wsId}
-                      class="text-xs font-semibold uppercase tracking-widest text-ink-400"
-                    >
-                      {field.label}
-                    </Label>
-                    {#if field.key === "whoTheyAre"}
-                      <Input
-                        id={field.wsId}
-                        bind:value={networkingProfile[field.key]}
-                        class="bg-white/4 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
-                      />
-                    {:else}
-                      <textarea
-                        id={field.wsId}
-                        bind:value={networkingProfile[field.key]}
-                        class="bg-white/4 border-white/10 text-white placeholder:text-ink-600 focus:border-amber-400/50 focus:ring-amber-400/20 w-full rounded-md p-2"
-                        rows="4"
-                        maxlength="500"
-                      ></textarea>
-                      <div class="flex justify-between mt-1">
-                        <span class="text-[10px] text-amber-500/80"
-                          >{(networkingProfile[field.key]?.length || 0) < 20
-                            ? "Minimum 20 characters required"
-                            : ""}</span
-                        >
-                        <span class="text-[10px] text-ink-500 text-right"
-                          >{networkingProfile[field.key]?.length || 0} / 500</span
-                        >
-                      </div>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
-              <div class="flex flex-wrap gap-3">
-                <Button
-                  onclick={saveProfile}
-                  disabled={savingProfile || !profileValid}
-                  class="gap-2"
-                >
-                  {#if savingProfile}
-                    <LoaderCircle size={15} class="animate-spin" />
-                    Saving…
-                  {:else}
-                    <CheckCircle2 size={15} />
-                    Save changes
-                  {/if}
-                </Button>
-              </div>
+              </Dialog.Content>
+            </Dialog.Root>
 
-              {#if savingProfile}
-                <AmdAiLoading
-                  message="AI is working..."
-                  detail="Generating embeddings and saving your networking profile."
-                  class="mt-4"
-                />
-              {/if}
-            </Dialog.Content>
-          </Dialog.Root>
-
-{#if Boolean(currentEvent.is_network_enabled)}
-          <!-- Network tab (unified Matches + Connections) -->
-          <Tabs.Content value="network" class="mt-4">
-            {#if !networkProfileCheckComplete}
-              <div class="flex min-h-56 items-center justify-center rounded-3xl border border-white/8 bg-white/[0.03]">
-                <LoaderCircle size={22} class="animate-spin text-violet-300" />
-              </div>
-            {:else if !hasCompletedProfile}
-              <!-- ─── PROFILE STAGE IN NETWORK TAB ─── -->
-              <div class="mx-auto max-w-5xl animate-slide-up my-4">
-                <div
-                  class="glass rounded-3xl border border-violet-400/15 overflow-hidden"
-                >
+            {#if Boolean(currentEvent.is_network_enabled)}
+              <!-- Network tab (unified Matches + Connections) -->
+              <Tabs.Content value="network" class="mt-4">
+                {#if !networkProfileCheckComplete}
                   <div
-                    class="h-1 bg-gradient-to-r from-violet-400 via-cyan-400/70 to-transparent"
-                  ></div>
-                  <div class="p-5 sm:p-6 space-y-4">
-                    {#if profileFillMode === "ai"}
-                      <!-- ── AI Auto-Fill Mode ── -->
-                      <div class="space-y-2">
-                        <Badge
-                          variant="secondary"
-                          class="gap-2 border-violet-400/20 bg-violet-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-violet-200"
-                        >
-                          <Brain size={12} class="text-violet-300" />
-                          AI onboarding
-                        </Badge>
-                        <div class="space-y-2">
-                          <h1
-                            class="text-2xl font-black tracking-tight text-white sm:text-3xl"
-                          >
-                            ✨ Magic AI Profile Auto-Fill
-                          </h1>
-                          <p class="max-w-xl text-sm leading-6 text-ink-300">
-                            Paste a short bio or LinkedIn blurb. The AI will turn it into
-                            a networking profile for review.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div class="mx-auto w-full max-w-2xl space-y-3">
-                        <div
-                          class="rounded-2xl border border-white/8 bg-white/4 px-3 py-2"
-                        >
-                          <p
-                            class="text-[10px] font-bold uppercase tracking-widest text-cyan-300"
-                          >
-                            Examples you can paste
-                          </p>
-                          <div
-                            class="mt-2 flex flex-wrap gap-2 text-[11px] leading-5 text-ink-300"
-                          >
-                            <span
-                              class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
-                              >LinkedIn About</span
+                    class="flex min-h-56 items-center justify-center rounded-3xl border border-white/8 bg-white/[0.03]"
+                  >
+                    <LoaderCircle
+                      size={22}
+                      class="animate-spin text-violet-300"
+                    />
+                  </div>
+                {:else if !hasCompletedProfile}
+                  <!-- ─── PROFILE STAGE IN NETWORK TAB ─── -->
+                  <div class="mx-auto max-w-5xl animate-slide-up my-4">
+                    <div
+                      class="glass rounded-3xl border border-violet-400/15 overflow-hidden"
+                    >
+                      <div
+                        class="h-1 bg-gradient-to-r from-violet-400 via-cyan-400/70 to-transparent"
+                      ></div>
+                      <div class="p-5 sm:p-6 space-y-4">
+                        {#if profileFillMode === "ai"}
+                          <!-- ── AI Auto-Fill Mode ── -->
+                          <div class="space-y-2">
+                            <Badge
+                              variant="secondary"
+                              class="gap-2 border-violet-400/20 bg-violet-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-violet-200"
                             >
-                            <span
-                              class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
-                              >Resume summary</span
-                            >
-                            <span
-                              class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
-                              >Startup bio</span
-                            >
-                            <span
-                              class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
-                              >Goals + skills</span
-                            >
-                          </div>
-                        </div>
-
-                        <Label
-                          for="ai-profile-input"
-                          class="text-[10px] font-semibold uppercase tracking-widest text-ink-400"
-                        >
-                          Your background
-                        </Label>
-                        <textarea
-                          id="ai-profile-input"
-                          bind:value={aiProfileText}
-                          placeholder={`Hi, I'm Ravi.\n\nI'm a Spring Boot developer with experience building SaaS products and AI applications.\n\nI'm currently building an AI healthcare startup and I'm attending this event to meet technical co-founders, investors and AI engineers.`}
-                          class="min-h-[180px] w-full rounded-2xl border border-white/10 bg-white/4 p-3 text-sm leading-6 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
-                        ></textarea>
-
-                        {#if aiGenerating}
-                          <AmdAiLoading
-                            message="AI is working..."
-                            detail="Building your networking profile draft from your input."
-                          />
-                        {/if}
-
-                        {#if aiGenerationError}
-                          <div
-                            class="rounded-2xl border border-amber-400/20 bg-amber-400/8 p-3 text-sm text-amber-100"
-                          >
-                            <p class="font-semibold">Could not generate your profile.</p>
-                            <p class="mt-1 leading-6 text-amber-100/85">
-                              {aiGenerationError}
-                            </p>
-                            <div class="mt-3">
-                              <Button
-                                variant="outline"
-                                class="h-9 border-amber-300/20 px-3 text-xs text-amber-100 hover:bg-amber-400/10"
-                                onclick={generateAiProfile}
-                                disabled={aiGenerating}
+                              <Brain size={12} class="text-violet-300" />
+                              AI onboarding
+                            </Badge>
+                            <div class="space-y-2">
+                              <h1
+                                class="text-2xl font-black tracking-tight text-white sm:text-3xl"
                               >
-                                Retry
+                                ✨ Magic AI Profile Auto-Fill
+                              </h1>
+                              <p
+                                class="max-w-xl text-sm leading-6 text-ink-300"
+                              >
+                                Paste a short bio or LinkedIn blurb. The AI will
+                                turn it into a networking profile for review.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div class="mx-auto w-full max-w-2xl space-y-3">
+                            <div
+                              class="rounded-2xl border border-white/8 bg-white/4 px-3 py-2"
+                            >
+                              <p
+                                class="text-[10px] font-bold uppercase tracking-widest text-cyan-300"
+                              >
+                                Examples you can paste
+                              </p>
+                              <div
+                                class="mt-2 flex flex-wrap gap-2 text-[11px] leading-5 text-ink-300"
+                              >
+                                <span
+                                  class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                                  >LinkedIn About</span
+                                >
+                                <span
+                                  class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                                  >Resume summary</span
+                                >
+                                <span
+                                  class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                                  >Startup bio</span
+                                >
+                                <span
+                                  class="rounded-full border border-white/8 bg-white/5 px-2.5 py-1"
+                                  >Goals + skills</span
+                                >
+                              </div>
+                            </div>
+
+                            <Label
+                              for="ai-profile-input"
+                              class="text-[10px] font-semibold uppercase tracking-widest text-ink-400"
+                            >
+                              Your background
+                            </Label>
+                            <textarea
+                              id="ai-profile-input"
+                              bind:value={aiProfileText}
+                              placeholder={`Hi, I'm Ravi.\n\nI'm a Spring Boot developer with experience building SaaS products and AI applications.\n\nI'm currently building an AI healthcare startup and I'm attending this event to meet technical co-founders, investors and AI engineers.`}
+                              class="min-h-[180px] w-full rounded-2xl border border-white/10 bg-white/4 p-3 text-sm leading-6 text-white placeholder:text-ink-600 shadow-inner outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
+                            ></textarea>
+
+                            {#if aiGenerating}
+                              <AmdAiLoading
+                                message="AI is working..."
+                                detail="Building your networking profile draft from your input."
+                              />
+                            {/if}
+
+                            {#if aiGenerationError}
+                              <div
+                                class="rounded-2xl border border-amber-400/20 bg-amber-400/8 p-3 text-sm text-amber-100"
+                              >
+                                <p class="font-semibold">
+                                  Could not generate your profile.
+                                </p>
+                                <p class="mt-1 leading-6 text-amber-100/85">
+                                  {aiGenerationError}
+                                </p>
+                                <div class="mt-3">
+                                  <Button
+                                    variant="outline"
+                                    class="h-9 border-amber-300/20 px-3 text-xs text-amber-100 hover:bg-amber-400/10"
+                                    onclick={generateAiProfile}
+                                    disabled={aiGenerating}
+                                  >
+                                    Retry
+                                  </Button>
+                                </div>
+                              </div>
+                            {/if}
+
+                            <div
+                              class="flex flex-wrap items-center justify-between gap-2"
+                            >
+                              <p class="text-[11px] text-ink-400">
+                                The AI will generate a draft you can edit.
+                              </p>
+                              <span
+                                class="text-[10px] uppercase tracking-widest text-ink-500"
+                              >
+                                Review first
+                              </span>
+                            </div>
+
+                            <div
+                              class="flex flex-wrap justify-center gap-2 pt-1"
+                            >
+                              <Button
+                                id="generate-profile-btn"
+                                onclick={generateAiProfile}
+                                disabled={aiGenerating || !aiProfileText.trim()}
+                                class="h-10 gap-2 px-4 text-sm"
+                              >
+                                {#if aiGenerating}
+                                  <LoaderCircle
+                                    size={15}
+                                    class="animate-spin"
+                                  />
+                                  Generating profile…
+                                {:else}
+                                  <Sparkles size={15} />
+                                  Generate My Profile
+                                {/if}
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onclick={skipAiGeneration}
+                                class="h-10 gap-2 px-4 text-sm"
+                              >
+                                Fill manually
                               </Button>
                             </div>
                           </div>
-                        {/if}
+                        {:else}
+                          <!-- ── AI ONBOARDING MANUAL FORM MODE ── -->
+                          <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                              <Badge
+                                variant="secondary"
+                                class="gap-2 border-violet-400/20 bg-violet-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-violet-200"
+                              >
+                                <Brain size={12} class="text-violet-300" />
+                                AI onboarding
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                class="h-8 text-xs text-cyan-300 hover:bg-cyan-400/10 gap-1.5 font-semibold"
+                                onclick={() => (profileFillMode = "ai")}
+                              >
+                                <Sparkles size={13} />
+                                ✨ Use AI Auto-Fill
+                              </Button>
+                            </div>
+                            <div class="space-y-2">
+                              <h1
+                                class="text-2xl font-black tracking-tight text-white sm:text-3xl"
+                              >
+                                📝 Fill Networking Profile
+                              </h1>
+                              <p
+                                class="max-w-xl text-sm leading-6 text-ink-300"
+                              >
+                                Enter your details manually. The AI will use
+                                these details to find your matches.
+                              </p>
+                            </div>
+                          </div>
 
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                          <p class="text-[11px] text-ink-400">
-                            The AI will generate a draft you can edit.
-                          </p>
-                          <span
-                            class="text-[10px] uppercase tracking-widest text-ink-500"
-                          >
-                            Review first
-                          </span>
-                        </div>
+                          <div class="mx-auto w-full max-w-2xl space-y-4 pt-2">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                              {#each profileFields as field}
+                                <div class="space-y-1.5">
+                                  <Label
+                                    for={field.wsId}
+                                    class="text-[10px] font-semibold uppercase tracking-widest text-ink-400"
+                                  >
+                                    {field.label}
+                                  </Label>
+                                  {#if field.key === "whoTheyAre"}
+                                    <Input
+                                      id={field.wsId}
+                                      bind:value={networkingProfile[field.key]}
+                                      placeholder="Your name or headline"
+                                      class="rounded-xl border border-white/10 bg-white/4 p-3 text-sm text-white placeholder:text-ink-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
+                                    />
+                                  {:else}
+                                    <textarea
+                                      id={field.wsId}
+                                      bind:value={networkingProfile[field.key]}
+                                      placeholder={field.key === "whatTheyDo"
+                                        ? "Describe your skills, background and experience (min 20 chars)..."
+                                        : field.key === "whoTheyWant"
+                                          ? "Describe who you want to meet at this event (min 20 chars)..."
+                                          : "Share any extra background or goals..."}
+                                      class="min-h-[100px] w-full rounded-2xl border border-white/10 bg-white/4 p-3 text-xs leading-5 text-white placeholder:text-ink-600 outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
+                                      rows="3"
+                                      maxlength="500"></textarea>
+                                    <div class="flex justify-between mt-1">
+                                      <span
+                                        class="text-[10px] text-amber-400/90 font-medium"
+                                        >{(networkingProfile[field.key]
+                                          ?.length || 0) < 20
+                                          ? "Minimum 20 characters required"
+                                          : ""}</span
+                                      >
+                                      <span
+                                        class="text-[10px] text-ink-500 text-right"
+                                        >{networkingProfile[field.key]
+                                          ?.length || 0} / 500</span
+                                      >
+                                    </div>
+                                  {/if}
+                                </div>
+                              {/each}
+                            </div>
 
-                        <div class="flex flex-wrap justify-center gap-2 pt-1">
-                          <Button
-                            id="generate-profile-btn"
-                            onclick={generateAiProfile}
-                            disabled={aiGenerating || !aiProfileText.trim()}
-                            class="h-10 gap-2 px-4 text-sm"
-                          >
-                            {#if aiGenerating}
-                              <LoaderCircle size={15} class="animate-spin" />
-                              Generating profile…
-                            {:else}
-                              <Sparkles size={15} />
-                              Generate My Profile
+                            <div
+                              class="flex flex-wrap justify-center gap-3 pt-3"
+                            >
+                              <Button
+                                onclick={saveProfile}
+                                disabled={savingProfile || !profileValid}
+                                class="h-10 px-6 gap-2 text-sm font-bold bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white shadow-lg shadow-violet-500/20"
+                              >
+                                {#if savingProfile}
+                                  <LoaderCircle
+                                    size={15}
+                                    class="animate-spin"
+                                  />
+                                  Saving Profile…
+                                {:else}
+                                  <CheckCircle2 size={15} />
+                                  Save Profile
+                                {/if}
+                              </Button>
+                            </div>
+
+                            {#if savingProfile}
+                              <AmdAiLoading
+                                message="AI is working..."
+                                detail="Generating embeddings and saving your networking profile."
+                                class="mt-4"
+                              />
                             {/if}
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            onclick={skipAiGeneration}
-                            class="h-10 gap-2 px-4 text-sm"
-                          >
-                            Fill manually
-                          </Button>
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+                {:else}
+                  <!-- Network Header -->
+                  <div
+                    class="glass rounded-2xl border border-white/8 p-4 sm:p-5 mb-5"
+                  >
+                    <div
+                      class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div class="flex items-center gap-3">
+                        <div
+                          class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-400/10 border border-violet-400/20"
+                        >
+                          <Network size={18} class="text-violet-300" />
                         </div>
+                        <div>
+                          <h2 class="text-base font-bold text-white">
+                            Network
+                          </h2>
+                          <p class="text-xs text-ink-400">
+                            Discover matches & manage your connections
+                          </p>
+                        </div>
+                      </div>
+
+                      <div class="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                          onclick={() => (editProfileOpen = true)}
+                        >
+                          <UserCircle2 size={14} /> Edit Profile
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                          onclick={refreshFromDb}
+                          disabled={refreshingFromDb}
+                          title="Refresh matches from database"
+                        >
+                          {#if refreshingFromDb}<LoaderCircle
+                              size={13}
+                              class="animate-spin"
+                            />{:else}<RefreshCcw size={13} />{/if}
+                          Refresh
+                        </Button>
+                        <Button
+                          size="sm"
+                          class="gap-1.5 h-8 text-xs"
+                          onclick={() => (findMatchesModalOpen = true)}
+                          disabled={refreshingMatches}
+                        >
+                          {#if refreshingMatches}<LoaderCircle
+                              size={13}
+                              class="animate-spin"
+                            />{:else}<Sparkles size={13} />{/if}
+                          {refreshingMatches ? "Finding…" : "Find Matches"}
+                        </Button>
+                        {#if data.isOrganizer}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                            onclick={() => (dummyModalOpen = true)}
+                          >
+                            <Users size={13} /> Simulation
+                          </Button>
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Sub-filter pill navigation -->
+                  <div class="flex flex-wrap items-center gap-2 mb-5">
+                    {#each [{ value: "matches", label: "✨ AI Matches", count: $matchesStore.length, color: "amber" }, { value: "received", label: "📥 Received", count: $connectionsStore.filter((c) => c.receiver_user_id === data.user?.id && c.status === "pending").length, color: "violet" }] as pill}
+                      <button
+                        onclick={() => {
+                          networkFilter = pill.value;
+                          if (pill.value !== "matches")
+                            connectionFilter = pill.value;
+                        }}
+                        class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border
+                    {networkFilter === pill.value
+                          ? 'bg-violet-400/20 border-violet-400/40 text-violet-200 shadow-[0_0_12px_rgba(167,139,250,0.2)]'
+                          : 'bg-white/4 border-white/8 text-ink-400 hover:text-white hover:border-white/20'}"
+                      >
+                        {pill.label}
+                        {#if pill.count > 0}
+                          <span
+                            class="rounded-full px-1.5 py-0.5 text-[10px] font-bold
+                      {networkFilter === pill.value
+                              ? 'bg-violet-400/30 text-violet-100'
+                              : 'bg-white/10 text-ink-300'}">{pill.count}</span
+                          >
+                        {/if}
+                      </button>
+                    {/each}
+
+                    <!-- Refresh connections -->
+                    <button
+                      onclick={fetchAllConnections}
+                      disabled={loadingConnections}
+                      class="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border border-white/8 bg-white/4 text-ink-400 hover:text-white hover:border-white/20 transition-all"
+                    >
+                      <RefreshCw
+                        size={13}
+                        class={loadingConnections ? "animate-spin" : ""}
+                      />
+                      Sync
+                    </button>
+                  </div>
+
+                  <!-- ── AI MATCHES view ── -->
+                  {#if networkFilter === "matches"}
+                    {#if refreshingMatches}
+                      <AmdAiLoading
+                        message="AI is working..."
+                        detail="Finding your best networking matches."
+                        class="mb-6"
+                      />
+                      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {#each Array(3) as _}
+                          <div
+                            class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
+                          ></div>
+                        {/each}
+                      </div>
+                    {:else if refreshingFromDb}
+                      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {#each Array(3) as _}
+                          <div
+                            class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
+                          ></div>
+                        {/each}
+                      </div>
+                    {:else if $matchesStore.length}
+                      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {#each $matchesStore as match, i}
+                          {@const conn = $connectionsStore.find(
+                            (c) =>
+                              c.sender_user_id === match.user_id ||
+                              c.receiver_user_id === match.user_id,
+                          )}
+                          <div
+                            class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
+                          >
+                            <!-- Match strength bar -->
+                            <div
+                              class="h-0.5 bg-gradient-to-r from-amber-400 to-cyan-400"
+                              style="width: {match.matchPercentage ?? 50}%"
+                            ></div>
+
+                            <div class="flex-1 flex flex-col p-5">
+                              <div class="flex-1">
+                                <div
+                                  class="flex items-start justify-between gap-3"
+                                >
+                                  <div class="min-w-0">
+                                    <h3 class="text-base font-bold text-white">
+                                      {match.name}
+                                    </h3>
+                                    {#if conn?.status === "accepted"}
+                                      <span
+                                        class="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-emerald-300"
+                                      >
+                                        <CheckCircle2 size={11} /> Connected
+                                      </span>
+                                    {/if}
+                                  </div>
+                                  <span
+                                    class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
+                                  >
+                                    {match.matchPercentage ?? "—"}% Match
+                                  </span>
+                                </div>
+
+                                <Tabs.Root value="why" class="mt-4">
+                                  <Tabs.List
+                                    class="grid w-full grid-cols-2 rounded-xl border border-white/10 bg-white/5 p-1"
+                                  >
+                                    <Tabs.Trigger
+                                      value="why"
+                                      class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-200"
+                                    >
+                                      Why
+                                    </Tabs.Trigger>
+                                    <Tabs.Trigger
+                                      value="profile"
+                                      class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                                    >
+                                      Profile
+                                    </Tabs.Trigger>
+                                  </Tabs.List>
+
+                                  <Tabs.Content
+                                    value="why"
+                                    class="m-0 pt-4 outline-none"
+                                  >
+                                    <div
+                                      class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-3.5"
+                                    >
+                                      <p
+                                        class="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300"
+                                      >
+                                        Why you should meet
+                                      </p>
+                                      <p class="text-sm leading-6 text-ink-300">
+                                        {formatMatchExplanation(
+                                          match.explanation,
+                                        )}
+                                      </p>
+                                    </div>
+                                  </Tabs.Content>
+
+                                  <Tabs.Content
+                                    value="profile"
+                                    class="m-0 space-y-3 pt-4 outline-none"
+                                  >
+                                    <div>
+                                      <p
+                                        class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500"
+                                      >
+                                        What i do
+                                      </p>
+                                      <p class="text-sm leading-6 text-ink-300">
+                                        {match.role}{match.company
+                                          ? ` · ${match.company}`
+                                          : ""}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p
+                                        class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500"
+                                      >
+                                        About me
+                                      </p>
+                                      <p class="text-sm leading-6 text-ink-300">
+                                        {match.about}
+                                      </p>
+                                    </div>
+                                  </Tabs.Content>
+                                </Tabs.Root>
+                              </div>
+                              <!-- Connect Button -->
+                              <div class="pt-4 mt-auto">
+                                {#if !conn || conn.status === "cancelled"}
+                                  <Button
+                                    class="w-full bg-white text-black hover:bg-white/90 gap-2"
+                                    disabled={connectingIds.includes(
+                                      match.user_id,
+                                    )}
+                                    onclick={() => connectUser(match)}
+                                  >
+                                    {#if connectingIds.includes(match.user_id)}
+                                      <LoaderCircle
+                                        size={16}
+                                        class="animate-spin"
+                                      /> Connecting...
+                                    {:else}
+                                      <Users size={16} /> Connect
+                                    {/if}
+                                  </Button>
+                                {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
+                                  <Button
+                                    variant="outline"
+                                    class="w-full gap-2 text-ink-300 border-ink-600 hover:text-white"
+                                    onclick={() =>
+                                      updateConnection(conn.id, "cancelled")}
+                                  >
+                                    Cancel Request
+                                  </Button>
+                                {:else if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
+                                  <Button
+                                    variant="outline"
+                                    class="w-full gap-2 text-amber-300 border-amber-600/50"
+                                    disabled
+                                  >
+                                    Pending Response
+                                  </Button>
+                                {:else if conn.status === "accepted"}
+                                  <Button
+                                    variant="secondary"
+                                    class="w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                                    onclick={() => openChatForConnection(conn)}
+                                  >
+                                    <MessageCircle size={16} /> Chat
+                                  </Button>
+                                {:else if conn.status === "rejected"}
+                                  <Button
+                                    variant="outline"
+                                    class="w-full gap-2 text-red-400 border-red-500/30"
+                                    disabled
+                                  >
+                                    Rejected
+                                  </Button>
+                                {/if}
+                              </div>
+                            </div>
+                          </div>
+                        {/each}
                       </div>
                     {:else}
-                      <!-- ── AI ONBOARDING MANUAL FORM MODE ── -->
-                      <div class="space-y-2">
-                        <div class="flex items-center justify-between">
-                          <Badge
-                            variant="secondary"
-                            class="gap-2 border-violet-400/20 bg-violet-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-violet-200"
-                          >
-                            <Brain size={12} class="text-violet-300" />
-                            AI onboarding
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            class="h-8 text-xs text-cyan-300 hover:bg-cyan-400/10 gap-1.5 font-semibold"
-                            onclick={() => (profileFillMode = "ai")}
-                          >
-                            <Sparkles size={13} />
-                            ✨ Use AI Auto-Fill
-                          </Button>
+                      <div
+                        class="glass rounded-2xl border border-white/8 border-dashed p-12 text-center"
+                      >
+                        <div
+                          class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20"
+                        >
+                          <Brain size={22} class="text-amber-300" />
                         </div>
-                        <div class="space-y-2">
-                          <h1
-                            class="text-2xl font-black tracking-tight text-white sm:text-3xl"
-                          >
-                            📝 Fill Networking Profile
-                          </h1>
-                          <p class="max-w-xl text-sm leading-6 text-ink-300">
-                            Enter your details manually. The AI will use these details to find your matches.
-                          </p>
-                        </div>
+                        <h3 class="text-lg font-bold text-white mb-2">
+                          No matches yet
+                        </h3>
+                        <p class="text-sm text-ink-400 max-w-xs mx-auto mb-5">
+                          Save your networking profile to generate AI-powered
+                          recommendations.
+                        </p>
                       </div>
+                    {/if}
 
-                      <div class="mx-auto w-full max-w-2xl space-y-4 pt-2">
-                        <div class="grid gap-4 sm:grid-cols-2">
-                          {#each profileFields as field}
-                            <div class="space-y-1.5">
-                              <Label
-                                for={field.wsId}
-                                class="text-[10px] font-semibold uppercase tracking-widest text-ink-400"
+                    <!-- ── CONNECTIONS views (received / sent / connected / met) ── -->
+                  {:else}
+                    {#if loadingConnections}
+                      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {#each Array(3) as _}
+                          <div
+                            class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
+                          ></div>
+                        {/each}
+                      </div>
+                    {:else if filteredConnections.length}
+                      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {#each filteredConnections as conn (conn.id)}
+                          <div
+                            transition:slide
+                            class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
+                          >
+                            <div
+                              class="h-0.5 bg-gradient-to-r from-violet-400 to-pink-400"
+                              style="width: {conn.matchPercentage ?? 50}%"
+                            ></div>
+                            <div class="p-5 flex flex-col gap-2">
+                              <h3 class="text-base font-bold text-white">
+                                {conn.profile?.display_name || "Unknown"}
+                              </h3>
+                              <span
+                                class="rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-300"
+                                >{conn.matchPercentage ?? "—"}% Match</span
                               >
-                                {field.label}
-                              </Label>
-                              {#if field.key === "whoTheyAre"}
-                                <Input
-                                  id={field.wsId}
-                                  bind:value={networkingProfile[field.key]}
-                                  placeholder="Your name or headline"
-                                  class="rounded-xl border border-white/10 bg-white/4 p-3 text-sm text-white placeholder:text-ink-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
-                                />
-                              {:else}
-                                <textarea
-                                  id={field.wsId}
-                                  bind:value={networkingProfile[field.key]}
-                                  placeholder={field.key === 'whatTheyDo' ? 'Describe your skills, background and experience (min 20 chars)...' : field.key === 'whoTheyWant' ? 'Describe who you want to meet at this event (min 20 chars)...' : 'Share any extra background or goals...'}
-                                  class="min-h-[100px] w-full rounded-2xl border border-white/10 bg-white/4 p-3 text-xs leading-5 text-white placeholder:text-ink-600 outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
-                                  rows="3"
-                                  maxlength="500"
-                                ></textarea>
-                                <div class="flex justify-between mt-1">
-                                  <span class="text-[10px] text-amber-400/90 font-medium"
-                                    >{(networkingProfile[field.key]?.length || 0) < 20
-                                      ? "Minimum 20 characters required"
-                                      : ""}</span
-                                  >
-                                  <span class="text-[10px] text-ink-500 text-right"
-                                    >{networkingProfile[field.key]?.length || 0} / 500</span
-                                  >
+                              {#if conn.explanation}
+                                <div
+                                  class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300"
+                                >
+                                  {conn.explanation}
                                 </div>
                               {/if}
+                              {#if conn.status === "accepted"}
+                                <div class="mt-2">
+                                  <Button
+                                    variant="secondary"
+                                    class="w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                                    onclick={() => openChatForConnection(conn)}
+                                  >
+                                    <MessageCircle size={16} />
+                                    Chat
+                                  </Button>
+                                </div>
+                              {/if}
+                              <!-- Action buttons based on status -->
+                              {#if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
+                                <div class="flex gap-2 mt-2">
+                                  <Button
+                                    class="flex-1"
+                                    onclick={() =>
+                                      updateConnection(conn.id, "accepted")}
+                                    >Accept</Button
+                                  >
+                                  <Button
+                                    variant="destructive"
+                                    class="flex-1"
+                                    onclick={() =>
+                                      updateConnection(conn.id, "rejected")}
+                                    >Reject</Button
+                                  >
+                                </div>
+                              {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
+                                <Button
+                                  variant="outline"
+                                  class="mt-2 w-full"
+                                  onclick={() =>
+                                    updateConnection(conn.id, "cancelled")}
+                                  >Cancel Request</Button
+                                >
+                              {:else if conn.status === "accepted" && conn.met_at}
+                                <span
+                                  class="mt-2 text-xs text-emerald-400 font-semibold"
+                                  >✓ Met</span
+                                >
+                              {/if}
                             </div>
-                          {/each}
-                        </div>
+                          </div>
+                        {/each}
+                      </div>
 
-                        <div class="flex flex-wrap justify-center gap-3 pt-3">
+                      {#if connectionsHasMore}
+                        <div class="mt-6 flex justify-center">
                           <Button
-                            onclick={saveProfile}
-                            disabled={savingProfile || !profileValid}
-                            class="h-10 px-6 gap-2 text-sm font-bold bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white shadow-lg shadow-violet-500/20"
+                            variant="outline"
+                            onclick={loadMoreConnections}
+                            disabled={loadingMoreConnections}
                           >
-                            {#if savingProfile}
-                              <LoaderCircle size={15} class="animate-spin" />
-                              Saving Profile…
+                            {#if loadingMoreConnections}
+                              <LoaderCircle
+                                size={16}
+                                class="animate-spin mr-2"
+                              />
+                              Loading...
                             {:else}
-                              <CheckCircle2 size={15} />
-                              Save Profile
+                              Load More
                             {/if}
                           </Button>
                         </div>
-
-                        {#if savingProfile}
-                          <AmdAiLoading
-                            message="AI is working..."
-                            detail="Generating embeddings and saving your networking profile."
-                            class="mt-4"
-                          />
-                        {/if}
+                      {/if}
+                    {:else}
+                      <div
+                        in:fade
+                        class="flex flex-col items-center justify-center p-12 text-center glass rounded-2xl border border-white/5"
+                      >
+                        <div
+                          class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
+                        >
+                          <Ghost size={28} class="text-ink-500" />
+                        </div>
+                        <h3 class="text-white font-bold mb-1">
+                          No connections yet
+                        </h3>
+                        <p class="text-sm text-ink-400 max-w-sm">
+                          {#if networkFilter === "received"}
+                            You have no pending incoming requests. Check back
+                            later.
+                          {:else if networkFilter === "sent"}
+                            No outgoing requests. Head to AI Matches to find
+                            people to connect with.
+                          {/if}
+                        </p>
+                        <button
+                          class="mt-4 text-xs text-violet-400 hover:text-violet-300 underline underline-offset-2"
+                          onclick={() => {
+                            networkFilter = "matches";
+                          }}>Browse AI Matches →</button
+                        >
                       </div>
                     {/if}
-                  </div>
-                </div>
-              </div>
-            {:else}
-            <!-- Network Header -->
-            <div class="glass rounded-2xl border border-white/8 p-4 sm:p-5 mb-5">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                  <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-400/10 border border-violet-400/20">
-                    <Network size={18} class="text-violet-300" />
-                  </div>
-                  <div>
-                    <h2 class="text-base font-bold text-white">Network</h2>
-                    <p class="text-xs text-ink-400">Discover matches & manage your connections</p>
-                  </div>
-                </div>
+                  {/if}
 
+                  <!-- Chat modal -->
+                  <ConnectionChatModal
+                    bind:open={chatOpen}
+                    connection={activeChatConnection}
+                    currentUserId={data.user?.id}
+                  />
+
+                  <!-- Create Dummy Users confirmation modal -->
+                  <Dialog.Root bind:open={dummyModalOpen}>
+                    <Dialog.Content
+                      class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+                    >
+                      <Dialog.Header>
+                        <Dialog.Title
+                          class="text-xl font-bold text-white flex items-center gap-2"
+                        >
+                          <Users size={20} class="text-cyan-400" />
+                          Create Simulation
+                        </Dialog.Title>
+                      </Dialog.Header>
+                      <p class="text-sm leading-6 text-ink-300 mt-2">
+                        This action will create 5 dummy participants with unique
+                        dummy email addresses. Each participant will
+                        automatically join this event and generate a realistic
+                        networking profile designed to be relevant to your
+                        profile, allowing you to test the AI matchmaking
+                        experience.
+                      </p>
+                      <div
+                        class="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 flex items-start gap-3"
+                      >
+                        <div class="mt-0.5 rounded-full bg-cyan-400/10 p-1">
+                          <Sparkles size={14} class="text-cyan-300" />
+                        </div>
+                        <div>
+                          <p class="text-sm font-semibold text-cyan-100">
+                            Uses 1 AI credit
+                          </p>
+                          <p class="mt-1 text-xs text-ink-400">
+                            Generating the 5 realistic participant profiles
+                            consumes a single AI credit.
+                          </p>
+                        </div>
+                      </div>
+                      {#if creatingDummy}
+                        <AmdAiLoading
+                          message="AI is working..."
+                          detail="Generating realistic simulation profiles."
+                          class="mt-4"
+                        />
+                      {/if}
+                      <div class="flex justify-end gap-3 mt-6">
+                        <Button
+                          variant="outline"
+                          class="border-white/10 text-white hover:bg-white/10"
+                          onclick={() => (dummyModalOpen = false)}
+                          disabled={creatingDummy}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          class="gap-2"
+                          onclick={createDummyUsers}
+                          disabled={creatingDummy}
+                        >
+                          {#if creatingDummy}
+                            <LoaderCircle size={15} class="animate-spin" />
+                            Creating…
+                          {:else}
+                            Continue
+                          {/if}
+                        </Button>
+                      </div>
+                    </Dialog.Content>
+                  </Dialog.Root>
+
+                  <!-- Find Matches Modal -->
+                  <Dialog.Root bind:open={findMatchesModalOpen}>
+                    <Dialog.Content
+                      class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+                    >
+                      <Dialog.Header>
+                        <Dialog.Title
+                          class="text-xl font-bold text-white flex items-center gap-2"
+                        >
+                          <Sparkles size={20} class="text-amber-400" />
+                          AI Matchmaking
+                        </Dialog.Title>
+                      </Dialog.Header>
+                      <div class="space-y-4 mt-2">
+                        <p class="text-sm leading-6 text-ink-300">
+                          Our AI analyzes your networking profile—what you do,
+                          who you want to meet, and your expectations—and
+                          compares it against every other participant in the
+                          event to find the most synergetic connections.
+                        </p>
+                        <ul class="space-y-3">
+                          <li
+                            class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                          >
+                            <span class="text-amber-400 mt-0.5">•</span>
+                            <span class="text-sm text-ink-200 leading-relaxed"
+                              >Generates a compatibility score for each
+                              attendee.</span
+                            >
+                          </li>
+                          <li
+                            class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                          >
+                            <span class="text-amber-400 mt-0.5">•</span>
+                            <span class="text-sm text-ink-200 leading-relaxed"
+                              >Provides a detailed explanation of exactly why
+                              you should connect with them.</span
+                            >
+                          </li>
+                        </ul>
+                        <div
+                          class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 flex items-start gap-3"
+                        >
+                          <div class="mt-0.5 rounded-full bg-amber-400/10 p-1">
+                            <Sparkles size={14} class="text-amber-300" />
+                          </div>
+                          <div>
+                            <p class="text-sm font-semibold text-amber-100">
+                              Uses 1 AI credit
+                            </p>
+                            <p class="mt-1 text-xs text-ink-400">
+                              Running the matchmaking algorithm against the
+                              attendee list consumes a single AI credit.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex justify-end gap-3 mt-6">
+                        <Button
+                          variant="outline"
+                          class="border-white/10 text-white hover:bg-white/10"
+                          onclick={() => (findMatchesModalOpen = false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          class="gap-2 bg-amber-500 text-black hover:bg-amber-600 font-bold"
+                          onclick={() => {
+                            findMatchesModalOpen = false;
+                            fetchMatches();
+                          }}
+                        >
+                          <Sparkles size={15} />
+                          Find My Matches
+                        </Button>
+                      </div>
+                    </Dialog.Content>
+                  </Dialog.Root>
+
+                  <!-- Dummy user connect confirmation modal -->
+                  <Dialog.Root bind:open={dummyConnectModalOpen}>
+                    <Dialog.Content
+                      class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
+                    >
+                      <Dialog.Header>
+                        <Dialog.Title
+                          class="text-xl font-bold text-white flex items-center gap-2"
+                        >
+                          <span class="text-amber-400">⚠</span> Dummy User
+                        </Dialog.Title>
+                      </Dialog.Header>
+                      <p class="text-sm leading-6 text-ink-300 mt-2">
+                        This is a dummy user created for testing. The connection
+                        request will be automatically accepted.
+                      </p>
+                      <div class="flex gap-3 mt-4">
+                        <Button
+                          variant="outline"
+                          class="flex-1 border-white/10 text-white hover:bg-white/10"
+                          onclick={() => {
+                            dummyConnectModalOpen = false;
+                            pendingDummyUserId = null;
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          class="flex-1"
+                          onclick={async () => {
+                            dummyConnectModalOpen = false;
+                            if (pendingDummyUserId) {
+                              await doConnect(pendingDummyUserId);
+                              pendingDummyUserId = null;
+                            }
+                          }}
+                        >
+                          Continue
+                        </Button>
+                      </div>
+                    </Dialog.Content>
+                  </Dialog.Root>
+                {/if}
+              </Tabs.Content>
+            {/if}
+
+            <!-- [OLD matches tab placeholder — keep for reference; content moved above] -->
+            <!-- Matches tab -->
+            <Tabs.Content value="matches" class="mt-4">
+              <div
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
+              >
+                <div class="flex items-center gap-2">
+                  <Users size={18} class="text-white" />
+                  <h2 class="text-lg font-bold text-white">Your Matches</h2>
+                </div>
                 <div class="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
-                    size="sm"
-                    class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                    class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10"
                     onclick={() => (editProfileOpen = true)}
                   >
-                    <UserCircle2 size={14} /> Edit Profile
+                    <UserCircle2 size={15} class="mr-2" />
+                    <span class="hidden sm:inline">Edit profile</span>
+                    <span class="sm:hidden">Edit</span>
                   </Button>
                   <Button
                     variant="outline"
-                    size="sm"
-                    class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                    class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10 gap-2"
                     onclick={refreshFromDb}
                     disabled={refreshingFromDb}
-                    title="Refresh matches from database"
                   >
-                    {#if refreshingFromDb}<LoaderCircle size={13} class="animate-spin" />{:else}<RefreshCcw size={13} />{/if}
-                    Refresh
+                    {#if refreshingFromDb}
+                      <LoaderCircle size={15} class="animate-spin" />
+                    {:else}
+                      <RefreshCcw size={15} />
+                    {/if}
+                    <span class="hidden sm:inline">Refresh</span>
                   </Button>
-                  <Button
-                    size="sm"
-                    class="gap-1.5 h-8 text-xs"
-                    onclick={() => (findMatchesModalOpen = true)}
-                    disabled={refreshingMatches}
-                  >
-                    {#if refreshingMatches}<LoaderCircle size={13} class="animate-spin" />{:else}<Sparkles size={13} />{/if}
-                    {refreshingMatches ? "Finding…" : "Find Matches"}
-                  </Button>
-                  {#if data.isOrganizer}
+                  <div class="flex-1 sm:flex-none w-full sm:w-auto">
                     <Button
-                      variant="outline"
-                      size="sm"
-                      class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
-                      onclick={() => (dummyModalOpen = true)}
+                      class="w-full gap-2"
+                      onclick={() => (findMatchesModalOpen = true)}
+                      disabled={refreshingMatches}
                     >
-                      <Users size={13} /> Simulation
+                      {#if refreshingMatches}
+                        <LoaderCircle size={15} class="animate-spin" />
+                        Finding…
+                      {:else}
+                        <Sparkles size={15} />
+                        Find matches
+                      {/if}
                     </Button>
+                  </div>
+
+                  {#if data.isOrganizer}
+                    <div class="flex-1 sm:flex-none w-full sm:w-auto">
+                      <Button
+                        variant="outline"
+                        class="w-full gap-2 border-white/10 text-white hover:bg-white/10"
+                        onclick={() => (dummyModalOpen = true)}
+                      >
+                        <Users size={15} />
+                        Simulation
+                      </Button>
+                    </div>
                   {/if}
                 </div>
               </div>
-            </div>
-
-            <!-- Sub-filter pill navigation -->
-            <div class="flex flex-wrap items-center gap-2 mb-5">
-              {#each [
-                { value: "matches", label: "✨ AI Matches", count: $matchesStore.length, color: "amber" },
-                { value: "received", label: "📥 Received", count: $connectionsStore.filter(c => c.receiver_user_id === data.user?.id && c.status === 'pending').length, color: "violet" },
-              ] as pill}
-                <button
-                  onclick={() => { networkFilter = pill.value; if (pill.value !== 'matches') connectionFilter = pill.value; }}
-                  class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border
-                    {networkFilter === pill.value
-                      ? 'bg-violet-400/20 border-violet-400/40 text-violet-200 shadow-[0_0_12px_rgba(167,139,250,0.2)]'
-                      : 'bg-white/4 border-white/8 text-ink-400 hover:text-white hover:border-white/20'}"
-                >
-                  {pill.label}
-                  {#if pill.count > 0}
-                    <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold
-                      {networkFilter === pill.value ? 'bg-violet-400/30 text-violet-100' : 'bg-white/10 text-ink-300'}"
-                    >{pill.count}</span>
-                  {/if}
-                </button>
-              {/each}
-
-              <!-- Refresh connections -->
-              <button
-                onclick={fetchAllConnections}
-                disabled={loadingConnections}
-                class="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border border-white/8 bg-white/4 text-ink-400 hover:text-white hover:border-white/20 transition-all"
-              >
-                <RefreshCw size={13} class={loadingConnections ? 'animate-spin' : ''} />
-                Sync
-              </button>
-            </div>
-
-            <!-- ── AI MATCHES view ── -->
-            {#if networkFilter === "matches"}
               {#if refreshingMatches}
                 <AmdAiLoading
                   message="AI is working..."
@@ -5110,13 +6690,17 @@
                 />
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {#each Array(3) as _}
-                    <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                    <div
+                      class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
+                    ></div>
                   {/each}
                 </div>
               {:else if refreshingFromDb}
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {#each Array(3) as _}
-                    <div class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"></div>
+                    <div
+                      class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
+                    ></div>
                   {/each}
                 </div>
               {:else if $matchesStore.length}
@@ -5137,72 +6721,121 @@
                       ></div>
 
                       <div class="flex-1 flex flex-col p-5">
-                        <div class="flex-1">
-                          <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                              <h3 class="text-base font-bold text-white">
-                                {match.name}
-                              </h3>
-                              {#if conn?.status === "accepted"}
-                                <span class="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-emerald-300">
-                                  <CheckCircle2 size={11} /> Connected
-                                </span>
-                              {/if}
-                            </div>
-                            <span
-                              class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
+                        <Tabs.Root
+                          value="ai-insights"
+                          class="flex-1 flex flex-col"
+                        >
+                          <Tabs.List
+                            class="grid w-full grid-cols-2 mb-4 bg-white/5 border border-white/10 rounded-xl p-1"
+                          >
+                            <Tabs.Trigger
+                              value="ai-insights"
+                              class="rounded-lg text-xs font-semibold data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-300"
                             >
-                              {match.matchPercentage ?? "—"}% Match
-                            </span>
-                          </div>
+                              🤖 AI Insights
+                            </Tabs.Trigger>
+                            <Tabs.Trigger
+                              value="profile"
+                              class="rounded-lg text-xs font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                            >
+                              👤 Profile
+                            </Tabs.Trigger>
+                          </Tabs.List>
 
-                          <Tabs.Root value="why" class="mt-4">
-                            <Tabs.List class="grid w-full grid-cols-2 rounded-xl border border-white/10 bg-white/5 p-1">
-                              <Tabs.Trigger
-                                value="why"
-                                class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-200"
-                              >
-                                Why
-                              </Tabs.Trigger>
-                              <Tabs.Trigger
-                                value="profile"
-                                class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-white/10 data-[state=active]:text-white"
-                              >
-                                Profile
-                              </Tabs.Trigger>
-                            </Tabs.List>
-
-                            <Tabs.Content value="why" class="m-0 pt-4 outline-none">
-                              <div class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-3.5">
-                                <p class="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
-                                  Why you should meet
-                                </p>
-                                <p class="text-sm leading-6 text-ink-300">
-                                  {formatMatchExplanation(match.explanation)}
+                          <!-- AI Insights Tab -->
+                          <Tabs.Content
+                            value="ai-insights"
+                            class="flex-1 space-y-4 outline-none m-0"
+                          >
+                            <div
+                              class="flex items-start justify-between gap-3 mb-2"
+                            >
+                              <div>
+                                <h3 class="text-base font-bold text-white">
+                                  {match.name}
+                                </h3>
+                                <p class="mt-0.5 text-xs text-ink-400">
+                                  AI Match Analysis
                                 </p>
                               </div>
-                            </Tabs.Content>
+                              <span
+                                class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
+                              >
+                                {match.matchPercentage ?? "—"}% Match
+                              </span>
+                            </div>
 
-                            <Tabs.Content value="profile" class="m-0 space-y-3 pt-4 outline-none">
-                              <div>
-                                <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500">
-                                  What they do
+                            {#if match.explanation}
+                              <div
+                                class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-4"
+                              >
+                                <p
+                                  class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2"
+                                >
+                                  Why this match
                                 </p>
                                 <p class="text-sm leading-6 text-ink-300">
-                                  {match.role}{match.company ? ` · ${match.company}` : ""}
+                                  {match.explanation}
                                 </p>
                               </div>
-                              <div>
-                                <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500">
-                                  About them
+                            {:else}
+                              <div
+                                class="rounded-xl border border-white/5 bg-white/5 p-4 text-center"
+                              >
+                                <p class="text-xs text-ink-400">
+                                  No detailed AI insights available for this
+                                  match.
                                 </p>
-                                <p class="text-sm leading-6 text-ink-300">
+                              </div>
+                            {/if}
+                          </Tabs.Content>
+
+                          <!-- Profile Tab -->
+                          <Tabs.Content
+                            value="profile"
+                            class="flex-1 space-y-4 outline-none m-0"
+                          >
+                            <div
+                              class="flex items-start justify-between gap-3 mb-2"
+                            >
+                              <div>
+                                <h3 class="text-base font-bold text-white">
+                                  {match.name}
+                                </h3>
+                                <p class="mt-0.5 text-xs text-ink-400">
+                                  {match.role}{match.company
+                                    ? ` · ${match.company}`
+                                    : ""}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div class="space-y-3">
+                              <div>
+                                <p
+                                  class="text-[10px] font-bold uppercase tracking-widest text-ink-500 mb-1"
+                                >
+                                  About Me
+                                </p>
+                                <p class="text-xs leading-5 text-ink-300">
                                   {match.about}
                                 </p>
                               </div>
-                            </Tabs.Content>
-                          </Tabs.Root>
-                        </div>
+                            </div>
+
+                            {#if match.tags?.length}
+                              <div class="flex flex-wrap gap-1.5 pt-2">
+                                {#each match.tags.slice(0, 4) as tag}
+                                  <span
+                                    class="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] text-ink-400"
+                                  >
+                                    #{tag}
+                                  </span>
+                                {/each}
+                              </div>
+                            {/if}
+                          </Tabs.Content>
+                        </Tabs.Root>
                         <!-- Connect Button -->
                         <div class="pt-4 mt-auto">
                           {#if !conn || conn.status === "cancelled"}
@@ -5237,10 +6870,10 @@
                           {:else if conn.status === "accepted"}
                             <Button
                               variant="secondary"
-                              class="w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
-                              onclick={() => openChatForConnection(conn)}
+                              class="w-full gap-2 bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                              disabled
                             >
-                              <MessageCircle size={16} /> Chat
+                              <CheckCircle2 size={16} /> Connected
                             </Button>
                           {:else if conn.status === "rejected"}
                             <Button
@@ -5275,8 +6908,223 @@
                 </div>
               {/if}
 
-            <!-- ── CONNECTIONS views (received / sent / connected / met) ── -->
-            {:else}
+              <!-- Create Dummy Users confirmation modal -->
+              <Dialog.Root bind:open={dummyModalOpen}>
+                <Dialog.Content
+                  class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+                >
+                  <Dialog.Header>
+                    <Dialog.Title
+                      class="text-xl font-bold text-white flex items-center gap-2"
+                    >
+                      <Users size={20} class="text-cyan-400" />
+                      Create Simulation
+                    </Dialog.Title>
+                  </Dialog.Header>
+                  <p class="text-sm leading-6 text-ink-300 mt-2">
+                    This action will create 5 dummy participants with unique
+                    dummy email addresses. Each participant will automatically
+                    join this event and generate a realistic networking profile
+                    designed to be relevant to your profile, allowing you to
+                    test the AI matchmaking experience.
+                  </p>
+                  <div
+                    class="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 flex items-start gap-3"
+                  >
+                    <div class="mt-0.5 rounded-full bg-cyan-400/10 p-1">
+                      <Sparkles size={14} class="text-cyan-300" />
+                    </div>
+                    <div>
+                      <p class="text-sm font-semibold text-cyan-100">
+                        Uses 1 AI credit
+                      </p>
+                      <p class="mt-1 text-xs text-ink-400">
+                        Generating the 5 realistic participant profiles consumes
+                        a single AI credit.
+                      </p>
+                    </div>
+                  </div>
+                  {#if creatingDummy}
+                    <AmdAiLoading
+                      message="AI is working..."
+                      detail="Generating realistic simulation profiles."
+                      class="mt-4"
+                    />
+                  {/if}
+                  <div class="flex justify-end gap-3 mt-6">
+                    <Button
+                      variant="outline"
+                      class="border-white/10 text-white hover:bg-white/10"
+                      onclick={() => (dummyModalOpen = false)}
+                      disabled={creatingDummy}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      class="gap-2"
+                      onclick={createDummyUsers}
+                      disabled={creatingDummy}
+                    >
+                      {#if creatingDummy}
+                        <LoaderCircle size={15} class="animate-spin" />
+                        Creating…
+                      {:else}
+                        Continue
+                      {/if}
+                    </Button>
+                  </div>
+                </Dialog.Content>
+              </Dialog.Root>
+
+              <!-- Find Matches Modal -->
+              <Dialog.Root bind:open={findMatchesModalOpen}>
+                <Dialog.Content
+                  class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+                >
+                  <Dialog.Header>
+                    <Dialog.Title
+                      class="text-xl font-bold text-white flex items-center gap-2"
+                    >
+                      <Sparkles size={20} class="text-amber-400" />
+                      AI Matchmaking
+                    </Dialog.Title>
+                  </Dialog.Header>
+                  <div class="space-y-4 mt-2">
+                    <p class="text-sm leading-6 text-ink-300">
+                      Our AI analyzes your networking profile—what you do, who
+                      you want to meet, and your expectations—and compares it
+                      against every other participant in the event to find the
+                      most synergetic connections.
+                    </p>
+                    <ul class="space-y-3">
+                      <li
+                        class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                      >
+                        <span class="text-amber-400 mt-0.5">•</span>
+                        <span class="text-sm text-ink-200 leading-relaxed"
+                          >Generates a compatibility score for each attendee.</span
+                        >
+                      </li>
+                      <li
+                        class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                      >
+                        <span class="text-amber-400 mt-0.5">•</span>
+                        <span class="text-sm text-ink-200 leading-relaxed"
+                          >Provides a detailed explanation of exactly why you
+                          should connect with them.</span
+                        >
+                      </li>
+                    </ul>
+                    <div
+                      class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 flex items-start gap-3"
+                    >
+                      <div class="mt-0.5 rounded-full bg-amber-400/10 p-1">
+                        <Sparkles size={14} class="text-amber-300" />
+                      </div>
+                      <div>
+                        <p class="text-sm font-semibold text-amber-100">
+                          Uses 1 AI credit
+                        </p>
+                        <p class="mt-1 text-xs text-ink-400">
+                          Running the matchmaking algorithm against the attendee
+                          list consumes a single AI credit.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex justify-end gap-3 mt-6">
+                    <Button
+                      variant="outline"
+                      class="border-white/10 text-white hover:bg-white/10"
+                      onclick={() => (findMatchesModalOpen = false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      class="gap-2 bg-amber-500 text-black hover:bg-amber-600 font-bold"
+                      onclick={() => {
+                        findMatchesModalOpen = false;
+                        fetchMatches();
+                      }}
+                    >
+                      <Sparkles size={15} />
+                      Find My Matches
+                    </Button>
+                  </div>
+                </Dialog.Content>
+              </Dialog.Root>
+            </Tabs.Content>
+
+            <!-- Dummy user connect confirmation modal -->
+            <Dialog.Root bind:open={dummyConnectModalOpen}>
+              <Dialog.Content
+                class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
+              >
+                <Dialog.Header>
+                  <Dialog.Title
+                    class="text-xl font-bold text-white flex items-center gap-2"
+                  >
+                    <span class="text-amber-400">⚠</span> Dummy User
+                  </Dialog.Title>
+                </Dialog.Header>
+                <p class="text-sm leading-6 text-ink-300 mt-2">
+                  This is a dummy user created for testing. The connection
+                  request will be automatically accepted.
+                </p>
+                <div class="flex gap-3 mt-4">
+                  <Button
+                    variant="outline"
+                    class="flex-1 border-white/10 text-white hover:bg-white/10"
+                    onclick={() => {
+                      dummyConnectModalOpen = false;
+                      pendingDummyUserId = null;
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    class="flex-1"
+                    onclick={async () => {
+                      dummyConnectModalOpen = false;
+                      if (pendingDummyUserId) {
+                        await doConnect(pendingDummyUserId);
+                        pendingDummyUserId = null;
+                      }
+                    }}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Root>
+
+            <!-- Connections tab -->
+            <Tabs.Content value="connections" class="mt-4">
+              <!-- Filter tabs + Refresh -->
+              <div class="flex flex-wrap items-center gap-2 mb-4">
+                {#each ["received", "sent", "connected", "met"] as f}
+                  <Button
+                    variant={connectionFilter === f ? "default" : "outline"}
+                    class="capitalize"
+                    onclick={() => {
+                      connectionFilter = f;
+                    }}>{f}</Button
+                  >
+                {/each}
+                <Button
+                  variant="outline"
+                  class="ml-auto gap-2 text-ink-300 border-white/10 hover:bg-white/10"
+                  onclick={fetchAllConnections}
+                  disabled={loadingConnections}
+                >
+                  <RefreshCw
+                    size={16}
+                    class={loadingConnections ? "animate-spin" : ""}
+                  />
+                  Refresh
+                </Button>
+              </div>
+
               {#if loadingConnections}
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {#each Array(3) as _}
@@ -5293,7 +7141,7 @@
                       class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
                     >
                       <div
-                        class="h-0.5 bg-gradient-to-r from-violet-400 to-pink-400"
+                        class="h-0.5 bg-gradient-to-r from-purple-400 to-pink-400"
                         style="width: {conn.matchPercentage ?? 50}%"
                       ></div>
                       <div class="p-5 flex flex-col gap-2">
@@ -5301,7 +7149,7 @@
                           {conn.profile?.display_name || "Unknown"}
                         </h3>
                         <span
-                          class="rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-300"
+                          class="rounded-full bg-purple-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-300"
                           >{conn.matchPercentage ?? "—"}% Match</span
                         >
                         {#if conn.explanation}
@@ -5344,7 +7192,8 @@
                           <Button
                             variant="outline"
                             class="mt-2 w-full"
-                            onclick={() => updateConnection(conn.id, "cancelled")}
+                            onclick={() =>
+                              updateConnection(conn.id, "cancelled")}
                             >Cancel Request</Button
                           >
                         {:else if conn.status === "accepted" && conn.met_at}
@@ -5386,1292 +7235,727 @@
                   </div>
                   <h3 class="text-white font-bold mb-1">No connections yet</h3>
                   <p class="text-sm text-ink-400 max-w-sm">
-                    {#if networkFilter === "received"}
-                      You have no pending incoming requests. Check back later.
-                    {:else if networkFilter === "sent"}
-                      No outgoing requests. Head to AI Matches to find people to connect with.
-                    {/if}
+                    We couldn't find any connections matching this filter.
                   </p>
-                  <button
-                    class="mt-4 text-xs text-violet-400 hover:text-violet-300 underline underline-offset-2"
-                    onclick={() => { networkFilter = "matches"; }}
-                  >Browse AI Matches →</button>
                 </div>
               {/if}
-            {/if}
+            </Tabs.Content>
 
-            <!-- Chat modal -->
-            <ConnectionChatModal
-              bind:open={chatOpen}
-              connection={activeChatConnection}
-              currentUserId={data.user?.id}
-            />
-
-            <!-- Create Dummy Users confirmation modal -->
-            <Dialog.Root bind:open={dummyModalOpen}>
-              <Dialog.Content
-                class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
-              >
-                <Dialog.Header>
-                  <Dialog.Title
-                    class="text-xl font-bold text-white flex items-center gap-2"
-                  >
-                    <Users size={20} class="text-cyan-400" />
-                    Create Simulation
-                  </Dialog.Title>
-                </Dialog.Header>
-                <p class="text-sm leading-6 text-ink-300 mt-2">
-                  This action will create 5 dummy participants with unique dummy
-                  email addresses. Each participant will automatically join this
-                  event and generate a realistic networking profile designed to
-                  be relevant to your profile, allowing you to test the AI
-                  matchmaking experience.
-                </p>
+            <!-- Venue Map tab -->
+            <Tabs.Content value="venue" class="mt-4 space-y-4">
+              {#if Boolean(currentEvent.is_venue_enabled)}
+                {@const isEventEnded = Boolean(
+                  currentEvent?.end_time &&
+                    new Date(currentEvent.end_time) < new Date(),
+                )}
+                <VenueMap
+                  isOrganizer={data.isOrganizer && !isEventEnded}
+                  initialZones={currentEvent.venue_map}
+                  currentLocation={venueLocation}
+                  schedule={timelineItems}
+                  on:locationChange={(e) => {
+                    venueLocation = e.detail;
+                  }}
+                  on:saveMap={handleSaveMap}
+                />
+              {:else}
                 <div
-                  class="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 flex items-start gap-3"
+                  class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"
                 >
-                  <div class="mt-0.5 rounded-full bg-cyan-400/10 p-1">
-                    <Sparkles size={14} class="text-cyan-300" />
+                  <div
+                    class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
+                  >
+                    <MapPinOff size={28} class="text-ink-500" />
                   </div>
-                  <div>
-                    <p class="text-sm font-semibold text-cyan-100">
-                      Uses 1 AI credit
-                    </p>
-                    <p class="mt-1 text-xs text-ink-400">
-                      Generating the 5 realistic participant profiles consumes a
-                      single AI credit.
-                    </p>
-                  </div>
-                </div>
-                {#if creatingDummy}
-                  <AmdAiLoading
-                    message="AI is working..."
-                    detail="Generating realistic simulation profiles."
-                    class="mt-4"
-                  />
-                {/if}
-                <div class="flex justify-end gap-3 mt-6">
-                  <Button
-                    variant="outline"
-                    class="border-white/10 text-white hover:bg-white/10"
-                    onclick={() => (dummyModalOpen = false)}
-                    disabled={creatingDummy}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    class="gap-2"
-                    onclick={createDummyUsers}
-                    disabled={creatingDummy}
-                  >
-                    {#if creatingDummy}
-                      <LoaderCircle size={15} class="animate-spin" />
-                      Creating…
-                    {:else}
-                      Continue
-                    {/if}
-                  </Button>
-                </div>
-              </Dialog.Content>
-            </Dialog.Root>
-
-            <!-- Find Matches Modal -->
-            <Dialog.Root bind:open={findMatchesModalOpen}>
-              <Dialog.Content
-                class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
-              >
-                <Dialog.Header>
-                  <Dialog.Title
-                    class="text-xl font-bold text-white flex items-center gap-2"
-                  >
-                    <Sparkles size={20} class="text-amber-400" />
-                    AI Matchmaking
-                  </Dialog.Title>
-                </Dialog.Header>
-                <div class="space-y-4 mt-2">
-                  <p class="text-sm leading-6 text-ink-300">
-                    Our AI analyzes your networking profile—what you do, who you
-                    want to meet, and your expectations—and compares it against
-                    every other participant in the event to find the most
-                    synergetic connections.
+                  <h3 class="text-white font-bold text-lg mb-1">
+                    Venue Map Disabled
+                  </h3>
+                  <p class="text-sm text-ink-400 max-w-md">
+                    The organizer has disabled the venue map for this event.
                   </p>
-                  <ul class="space-y-3">
-                    <li
-                      class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
-                    >
-                      <span class="text-amber-400 mt-0.5">•</span>
-                      <span class="text-sm text-ink-200 leading-relaxed"
-                        >Generates a compatibility score for each attendee.</span
-                      >
-                    </li>
-                    <li
-                      class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
-                    >
-                      <span class="text-amber-400 mt-0.5">•</span>
-                      <span class="text-sm text-ink-200 leading-relaxed"
-                        >Provides a detailed explanation of exactly why you
-                        should connect with them.</span
-                      >
-                    </li>
-                  </ul>
+                </div>
+              {/if}
+            </Tabs.Content>
+
+            <!-- Settings tab -->
+            {#if data.isOrganizer}
+              <Tabs.Content value="settings" class="mt-4 space-y-6">
+                <!-- Live or Ended Event Status Banner -->
+                {#if isEventEnded}
                   <div
-                    class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 flex items-start gap-3"
+                    class="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-red-300 text-xs"
                   >
-                    <div class="mt-0.5 rounded-full bg-amber-400/10 p-1">
-                      <Sparkles size={14} class="text-amber-300" />
-                    </div>
+                    <AlertTriangle
+                      size={18}
+                      class="shrink-0 text-red-400 mt-0.5"
+                    />
                     <div>
-                      <p class="text-sm font-semibold text-amber-100">
-                        Uses 1 AI credit
+                      <p class="font-bold text-sm text-red-400">
+                        📁 Event Ended — Read-Only Mode
                       </p>
-                      <p class="mt-1 text-xs text-ink-400">
-                        Running the matchmaking algorithm against the attendee
-                        list consumes a single AI credit.
+                      <p class="text-ink-400 mt-0.5 leading-relaxed">
+                        This event has ended. Settings are locked to preserve
+                        historical records. You can still delete the event below
+                        if needed.
                       </p>
                     </div>
                   </div>
-                </div>
-                <div class="flex justify-end gap-3 mt-6">
-                  <Button
-                    variant="outline"
-                    class="border-white/10 text-white hover:bg-white/10"
-                    onclick={() => (findMatchesModalOpen = false)}
+                {:else if isEventLive}
+                  <div
+                    class="flex items-start gap-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-indigo-300 text-xs"
                   >
-                    Cancel
-                  </Button>
-                  <Button
-                    class="gap-2 bg-amber-500 text-black hover:bg-amber-600 font-bold"
-                    onclick={() => {
-                      findMatchesModalOpen = false;
-                      fetchMatches();
-                    }}
-                  >
-                    <Sparkles size={15} />
-                    Find My Matches
-                  </Button>
-                </div>
-              </Dialog.Content>
-            </Dialog.Root>
-
-            <!-- Dummy user connect confirmation modal -->
-            <Dialog.Root bind:open={dummyConnectModalOpen}>
-              <Dialog.Content
-                class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
-              >
-                <Dialog.Header>
-                  <Dialog.Title
-                    class="text-xl font-bold text-white flex items-center gap-2"
-                  >
-                    <span class="text-amber-400">⚠</span> Dummy User
-                  </Dialog.Title>
-                </Dialog.Header>
-                <p class="text-sm leading-6 text-ink-300 mt-2">
-                  This is a dummy user created for testing. The connection request
-                  will be automatically accepted.
-                </p>
-                <div class="flex gap-3 mt-4">
-                  <Button
-                    variant="outline"
-                    class="flex-1 border-white/10 text-white hover:bg-white/10"
-                    onclick={() => {
-                      dummyConnectModalOpen = false;
-                      pendingDummyUserId = null;
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    class="flex-1"
-                    onclick={async () => {
-                      dummyConnectModalOpen = false;
-                      if (pendingDummyUserId) {
-                        await doConnect(pendingDummyUserId);
-                        pendingDummyUserId = null;
-                      }
-                    }}
-                  >
-                    Continue
-                  </Button>
-                </div>
-              </Dialog.Content>
-            </Dialog.Root>
-            {/if}
-          </Tabs.Content>
-{/if}
-
-          <!-- [OLD matches tab placeholder — keep for reference; content moved above] -->
-          <!-- Matches tab -->
-          <Tabs.Content value="matches" class="mt-4">
-            <div
-              class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
-            >
-              <div class="flex items-center gap-2">
-                <Users size={18} class="text-white" />
-                <h2 class="text-lg font-bold text-white">Your Matches</h2>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10"
-                  onclick={() => (editProfileOpen = true)}
-                >
-                  <UserCircle2 size={15} class="mr-2" />
-                  <span class="hidden sm:inline">Edit profile</span>
-                  <span class="sm:hidden">Edit</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  class="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10 gap-2"
-                  onclick={refreshFromDb}
-                  disabled={refreshingFromDb}
-                >
-                  {#if refreshingFromDb}
-                    <LoaderCircle size={15} class="animate-spin" />
-                  {:else}
-                    <RefreshCcw size={15} />
-                  {/if}
-                  <span class="hidden sm:inline">Refresh</span>
-                </Button>
-                <div class="flex-1 sm:flex-none w-full sm:w-auto">
-                  <Button
-                    class="w-full gap-2"
-                    onclick={() => (findMatchesModalOpen = true)}
-                    disabled={refreshingMatches}
-                  >
-                    {#if refreshingMatches}
-                      <LoaderCircle size={15} class="animate-spin" />
-                      Finding…
-                    {:else}
-                      <Sparkles size={15} />
-                      Find matches
-                    {/if}
-                  </Button>
-                </div>
-
-                {#if data.isOrganizer}
-                  <div class="flex-1 sm:flex-none w-full sm:w-auto">
-                    <Button
-                      variant="outline"
-                      class="w-full gap-2 border-white/10 text-white hover:bg-white/10"
-                      onclick={() => (dummyModalOpen = true)}
-                    >
-                      <Users size={15} />
-                      Simulation
-                    </Button>
+                    <Clock size={18} class="shrink-0 text-indigo-400 mt-0.5" />
+                    <div>
+                      <p class="font-bold text-sm text-indigo-300">
+                        🔴 Event is Currently Live
+                      </p>
+                      <p class="text-ink-400 mt-0.5 leading-relaxed">
+                        Start time is locked while the event is live, but you
+                        can update location, end time, venue map, and details.
+                      </p>
+                    </div>
                   </div>
                 {/if}
-              </div>
-            </div>
-            {#if refreshingMatches}
-              <AmdAiLoading
-                message="AI is working..."
-                detail="Finding your best networking matches."
-                class="mb-6"
-              />
-              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {#each Array(3) as _}
-                  <div
-                    class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
-                  ></div>
-                {/each}
-              </div>
-            {:else if refreshingFromDb}
-              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {#each Array(3) as _}
-                  <div
-                    class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
-                  ></div>
-                {/each}
-              </div>
-            {:else if $matchesStore.length}
-              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {#each $matchesStore as match, i}
-                  {@const conn = $connectionsStore.find(
-                    (c) =>
-                      c.sender_user_id === match.user_id ||
-                      c.receiver_user_id === match.user_id,
-                  )}
-                  <div
-                    class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
-                  >
-                    <!-- Match strength bar -->
-                    <div
-                      class="h-0.5 bg-gradient-to-r from-amber-400 to-cyan-400"
-                      style="width: {match.matchPercentage ?? 50}%"
-                    ></div>
 
-                    <div class="flex-1 flex flex-col p-5">
-                      <Tabs.Root
-                        value="ai-insights"
-                        class="flex-1 flex flex-col"
+                <!-- Edit Settings Form -->
+                <div
+                  class="glass rounded-2xl border border-white/8 p-6 sm:p-8 space-y-8 shadow-2xl {isEventEnded
+                    ? 'opacity-75 pointer-events-none'
+                    : ''}"
+                >
+                  <div class="border-b border-white/8 pb-4 mb-2">
+                    <h2 class="text-base font-bold text-white">
+                      General Settings
+                    </h2>
+                    <p class="text-xs text-ink-500 mt-0.5">
+                      Basic information about your event.
+                    </p>
+                  </div>
+
+                  <!-- Name -->
+                  <div class="space-y-2">
+                    <Label
+                      class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+                      >Event Name</Label
+                    >
+                    <Input
+                      bind:value={settingsName}
+                      disabled={isEventEnded}
+                      placeholder="My Awesome Event"
+                      class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
+                    />
+                  </div>
+
+                  <!-- Description -->
+                  <div class="space-y-2">
+                    <Label
+                      class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+                      >Description</Label
+                    >
+                    <textarea
+                      bind:value={settingsDescription}
+                      disabled={isEventEnded}
+                      rows="4"
+                      placeholder="What is this event about?"
+                      class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
+                    ></textarea>
+                  </div>
+
+                  <!-- Slug -->
+                  <div class="space-y-2">
+                    <Label
+                      class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+                      >Slug (URL ID)</Label
+                    >
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-ink-500 shrink-0">/event/</span>
+                      <Input
+                        bind:value={settingsSlug}
+                        disabled={isEventEnded}
+                        placeholder="my-awesome-event"
+                        class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50 font-mono flex-1"
+                      />
+                      <button
+                        type="button"
+                        onclick={copySlugUrl}
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-ink-300 hover:text-white transition-colors shrink-0"
+                        title="Copy full event link"
                       >
-                        <Tabs.List
-                          class="grid w-full grid-cols-2 mb-4 bg-white/5 border border-white/10 rounded-xl p-1"
-                        >
-                          <Tabs.Trigger
-                            value="ai-insights"
-                            class="rounded-lg text-xs font-semibold data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-300"
-                          >
-                            🤖 AI Insights
-                          </Tabs.Trigger>
-                          <Tabs.Trigger
-                            value="profile"
-                            class="rounded-lg text-xs font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white"
-                          >
-                            👤 Profile
-                          </Tabs.Trigger>
-                        </Tabs.List>
+                        {#if copiedSlug}
+                          <Check size={14} class="text-emerald-400" />
+                          <span class="text-emerald-400">Copied</span>
+                        {:else}
+                          <Copy size={14} />
+                          <span>Copy Link</span>
+                        {/if}
+                      </button>
+                    </div>
+                    <p class="text-[11px] text-ink-500">
+                      Changing the slug will redirect to the new URL.
+                    </p>
+                  </div>
 
-                        <!-- AI Insights Tab -->
-                        <Tabs.Content
-                          value="ai-insights"
-                          class="flex-1 space-y-4 outline-none m-0"
+                  <div class="space-y-4 border-t border-white/6 pt-5">
+                    <div>
+                      <h3 class="text-sm font-bold text-white">Event images</h3>
+                      <p class="text-xs text-ink-500 mt-0.5">
+                        Square logo and optional 16:9 banner. JPG, PNG, or WebP
+                        up to 2 MB.
+                      </p>
+                    </div>
+                    <div class="grid gap-4 sm:grid-cols-[160px_1fr]">
+                      <div class="space-y-2">
+                        <label
+                          class="block cursor-pointer rounded-xl border border-dashed border-indigo-400/30 bg-white/3 p-3 text-center hover:bg-white/5 {isEventEnded
+                            ? 'pointer-events-none opacity-50'
+                            : ''}"
                         >
-                          <div
-                            class="flex items-start justify-between gap-3 mb-2"
-                          >
-                            <div>
-                              <h3 class="text-base font-bold text-white">
-                                {match.name}
-                              </h3>
-                              <p class="mt-0.5 text-xs text-ink-400">
-                                AI Match Analysis
-                              </p>
-                            </div>
-                            <span
-                              class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
-                            >
-                              {match.matchPercentage ?? "—"}% Match
-                            </span>
-                          </div>
-
-                          {#if match.explanation}
-                            <div
-                              class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-4"
-                            >
-                              <p
-                                class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2"
-                              >
-                                Why this match
-                              </p>
-                              <p class="text-sm leading-6 text-ink-300">
-                                {match.explanation}
-                              </p>
-                            </div>
+                          {#if settingsLogoPreview}
+                            <img
+                              src={settingsLogoPreview.startsWith("blob:")
+                                ? settingsLogoPreview
+                                : eventImageSrc(settingsLogoPreview)}
+                              alt="Event logo"
+                              class="mx-auto aspect-square w-full rounded-lg object-cover"
+                            />
                           {:else}
                             <div
-                              class="rounded-xl border border-white/5 bg-white/5 p-4 text-center"
+                              class="flex aspect-square items-center justify-center text-xs text-ink-400"
                             >
-                              <p class="text-xs text-ink-400">
-                                No detailed AI insights available for this
-                                match.
-                              </p>
+                              Add logo<br />(1:1)
                             </div>
                           {/if}
-                        </Tabs.Content>
-
-                        <!-- Profile Tab -->
-                        <Tabs.Content
-                          value="profile"
-                          class="flex-1 space-y-4 outline-none m-0"
+                          <span
+                            class="mt-2 block text-xs font-semibold text-indigo-300"
+                            >{settingsLogoPreview
+                              ? "Replace logo"
+                              : "Add logo"}</span
+                          >
+                          <input
+                            class="sr-only"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            disabled={isEventEnded}
+                            onchange={(event) =>
+                              selectSettingsImage(event, "logo")}
+                          />
+                        </label>
+                        {#if settingsLogoPreview}<button
+                            type="button"
+                            class="w-full text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50"
+                            disabled={isEventEnded}
+                            onclick={() => removeSettingsImage("logo")}
+                            >Remove logo</button
+                          >{/if}
+                      </div>
+                      <div class="space-y-2">
+                        <label
+                          class="block cursor-pointer rounded-xl border border-dashed border-cyan-400/25 bg-white/3 p-3 hover:bg-white/5 {isEventEnded
+                            ? 'pointer-events-none opacity-50'
+                            : ''}"
                         >
-                          <div
-                            class="flex items-start justify-between gap-3 mb-2"
-                          >
-                            <div>
-                              <h3 class="text-base font-bold text-white">
-                                {match.name}
-                              </h3>
-                              <p class="mt-0.5 text-xs text-ink-400">
-                                {match.role}{match.company
-                                  ? ` · ${match.company}`
-                                  : ""}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div class="space-y-3">
-                            <div>
-                              <p
-                                class="text-[10px] font-bold uppercase tracking-widest text-ink-500 mb-1"
-                              >
-                                About Me
-                              </p>
-                              <p class="text-xs leading-5 text-ink-300">
-                                {match.about}
-                              </p>
-                            </div>
-                          </div>
-
-                          {#if match.tags?.length}
-                            <div class="flex flex-wrap gap-1.5 pt-2">
-                              {#each match.tags.slice(0, 4) as tag}
-                                <span
-                                  class="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] text-ink-400"
-                                >
-                                  #{tag}
-                                </span>
-                              {/each}
+                          {#if settingsBannerPreview}
+                            <img
+                              src={settingsBannerPreview.startsWith("blob:")
+                                ? settingsBannerPreview
+                                : eventImageSrc(settingsBannerPreview)}
+                              alt="Event banner"
+                              class="aspect-video w-full rounded-lg object-cover"
+                            />
+                          {:else}
+                            <div
+                              class="flex aspect-video items-center justify-center rounded-lg bg-white/4 text-xs text-ink-400"
+                            >
+                              Add optional banner (16:9)
                             </div>
                           {/if}
-                        </Tabs.Content>
-                      </Tabs.Root>
-                      <!-- Connect Button -->
-                      <div class="pt-4 mt-auto">
-                        {#if !conn || conn.status === "cancelled"}
-                          <Button
-                            class="w-full bg-white text-black hover:bg-white/90 gap-2"
-                            disabled={connectingIds.includes(match.user_id)}
-                            onclick={() => connectUser(match)}
+                          <span
+                            class="mt-2 block text-xs font-semibold text-cyan-300"
+                            >{settingsBannerPreview
+                              ? "Replace banner"
+                              : "Add banner"}</span
                           >
-                            {#if connectingIds.includes(match.user_id)}
-                              <LoaderCircle size={16} class="animate-spin" /> Connecting...
-                            {:else}
-                              <Users size={16} /> Connect
-                            {/if}
-                          </Button>
-                        {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
-                          <Button
-                            variant="outline"
-                            class="w-full gap-2 text-ink-300 border-ink-600 hover:text-white"
-                            onclick={() =>
-                              updateConnection(conn.id, "cancelled")}
-                          >
-                            Cancel Request
-                          </Button>
-                        {:else if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
-                          <Button
-                            variant="outline"
-                            class="w-full gap-2 text-amber-300 border-amber-600/50"
-                            disabled
-                          >
-                            Pending Response
-                          </Button>
-                        {:else if conn.status === "accepted"}
-                          <Button
-                            variant="secondary"
-                            class="w-full gap-2 bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                            disabled
-                          >
-                            <CheckCircle2 size={16} /> Connected
-                          </Button>
-                        {:else if conn.status === "rejected"}
-                          <Button
-                            variant="outline"
-                            class="w-full gap-2 text-red-400 border-red-500/30"
-                            disabled
-                          >
-                            Rejected
-                          </Button>
-                        {/if}
+                          <input
+                            class="sr-only"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            disabled={isEventEnded}
+                            onchange={(event) =>
+                              selectSettingsImage(event, "banner")}
+                          />
+                        </label>
+                        {#if settingsBannerPreview}<button
+                            type="button"
+                            class="text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50"
+                            disabled={isEventEnded}
+                            onclick={() => removeSettingsImage("banner")}
+                            >Remove banner</button
+                          >{/if}
                       </div>
                     </div>
                   </div>
-                {/each}
-              </div>
-            {:else}
-              <div
-                class="glass rounded-2xl border border-white/8 border-dashed p-12 text-center"
-              >
-                <div
-                  class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 border border-amber-400/20"
-                >
-                  <Brain size={22} class="text-amber-300" />
-                </div>
-                <h3 class="text-lg font-bold text-white mb-2">
-                  No matches yet
-                </h3>
-                <p class="text-sm text-ink-400 max-w-xs mx-auto mb-5">
-                  Save your networking profile to generate AI-powered
-                  recommendations.
-                </p>
-              </div>
-            {/if}
 
-            <!-- Create Dummy Users confirmation modal -->
-            <Dialog.Root bind:open={dummyModalOpen}>
-              <Dialog.Content
-                class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
-              >
-                <Dialog.Header>
-                  <Dialog.Title
-                    class="text-xl font-bold text-white flex items-center gap-2"
-                  >
-                    <Users size={20} class="text-cyan-400" />
-                    Create Simulation
-                  </Dialog.Title>
-                </Dialog.Header>
-                <p class="text-sm leading-6 text-ink-300 mt-2">
-                  This action will create 5 dummy participants with unique dummy
-                  email addresses. Each participant will automatically join this
-                  event and generate a realistic networking profile designed to
-                  be relevant to your profile, allowing you to test the AI
-                  matchmaking experience.
-                </p>
-                <div
-                  class="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 flex items-start gap-3"
-                >
-                  <div class="mt-0.5 rounded-full bg-cyan-400/10 p-1">
-                    <Sparkles size={14} class="text-cyan-300" />
-                  </div>
-                  <div>
-                    <p class="text-sm font-semibold text-cyan-100">
-                      Uses 1 AI credit
-                    </p>
-                    <p class="mt-1 text-xs text-ink-400">
-                      Generating the 5 realistic participant profiles consumes a
-                      single AI credit.
-                    </p>
-                  </div>
-                </div>
-                {#if creatingDummy}
-                  <AmdAiLoading
-                    message="AI is working..."
-                    detail="Generating realistic simulation profiles."
-                    class="mt-4"
-                  />
-                {/if}
-                <div class="flex justify-end gap-3 mt-6">
-                  <Button
-                    variant="outline"
-                    class="border-white/10 text-white hover:bg-white/10"
-                    onclick={() => (dummyModalOpen = false)}
-                    disabled={creatingDummy}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    class="gap-2"
-                    onclick={createDummyUsers}
-                    disabled={creatingDummy}
-                  >
-                    {#if creatingDummy}
-                      <LoaderCircle size={15} class="animate-spin" />
-                      Creating…
-                    {:else}
-                      Continue
-                    {/if}
-                  </Button>
-                </div>
-              </Dialog.Content>
-            </Dialog.Root>
-
-            <!-- Find Matches Modal -->
-            <Dialog.Root bind:open={findMatchesModalOpen}>
-              <Dialog.Content
-                class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
-              >
-                <Dialog.Header>
-                  <Dialog.Title
-                    class="text-xl font-bold text-white flex items-center gap-2"
-                  >
-                    <Sparkles size={20} class="text-amber-400" />
-                    AI Matchmaking
-                  </Dialog.Title>
-                </Dialog.Header>
-                <div class="space-y-4 mt-2">
-                  <p class="text-sm leading-6 text-ink-300">
-                    Our AI analyzes your networking profile—what you do, who you
-                    want to meet, and your expectations—and compares it against
-                    every other participant in the event to find the most
-                    synergetic connections.
-                  </p>
-                  <ul class="space-y-3">
-                    <li
-                      class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
+                  <!-- Format -->
+                  <div class="space-y-2">
+                    <Label
+                      class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+                      >Event Format</Label
                     >
-                      <span class="text-amber-400 mt-0.5">•</span>
-                      <span class="text-sm text-ink-200 leading-relaxed"
-                        >Generates a compatibility score for each attendee.</span
-                      >
-                    </li>
-                    <li
-                      class="flex items-start gap-3 bg-white/5 rounded-xl p-3 border border-white/5"
-                    >
-                      <span class="text-amber-400 mt-0.5">•</span>
-                      <span class="text-sm text-ink-200 leading-relaxed"
-                        >Provides a detailed explanation of exactly why you
-                        should connect with them.</span
-                      >
-                    </li>
-                  </ul>
-                  <div
-                    class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 flex items-start gap-3"
-                  >
-                    <div class="mt-0.5 rounded-full bg-amber-400/10 p-1">
-                      <Sparkles size={14} class="text-amber-300" />
+                    <div class="grid grid-cols-3 gap-2">
+                      {#each ["online", "offline", "hybrid"] as fmt}
+                        <button
+                          type="button"
+                          disabled={isEventEnded}
+                          onclick={() => (settingsEventFormat = fmt)}
+                          class="py-2.5 rounded-xl border text-sm font-semibold capitalize transition-all {settingsEventFormat ===
+                          fmt
+                            ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-300'
+                            : 'bg-white/4 border-white/10 text-ink-400 hover:text-white hover:border-white/20'} disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {fmt}
+                        </button>
+                      {/each}
                     </div>
+                  </div>
+
+                  <!-- Date & Time Controls -->
+                  <div class="space-y-4 border-t border-white/6 pt-4">
                     <div>
-                      <p class="text-sm font-semibold text-amber-100">
-                        Uses 1 AI credit
-                      </p>
-                      <p class="mt-1 text-xs text-ink-400">
-                        Running the matchmaking algorithm against the attendee
-                        list consumes a single AI credit.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div class="flex justify-end gap-3 mt-6">
-                  <Button
-                    variant="outline"
-                    class="border-white/10 text-white hover:bg-white/10"
-                    onclick={() => (findMatchesModalOpen = false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    class="gap-2 bg-amber-500 text-black hover:bg-amber-600 font-bold"
-                    onclick={() => {
-                      findMatchesModalOpen = false;
-                      fetchMatches();
-                    }}
-                  >
-                    <Sparkles size={15} />
-                    Find My Matches
-                  </Button>
-                </div>
-              </Dialog.Content>
-            </Dialog.Root>
-          </Tabs.Content>
-
-          <!-- Dummy user connect confirmation modal -->
-          <Dialog.Root bind:open={dummyConnectModalOpen}>
-            <Dialog.Content
-              class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
-            >
-              <Dialog.Header>
-                <Dialog.Title
-                  class="text-xl font-bold text-white flex items-center gap-2"
-                >
-                  <span class="text-amber-400">⚠</span> Dummy User
-                </Dialog.Title>
-              </Dialog.Header>
-              <p class="text-sm leading-6 text-ink-300 mt-2">
-                This is a dummy user created for testing. The connection request
-                will be automatically accepted.
-              </p>
-              <div class="flex gap-3 mt-4">
-                <Button
-                  variant="outline"
-                  class="flex-1 border-white/10 text-white hover:bg-white/10"
-                  onclick={() => {
-                    dummyConnectModalOpen = false;
-                    pendingDummyUserId = null;
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  class="flex-1"
-                  onclick={async () => {
-                    dummyConnectModalOpen = false;
-                    if (pendingDummyUserId) {
-                      await doConnect(pendingDummyUserId);
-                      pendingDummyUserId = null;
-                    }
-                  }}
-                >
-                  Continue
-                </Button>
-              </div>
-            </Dialog.Content>
-          </Dialog.Root>
-
-          <!-- Connections tab -->
-          <Tabs.Content value="connections" class="mt-4">
-            <!-- Filter tabs + Refresh -->
-            <div class="flex flex-wrap items-center gap-2 mb-4">
-              {#each ["received", "sent", "connected", "met"] as f}
-                <Button
-                  variant={connectionFilter === f ? "default" : "outline"}
-                  class="capitalize"
-                  onclick={() => {
-                    connectionFilter = f;
-                  }}>{f}</Button
-                >
-              {/each}
-              <Button
-                variant="outline"
-                class="ml-auto gap-2 text-ink-300 border-white/10 hover:bg-white/10"
-                onclick={fetchAllConnections}
-                disabled={loadingConnections}
-              >
-                <RefreshCw
-                  size={16}
-                  class={loadingConnections ? "animate-spin" : ""}
-                />
-                Refresh
-              </Button>
-            </div>
-
-            {#if loadingConnections}
-              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {#each Array(3) as _}
-                  <div
-                    class="glass card-hover rounded-2xl border border-white/8 h-[350px] animate-pulse bg-white/5"
-                  ></div>
-                {/each}
-              </div>
-            {:else if filteredConnections.length}
-              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {#each filteredConnections as conn (conn.id)}
-                  <div
-                    transition:slide
-                    class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
-                  >
-                    <div
-                      class="h-0.5 bg-gradient-to-r from-purple-400 to-pink-400"
-                      style="width: {conn.matchPercentage ?? 50}%"
-                    ></div>
-                    <div class="p-5 flex flex-col gap-2">
-                      <h3 class="text-base font-bold text-white">
-                        {conn.profile?.display_name || "Unknown"}
+                      <h3 class="text-sm font-bold text-white mb-0.5">
+                        Date & Time Schedule
                       </h3>
-                      <span
-                        class="rounded-full bg-purple-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-300"
-                        >{conn.matchPercentage ?? "—"}% Match</span
-                      >
-                      {#if conn.explanation}
-                        <div
-                          class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300"
-                        >
-                          {conn.explanation}
-                        </div>
-                      {/if}
-                      {#if conn.status === "accepted"}
-                        <div class="mt-2">
-                          <Button
-                            variant="secondary"
-                            class="w-full gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
-                            onclick={() => openChatForConnection(conn)}
-                          >
-                            <MessageCircle size={16} />
-                            Chat
-                          </Button>
-                        </div>
-                      {/if}
-                      <!-- Action buttons based on status -->
-                      {#if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
-                        <div class="flex gap-2 mt-2">
-                          <Button
-                            class="flex-1"
-                            onclick={() =>
-                              updateConnection(conn.id, "accepted")}
-                            >Accept</Button
-                          >
-                          <Button
-                            variant="destructive"
-                            class="flex-1"
-                            onclick={() =>
-                              updateConnection(conn.id, "rejected")}
-                            >Reject</Button
-                          >
-                        </div>
-                      {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
-                        <Button
-                          variant="outline"
-                          class="mt-2 w-full"
-                          onclick={() => updateConnection(conn.id, "cancelled")}
-                          >Cancel Request</Button
-                        >
-                      {:else if conn.status === "accepted" && conn.met_at}
-                        <span
-                          class="mt-2 text-xs text-emerald-400 font-semibold"
-                          >✓ Met</span
-                        >
-                      {/if}
+                      <p class="text-xs text-ink-500">
+                        Set event start and end schedule.
+                      </p>
                     </div>
-                  </div>
-                {/each}
-              </div>
 
-              {#if connectionsHasMore}
-                <div class="mt-6 flex justify-center">
-                  <Button
-                    variant="outline"
-                    onclick={loadMoreConnections}
-                    disabled={loadingMoreConnections}
-                  >
-                    {#if loadingMoreConnections}
-                      <LoaderCircle size={16} class="animate-spin mr-2" />
-                      Loading...
-                    {:else}
-                      Load More
+                    <div class="grid gap-4 sm:grid-cols-2">
+                      <!-- Start Date & Time -->
+                      <div
+                        class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3 {isEventLive ||
+                        isEventEnded
+                          ? 'opacity-60'
+                          : ''}"
+                      >
+                        <div class="flex items-center justify-between">
+                          <Label
+                            class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5"
+                          >
+                            <CalendarClock size={14} /> Start Schedule
+                            {#if isEventLive}
+                              <span
+                                class="text-[10px] text-amber-400 font-bold ml-1"
+                                >(Locked - Live)</span
+                              >
+                            {/if}
+                          </Label>
+                          {#if !isEventLive && !isEventEnded}
+                            <div class="flex gap-1.5 text-[11px]">
+                              <button
+                                type="button"
+                                onclick={() => setStartDateQuick("today")}
+                                class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors"
+                                >Today</button
+                              >
+                              <button
+                                type="button"
+                                onclick={() => setStartDateQuick("tomorrow")}
+                                class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors"
+                                >Tomorrow</button
+                              >
+                            </div>
+                          {/if}
+                        </div>
+
+                        <div>
+                          <span class="text-[11px] text-ink-500 block mb-1"
+                            >Start Date</span
+                          >
+                          <button
+                            type="button"
+                            disabled={isEventLive || isEventEnded}
+                            onclick={() => openCalendar("start")}
+                            class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
+                          >
+                            <span class="flex items-center gap-2">
+                              <Calendar size={15} class="text-indigo-400" />
+                              {formatDateHuman(settingsStartDate)}
+                            </span>
+                            {#if !isEventLive && !isEventEnded}
+                              <span class="text-xs text-indigo-400 font-medium"
+                                >Pick Date</span
+                              >
+                            {/if}
+                          </button>
+                        </div>
+
+                        <div>
+                          <span class="text-[11px] text-ink-500 block mb-1"
+                            >Start Time</span
+                          >
+                          <button
+                            type="button"
+                            disabled={isEventLive || isEventEnded}
+                            onclick={() => openClock("start")}
+                            class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
+                          >
+                            <span class="flex items-center gap-2">
+                              <Clock size={15} class="text-indigo-400" />
+                              {formatTime12h(settingsStartTimeVal)}
+                            </span>
+                            {#if !isEventLive && !isEventEnded}
+                              <span class="text-xs text-indigo-400 font-medium"
+                                >Pick Time</span
+                              >
+                            {/if}
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- End Date & Time -->
+                      <div
+                        class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3"
+                      >
+                        <div class="flex items-center justify-between">
+                          <Label
+                            class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5"
+                          >
+                            <CalendarClock size={14} /> End Schedule
+                          </Label>
+                          {#if !isEventEnded}
+                            <div class="flex gap-1.5 text-[11px]">
+                              <button
+                                type="button"
+                                onclick={() => setEndDateQuick("sameday")}
+                                class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors"
+                                >Same Day</button
+                              >
+                              <button
+                                type="button"
+                                onclick={() => setEndDateQuick("nextday")}
+                                class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors"
+                                >Next Day</button
+                              >
+                            </div>
+                          {/if}
+                        </div>
+
+                        <div>
+                          <span class="text-[11px] text-ink-500 block mb-1"
+                            >End Date</span
+                          >
+                          <button
+                            type="button"
+                            disabled={isEventEnded}
+                            onclick={() => openCalendar("end")}
+                            class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
+                          >
+                            <span class="flex items-center gap-2">
+                              <Calendar size={15} class="text-indigo-400" />
+                              {formatDateHuman(settingsEndDate)}
+                            </span>
+                            {#if !isEventEnded}
+                              <span class="text-xs text-indigo-400 font-medium"
+                                >Pick Date</span
+                              >
+                            {/if}
+                          </button>
+                        </div>
+
+                        <div>
+                          <span class="text-[11px] text-ink-500 block mb-1"
+                            >End Time</span
+                          >
+                          <button
+                            type="button"
+                            disabled={isEventEnded}
+                            onclick={() => openClock("end")}
+                            class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
+                          >
+                            <span class="flex items-center gap-2">
+                              <Clock size={15} class="text-indigo-400" />
+                              {formatTime12h(settingsEndTimeVal)}
+                            </span>
+                            {#if !isEventEnded}
+                              <span class="text-xs text-indigo-400 font-medium"
+                                >Pick Time</span
+                              >
+                            {/if}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {#if isStartInPast}
+                      <div
+                        class="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5"
+                      >
+                        <AlertTriangle size={14} class="shrink-0" />
+                        Start date cannot be in the past.
+                      </div>
+                    {:else if isEndBeforeStart}
+                      <div
+                        class="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5"
+                      >
+                        <AlertTriangle size={14} class="shrink-0" />
+                        End time must be greater than start time.
+                      </div>
                     {/if}
-                  </Button>
-                </div>
-              {/if}
-            {:else}
-              <div
-                in:fade
-                class="flex flex-col items-center justify-center p-12 text-center glass rounded-2xl border border-white/5"
-              >
-                <div
-                  class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
-                >
-                  <Ghost size={28} class="text-ink-500" />
-                </div>
-                <h3 class="text-white font-bold mb-1">No connections yet</h3>
-                <p class="text-sm text-ink-400 max-w-sm">
-                  We couldn't find any connections matching this filter.
-                </p>
-              </div>
-            {/if}
-          </Tabs.Content>
-
-          <!-- Venue Map tab -->
-          <Tabs.Content value="venue" class="mt-4 space-y-4">
-            {#if Boolean(currentEvent.is_venue_enabled)}
-              {@const isEventEnded = Boolean(currentEvent?.end_time && new Date(currentEvent.end_time) < new Date())}
-              <VenueMap
-                isOrganizer={data.isOrganizer && !isEventEnded}
-                initialZones={currentEvent.venue_map}
-                currentLocation={venueLocation}
-                schedule={timelineItems}
-                on:locationChange={(e) => {
-                  venueLocation = e.detail;
-                }}
-                on:saveMap={handleSaveMap}
-              />
-            {:else}
-              <div
-                class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"
-              >
-                <div
-                  class="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-4"
-                >
-                  <MapPinOff size={28} class="text-ink-500" />
-                </div>
-                <h3 class="text-white font-bold text-lg mb-1">Venue Map Disabled</h3>
-                <p class="text-sm text-ink-400 max-w-md">
-                  The organizer has disabled the venue map for this event.
-                </p>
-              </div>
-            {/if}
-          </Tabs.Content>
-
-          <!-- Settings tab -->
-          {#if data.isOrganizer}
-            <Tabs.Content value="settings" class="mt-4 space-y-6">
-              <!-- Live or Ended Event Status Banner -->
-              {#if isEventEnded}
-                <div class="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-red-300 text-xs">
-                  <AlertTriangle size={18} class="shrink-0 text-red-400 mt-0.5" />
-                  <div>
-                    <p class="font-bold text-sm text-red-400">📁 Event Ended — Read-Only Mode</p>
-                    <p class="text-ink-400 mt-0.5 leading-relaxed">
-                      This event has ended. Settings are locked to preserve historical records. You can still delete the event below if needed.
-                    </p>
-                  </div>
-                </div>
-              {:else if isEventLive}
-                <div class="flex items-start gap-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-indigo-300 text-xs">
-                  <Clock size={18} class="shrink-0 text-indigo-400 mt-0.5" />
-                  <div>
-                    <p class="font-bold text-sm text-indigo-300">🔴 Event is Currently Live</p>
-                    <p class="text-ink-400 mt-0.5 leading-relaxed">
-                      Start time is locked while the event is live, but you can update location, end time, venue map, and details.
-                    </p>
-                  </div>
-                </div>
-              {/if}
-
-              <!-- Edit Settings Form -->
-              <div class="glass rounded-2xl border border-white/8 p-6 sm:p-8 space-y-8 shadow-2xl {isEventEnded ? 'opacity-75 pointer-events-none' : ''}">
-                <div class="border-b border-white/8 pb-4 mb-2">
-                  <h2 class="text-base font-bold text-white">General Settings</h2>
-                  <p class="text-xs text-ink-500 mt-0.5">Basic information about your event.</p>
-                </div>
-
-                <!-- Name -->
-                <div class="space-y-2">
-                  <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event Name</Label>
-                  <Input
-                    bind:value={settingsName}
-                    disabled={isEventEnded}
-                    placeholder="My Awesome Event"
-                    class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
-                  />
-                </div>
-
-                <!-- Description -->
-                <div class="space-y-2">
-                  <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Description</Label>
-                  <textarea
-                    bind:value={settingsDescription}
-                    disabled={isEventEnded}
-                    rows="4"
-                    placeholder="What is this event about?"
-                    class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
-                  ></textarea>
-                </div>
-
-                <!-- Slug -->
-                <div class="space-y-2">
-                  <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Slug (URL ID)</Label>
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs text-ink-500 shrink-0">/event/</span>
-                    <Input
-                      bind:value={settingsSlug}
-                      disabled={isEventEnded}
-                      placeholder="my-awesome-event"
-                      class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50 font-mono flex-1"
-                    />
-                    <button
-                      type="button"
-                      onclick={copySlugUrl}
-                      class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-ink-300 hover:text-white transition-colors shrink-0"
-                      title="Copy full event link"
-                    >
-                      {#if copiedSlug}
-                        <Check size={14} class="text-emerald-400" />
-                        <span class="text-emerald-400">Copied</span>
-                      {:else}
-                        <Copy size={14} />
-                        <span>Copy Link</span>
-                      {/if}
-                    </button>
-                  </div>
-                  <p class="text-[11px] text-ink-500">Changing the slug will redirect to the new URL.</p>
-                </div>
-
-                <div class="space-y-4 border-t border-white/6 pt-5">
-                  <div>
-                    <h3 class="text-sm font-bold text-white">Event images</h3>
-                    <p class="text-xs text-ink-500 mt-0.5">Square logo and optional 16:9 banner. JPG, PNG, or WebP up to 2 MB.</p>
-                  </div>
-                  <div class="grid gap-4 sm:grid-cols-[160px_1fr]">
-                    <div class="space-y-2">
-                      <label class="block cursor-pointer rounded-xl border border-dashed border-indigo-400/30 bg-white/3 p-3 text-center hover:bg-white/5 {isEventEnded ? 'pointer-events-none opacity-50' : ''}">
-                        {#if settingsLogoPreview}
-                          <img src={settingsLogoPreview.startsWith('blob:') ? settingsLogoPreview : eventImageSrc(settingsLogoPreview)} alt="Event logo" class="mx-auto aspect-square w-full rounded-lg object-cover" />
-                        {:else}
-                          <div class="flex aspect-square items-center justify-center text-xs text-ink-400">Add logo<br />(1:1)</div>
-                        {/if}
-                        <span class="mt-2 block text-xs font-semibold text-indigo-300">{settingsLogoPreview ? 'Replace logo' : 'Add logo'}</span>
-                        <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={isEventEnded} onchange={(event) => selectSettingsImage(event, 'logo')} />
-                      </label>
-                      {#if settingsLogoPreview}<button type="button" class="w-full text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50" disabled={isEventEnded} onclick={() => removeSettingsImage('logo')}>Remove logo</button>{/if}
-                    </div>
-                    <div class="space-y-2">
-                      <label class="block cursor-pointer rounded-xl border border-dashed border-cyan-400/25 bg-white/3 p-3 hover:bg-white/5 {isEventEnded ? 'pointer-events-none opacity-50' : ''}">
-                        {#if settingsBannerPreview}
-                          <img src={settingsBannerPreview.startsWith('blob:') ? settingsBannerPreview : eventImageSrc(settingsBannerPreview)} alt="Event banner" class="aspect-video w-full rounded-lg object-cover" />
-                        {:else}
-                          <div class="flex aspect-video items-center justify-center rounded-lg bg-white/4 text-xs text-ink-400">Add optional banner (16:9)</div>
-                        {/if}
-                        <span class="mt-2 block text-xs font-semibold text-cyan-300">{settingsBannerPreview ? 'Replace banner' : 'Add banner'}</span>
-                        <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={isEventEnded} onchange={(event) => selectSettingsImage(event, 'banner')} />
-                      </label>
-                      {#if settingsBannerPreview}<button type="button" class="text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50" disabled={isEventEnded} onclick={() => removeSettingsImage('banner')}>Remove banner</button>{/if}
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Format -->
-                <div class="space-y-2">
-                  <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event Format</Label>
-                  <div class="grid grid-cols-3 gap-2">
-                    {#each ['online', 'offline', 'hybrid'] as fmt}
-                      <button
-                        type="button"
-                        disabled={isEventEnded}
-                        onclick={() => (settingsEventFormat = fmt)}
-                        class="py-2.5 rounded-xl border text-sm font-semibold capitalize transition-all {settingsEventFormat === fmt
-                          ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-300'
-                          : 'bg-white/4 border-white/10 text-ink-400 hover:text-white hover:border-white/20'} disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {fmt}
-                      </button>
-                    {/each}
-                  </div>
-                </div>
-
-                <!-- Date & Time Controls -->
-                <div class="space-y-4 border-t border-white/6 pt-4">
-                  <div>
-                    <h3 class="text-sm font-bold text-white mb-0.5">Date & Time Schedule</h3>
-                    <p class="text-xs text-ink-500">Set event start and end schedule.</p>
                   </div>
 
-                  <div class="grid gap-4 sm:grid-cols-2">
-                    <!-- Start Date & Time -->
-                    <div class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3 {isEventLive || isEventEnded ? 'opacity-60' : ''}">
-                      <div class="flex items-center justify-between">
-                        <Label class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
-                          <CalendarClock size={14} /> Start Schedule
-                          {#if isEventLive}
-                            <span class="text-[10px] text-amber-400 font-bold ml-1">(Locked - Live)</span>
-                          {/if}
+                  <!-- Location & Venue Map -->
+                  {#if settingsEventFormat !== "online"}
+                    <div class="space-y-4 pt-2 border-t border-white/6">
+                      <div>
+                        <h3 class="text-sm font-bold text-white mb-0.5">
+                          Location & Venue
+                        </h3>
+                        <p class="text-xs text-ink-500">
+                          Venue details for offline and hybrid events.
+                        </p>
+                      </div>
+                      <div class="space-y-2">
+                        <Label
+                          class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+                        >
+                          <MapPin
+                            size={12}
+                            class="inline mr-1 text-amber-400"
+                          />Address
                         </Label>
-                        {#if !isEventLive && !isEventEnded}
-                          <div class="flex gap-1.5 text-[11px]">
-                            <button type="button" onclick={() => setStartDateQuick('today')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Today</button>
-                            <button type="button" onclick={() => setStartDateQuick('tomorrow')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Tomorrow</button>
-                          </div>
-                        {/if}
+                        <textarea
+                          bind:value={settingsLocation}
+                          disabled={isEventEnded}
+                          rows="3"
+                          placeholder="123 Main St, City, Country"
+                          class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
+                        ></textarea>
                       </div>
-
-                      <div>
-                        <span class="text-[11px] text-ink-500 block mb-1">Start Date</span>
-                        <button
-                          type="button"
-                          disabled={isEventLive || isEventEnded}
-                          onclick={() => openCalendar('start')}
-                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
+                      <div class="space-y-2">
+                        <Label
+                          class="text-xs font-semibold uppercase tracking-widest text-ink-400"
                         >
-                          <span class="flex items-center gap-2">
-                            <Calendar size={15} class="text-indigo-400" />
-                            {formatDateHuman(settingsStartDate)}
-                          </span>
-                          {#if !isEventLive && !isEventEnded}
-                            <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
-                          {/if}
-                        </button>
-                      </div>
-
-                      <div>
-                        <span class="text-[11px] text-ink-500 block mb-1">Start Time</span>
-                        <button
-                          type="button"
-                          disabled={isEventLive || isEventEnded}
-                          onclick={() => openClock('start')}
-                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
-                        >
-                          <span class="flex items-center gap-2">
-                            <Clock size={15} class="text-indigo-400" />
-                            {formatTime12h(settingsStartTimeVal)}
-                          </span>
-                          {#if !isEventLive && !isEventEnded}
-                            <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
-                          {/if}
-                        </button>
-                      </div>
-                    </div>
-
-                    <!-- End Date & Time -->
-                    <div class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3">
-                      <div class="flex items-center justify-between">
-                        <Label class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
-                          <CalendarClock size={14} /> End Schedule
+                          <Globe
+                            size={12}
+                            class="inline mr-1 text-amber-400"
+                          />Google Maps URL
                         </Label>
-                        {#if !isEventEnded}
-                          <div class="flex gap-1.5 text-[11px]">
-                            <button type="button" onclick={() => setEndDateQuick('sameday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Same Day</button>
-                            <button type="button" onclick={() => setEndDateQuick('nextday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Next Day</button>
-                          </div>
-                        {/if}
-                      </div>
-
-                      <div>
-                        <span class="text-[11px] text-ink-500 block mb-1">End Date</span>
-                        <button
-                          type="button"
+                        <Input
+                          bind:value={settingsGoogleMapUrl}
                           disabled={isEventEnded}
-                          onclick={() => openCalendar('end')}
-                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
-                        >
-                          <span class="flex items-center gap-2">
-                            <Calendar size={15} class="text-indigo-400" />
-                            {formatDateHuman(settingsEndDate)}
-                          </span>
-                          {#if !isEventEnded}
-                            <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
-                          {/if}
-                        </button>
+                          placeholder="https://maps.google.com/..."
+                          class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
+                        />
                       </div>
-
-                      <div>
-                        <span class="text-[11px] text-ink-500 block mb-1">End Time</span>
-                        <button
-                          type="button"
-                          disabled={isEventEnded}
-                          onclick={() => openClock('end')}
-                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
-                        >
-                          <span class="flex items-center gap-2">
-                            <Clock size={15} class="text-indigo-400" />
-                            {formatTime12h(settingsEndTimeVal)}
-                          </span>
-                          {#if !isEventEnded}
-                            <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
-                          {/if}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {#if isStartInPast}
-                    <div class="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
-                      <AlertTriangle size={14} class="shrink-0" />
-                      Start date cannot be in the past.
-                    </div>
-                  {:else if isEndBeforeStart}
-                    <div class="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
-                      <AlertTriangle size={14} class="shrink-0" />
-                      End time must be greater than start time.
                     </div>
                   {/if}
-                </div>
 
-                <!-- Location & Venue Map -->
-                {#if settingsEventFormat !== 'online'}
+                  <!-- Options Toggles -->
                   <div class="space-y-4 pt-2 border-t border-white/6">
-                    <div>
-                      <h3 class="text-sm font-bold text-white mb-0.5">Location & Venue</h3>
-                      <p class="text-xs text-ink-500">Venue details for offline and hybrid events.</p>
-                    </div>
-                    <div class="space-y-2">
-                      <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
-                        <MapPin size={12} class="inline mr-1 text-amber-400" />Address
-                      </Label>
-                      <textarea
-                        bind:value={settingsLocation}
-                        disabled={isEventEnded}
-                        rows="3"
-                        placeholder="123 Main St, City, Country"
-                        class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
-                      ></textarea>
-                    </div>
-                    <div class="space-y-2">
-                      <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
-                        <Globe size={12} class="inline mr-1 text-amber-400" />Google Maps URL
-                      </Label>
-                      <Input
-                        bind:value={settingsGoogleMapUrl}
-                        disabled={isEventEnded}
-                        placeholder="https://maps.google.com/..."
-                        class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
-                      />
-                    </div>
-                  </div>
-                {/if}
+                    <h3 class="text-sm font-bold text-white">Options</h3>
 
-                <!-- Options Toggles -->
-                <div class="space-y-4 pt-2 border-t border-white/6">
-                  <h3 class="text-sm font-bold text-white">Options</h3>
-
-                  <!-- Discovery visibility -->
-                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
-                    <div class="flex items-start gap-3">
-                      <Globe size={16} class="text-emerald-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p class="text-sm font-semibold text-white">Show in discovery</p>
-                        <p class="text-xs text-ink-500 mt-0.5">{settingsIsPublic ? 'Public — anyone can find this event on the discovery page.' : 'Private — this event will not appear on the discovery page.'}</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={isEventEnded}
-                      onclick={() => (settingsIsPublic = !settingsIsPublic)}
-                      class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsPublic ? 'bg-emerald-500' : 'bg-white/10'} disabled:opacity-50"
-                      role="switch"
-                      aria-checked={settingsIsPublic}
-                      aria-label="Show in discovery"
+                    <!-- Discovery visibility -->
+                    <div
+                      class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6"
                     >
-                      <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsPublic ? 'translate-x-5' : 'translate-x-0'}"></span>
-                    </button>
-                  </div>
-
-                  <!-- Registration after start -->
-                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
-                    <div class="flex items-start gap-3">
-                      <Lock size={16} class="text-amber-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p class="text-sm font-semibold text-white">Allow joining after the event starts</p>
-                        <p class="text-xs text-ink-500 mt-0.5">{settingsAllowJoinAfterStart ? 'Attendees can register while the event is live.' : 'Registration closes automatically when the event starts.'}</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={isEventEnded}
-                      onclick={() => (settingsAllowJoinAfterStart = !settingsAllowJoinAfterStart)}
-                      class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsAllowJoinAfterStart ? 'bg-amber-500' : 'bg-white/10'} disabled:opacity-50"
-                      role="switch"
-                      aria-checked={settingsAllowJoinAfterStart}
-                      aria-label="Allow joining after the event starts"
-                    >
-                      <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsAllowJoinAfterStart ? 'translate-x-5' : 'translate-x-0'}"></span>
-                    </button>
-                  </div>
-
-                  <!-- Enable Networking -->
-                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
-                    <div class="flex items-start gap-3">
-                      <Network size={16} class="text-violet-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p class="text-sm font-semibold text-white">Enable Networking</p>
-                        <p class="text-xs text-ink-500 mt-0.5">Show the Network tab with AI matches and connections.</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={isEventEnded}
-                      onclick={() => (settingsIsNetworkEnabled = !settingsIsNetworkEnabled)}
-                      class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsNetworkEnabled ? 'bg-violet-500' : 'bg-white/10'} disabled:opacity-50"
-                      role="switch"
-                      aria-checked={settingsIsNetworkEnabled}
-                      aria-label="Enable Networking"
-                    >
-                      <span
-                        class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsNetworkEnabled ? 'translate-x-5' : 'translate-x-0'}"
-                      ></span>
-                    </button>
-                  </div>
-
-                  <!-- Enable Announcements -->
-                  <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
-                    <div class="flex items-start gap-3">
-                      <Megaphone size={16} class="text-rose-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p class="text-sm font-semibold text-white">Enable Announcements</p>
-                        <p class="text-xs text-ink-500 mt-0.5">Show the Announcements tab to broadcast updates to attendees.</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={isEventEnded}
-                      onclick={() => (settingsIsAnnouncementsEnabled = !settingsIsAnnouncementsEnabled)}
-                      class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsAnnouncementsEnabled ? 'bg-rose-500' : 'bg-white/10'} disabled:opacity-50"
-                      role="switch"
-                      aria-checked={settingsIsAnnouncementsEnabled}
-                      aria-label="Enable Announcements"
-                    >
-                      <span
-                        class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsAnnouncementsEnabled ? 'translate-x-5' : 'translate-x-0'}"
-                      ></span>
-                    </button>
-                  </div>
-
-                  <!-- Enable Venue Map -->
-                  {#if settingsEventFormat !== 'online'}
-                    <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
                       <div class="flex items-start gap-3">
-                        <MapPin size={16} class="text-cyan-400 mt-0.5 shrink-0" />
+                        <Globe
+                          size={16}
+                          class="text-emerald-400 mt-0.5 shrink-0"
+                        />
                         <div>
-                          <p class="text-sm font-semibold text-white">Enable Venue Map</p>
-                          <p class="text-xs text-ink-500 mt-0.5">Show the interactive venue map tab to attendees.</p>
+                          <p class="text-sm font-semibold text-white">
+                            Show in discovery
+                          </p>
+                          <p class="text-xs text-ink-500 mt-0.5">
+                            {settingsIsPublic
+                              ? "Public — anyone can find this event on the discovery page."
+                              : "Private — this event will not appear on the discovery page."}
+                          </p>
                         </div>
                       </div>
                       <button
                         type="button"
                         disabled={isEventEnded}
-                        onclick={() => (settingsIsVenueEnabled = !settingsIsVenueEnabled)}
-                        class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsVenueEnabled ? 'bg-cyan-500' : 'bg-white/10'} disabled:opacity-50"
+                        onclick={() => (settingsIsPublic = !settingsIsPublic)}
+                        class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsPublic
+                          ? 'bg-emerald-500'
+                          : 'bg-white/10'} disabled:opacity-50"
                         role="switch"
-                        aria-checked={settingsIsVenueEnabled}
-                        aria-label="Enable Venue Map"
+                        aria-checked={settingsIsPublic}
+                        aria-label="Show in discovery"
                       >
                         <span
-                          class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsVenueEnabled ? 'translate-x-5' : 'translate-x-0'}"
+                          class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsPublic
+                            ? 'translate-x-5'
+                            : 'translate-x-0'}"
                         ></span>
                       </button>
                     </div>
-                  {/if}
 
-                  <!-- Approval Required -->
-                  <!-- <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
+                    <!-- Registration after start -->
+                    <div
+                      class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6"
+                    >
+                      <div class="flex items-start gap-3">
+                        <Lock
+                          size={16}
+                          class="text-amber-400 mt-0.5 shrink-0"
+                        />
+                        <div>
+                          <p class="text-sm font-semibold text-white">
+                            Allow joining after the event starts
+                          </p>
+                          <p class="text-xs text-ink-500 mt-0.5">
+                            {settingsAllowJoinAfterStart
+                              ? "Attendees can register while the event is live."
+                              : "Registration closes automatically when the event starts."}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isEventEnded}
+                        onclick={() =>
+                          (settingsAllowJoinAfterStart =
+                            !settingsAllowJoinAfterStart)}
+                        class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsAllowJoinAfterStart
+                          ? 'bg-amber-500'
+                          : 'bg-white/10'} disabled:opacity-50"
+                        role="switch"
+                        aria-checked={settingsAllowJoinAfterStart}
+                        aria-label="Allow joining after the event starts"
+                      >
+                        <span
+                          class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsAllowJoinAfterStart
+                            ? 'translate-x-5'
+                            : 'translate-x-0'}"
+                        ></span>
+                      </button>
+                    </div>
+
+                    <!-- Enable Networking -->
+                    <div
+                      class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6"
+                    >
+                      <div class="flex items-start gap-3">
+                        <Network
+                          size={16}
+                          class="text-violet-400 mt-0.5 shrink-0"
+                        />
+                        <div>
+                          <p class="text-sm font-semibold text-white">
+                            Enable Networking
+                          </p>
+                          <p class="text-xs text-ink-500 mt-0.5">
+                            Show the Network tab with AI matches and
+                            connections.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isEventEnded}
+                        onclick={() =>
+                          (settingsIsNetworkEnabled =
+                            !settingsIsNetworkEnabled)}
+                        class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsNetworkEnabled
+                          ? 'bg-violet-500'
+                          : 'bg-white/10'} disabled:opacity-50"
+                        role="switch"
+                        aria-checked={settingsIsNetworkEnabled}
+                        aria-label="Enable Networking"
+                      >
+                        <span
+                          class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsNetworkEnabled
+                            ? 'translate-x-5'
+                            : 'translate-x-0'}"
+                        ></span>
+                      </button>
+                    </div>
+
+                    <!-- Enable Announcements -->
+                    <div
+                      class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6"
+                    >
+                      <div class="flex items-start gap-3">
+                        <Megaphone
+                          size={16}
+                          class="text-rose-400 mt-0.5 shrink-0"
+                        />
+                        <div>
+                          <p class="text-sm font-semibold text-white">
+                            Enable Announcements
+                          </p>
+                          <p class="text-xs text-ink-500 mt-0.5">
+                            Show the Announcements tab to broadcast updates to
+                            attendees.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isEventEnded}
+                        onclick={() =>
+                          (settingsIsAnnouncementsEnabled =
+                            !settingsIsAnnouncementsEnabled)}
+                        class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsAnnouncementsEnabled
+                          ? 'bg-rose-500'
+                          : 'bg-white/10'} disabled:opacity-50"
+                        role="switch"
+                        aria-checked={settingsIsAnnouncementsEnabled}
+                        aria-label="Enable Announcements"
+                      >
+                        <span
+                          class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsAnnouncementsEnabled
+                            ? 'translate-x-5'
+                            : 'translate-x-0'}"
+                        ></span>
+                      </button>
+                    </div>
+
+                    <!-- Enable Venue Map -->
+                    {#if settingsEventFormat !== "online"}
+                      <div
+                        class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6"
+                      >
+                        <div class="flex items-start gap-3">
+                          <MapPin
+                            size={16}
+                            class="text-cyan-400 mt-0.5 shrink-0"
+                          />
+                          <div>
+                            <p class="text-sm font-semibold text-white">
+                              Enable Venue Map
+                            </p>
+                            <p class="text-xs text-ink-500 mt-0.5">
+                              Show the interactive venue map tab to attendees.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isEventEnded}
+                          onclick={() =>
+                            (settingsIsVenueEnabled = !settingsIsVenueEnabled)}
+                          class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsVenueEnabled
+                            ? 'bg-cyan-500'
+                            : 'bg-white/10'} disabled:opacity-50"
+                          role="switch"
+                          aria-checked={settingsIsVenueEnabled}
+                          aria-label="Enable Venue Map"
+                        >
+                          <span
+                            class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsVenueEnabled
+                              ? 'translate-x-5'
+                              : 'translate-x-0'}"
+                          ></span>
+                        </button>
+                      </div>
+                    {/if}
+
+                    <!-- Approval Required -->
+                    <!-- <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
                     <div class="flex items-start gap-3">
                       <Lock size={16} class="text-amber-400 mt-0.5 shrink-0" />
                       <div>
@@ -6693,245 +7977,324 @@
                       ></span>
                     </button>
                   </div> -->
-                </div>
-
-                {#if saveTabSettingsError}
-                  <div class="flex items-start gap-2 text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
-                    <AlertTriangle size={15} class="shrink-0 mt-0.5" />
-                    {saveTabSettingsError}
                   </div>
-                {/if}
 
-                {#if saveTabSettingsSuccess}
-                  <div class="flex items-center gap-2 text-emerald-400 text-sm bg-emerald-400/10 border border-emerald-400/20 rounded-xl px-4 py-3">
-                    <CheckCircle2 size={15} class="shrink-0" />
-                    Settings saved successfully.
-                  </div>
-                {/if}
-
-                <Button
-                  onclick={saveTabSettings}
-                  disabled={savingTabSettings || isTimeInvalid || isEventEnded}
-                  class="w-full gap-2 h-11 text-sm font-semibold"
-                >
-                  {#if savingTabSettings}
-                    <LoaderCircle size={15} class="animate-spin" />
-                    Saving…
-                  {:else}
-                    <Save size={15} />
-                    {isEventEnded ? 'Settings Locked (Event Ended)' : 'Save Changes'}
-                  {/if}
-                </Button>
-              </div>
-
-              <!-- Danger Zone Card -->
-              <div class="glass rounded-2xl border border-red-500/20 p-6 sm:p-8">
-                <h2 class="text-base font-bold text-red-400 mb-1">Danger Zone</h2>
-                <p class="text-xs text-ink-500 mb-6">Permanently delete this event and all associated data. This cannot be undone.</p>
-
-                {#if !settingsDeleteConfirmOpen}
-                  <Button
-                    variant="destructive"
-                    class="gap-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30"
-                    onclick={() => (settingsDeleteConfirmOpen = true)}
-                  >
-                    <Trash2 size={14} />
-                    Delete Event
-                  </Button>
-                {:else}
-                  <div class="space-y-4">
-                    <p class="text-sm text-ink-300">
-                      Type <span class="font-mono font-bold text-red-400">{currentEvent.slug}</span> to confirm deletion:
-                    </p>
-                    <Input
-                      bind:value={settingsDeleteConfirmText}
-                      placeholder={currentEvent.slug}
-                      class="bg-white/5 border-red-500/30 text-white placeholder:text-ink-600 focus:border-red-400/50 font-mono max-w-md"
-                    />
-                    <div class="flex gap-3">
-                      <Button
-                        variant="destructive"
-                        class="gap-2 bg-red-600 hover:bg-red-700 text-white"
-                        disabled={settingsDeleteConfirmText !== currentEvent.slug || settingsDeleting}
-                        onclick={deleteEventInSettings}
-                      >
-                        {#if settingsDeleting}
-                          <LoaderCircle size={14} class="animate-spin" />
-                          Deleting…
-                        {:else}
-                          <Trash2 size={14} />
-                          Confirm Delete
-                        {/if}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        class="text-ink-400 hover:text-white"
-                        onclick={() => { settingsDeleteConfirmOpen = false; settingsDeleteConfirmText = ''; }}
-                      >
-                        Cancel
-                      </Button>
+                  {#if saveTabSettingsError}
+                    <div
+                      class="flex items-start gap-2 text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3"
+                    >
+                      <AlertTriangle size={15} class="shrink-0 mt-0.5" />
+                      {saveTabSettingsError}
                     </div>
-                  </div>
-                {/if}
-              </div>
-            </Tabs.Content>
+                  {/if}
 
-            <!-- Host Timeline Tab -->
-            <Tabs.Content value="timeline" class="mt-4 space-y-6">
-              <!-- Header Card -->
-              <div class="glass rounded-2xl border border-white/8 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <div class="flex items-center gap-2 mb-1">
-                    <CalendarClock size={20} class="text-amber-400" />
-                    <h2 class="text-xl font-bold text-white">Event Timeline &amp; Schedule</h2>
-                  </div>
-                  <p class="text-xs text-ink-400">
-                    Manage sessions, keynote talks, workshops, and agenda for your event attendees.
-                  </p>
+                  {#if saveTabSettingsSuccess}
+                    <div
+                      class="flex items-center gap-2 text-emerald-400 text-sm bg-emerald-400/10 border border-emerald-400/20 rounded-xl px-4 py-3"
+                    >
+                      <CheckCircle2 size={15} class="shrink-0" />
+                      Settings saved successfully.
+                    </div>
+                  {/if}
+
+                  <Button
+                    onclick={saveTabSettings}
+                    disabled={savingTabSettings ||
+                      isTimeInvalid ||
+                      isEventEnded}
+                    class="w-full gap-2 h-11 text-sm font-semibold"
+                  >
+                    {#if savingTabSettings}
+                      <LoaderCircle size={15} class="animate-spin" />
+                      Saving…
+                    {:else}
+                      <Save size={15} />
+                      {isEventEnded
+                        ? "Settings Locked (Event Ended)"
+                        : "Save Changes"}
+                    {/if}
+                  </Button>
                 </div>
 
-                <Button
-                  onclick={openCreateTimelineModal}
-                  class="gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2 text-xs rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all"
+                <!-- Danger Zone Card -->
+                <div
+                  class="glass rounded-2xl border border-red-500/20 p-6 sm:p-8"
                 >
-                  <Plus size={16} />
-                  Add Session
-                </Button>
-              </div>
+                  <h2 class="text-base font-bold text-red-400 mb-1">
+                    Danger Zone
+                  </h2>
+                  <p class="text-xs text-ink-500 mb-6">
+                    Permanently delete this event and all associated data. This
+                    cannot be undone.
+                  </p>
 
-              <!-- Sessions List -->
-              {#if timelineItems.length === 0}
-                <div class="glass rounded-2xl border border-white/8 p-12 text-center space-y-4">
-                  <div class="mx-auto h-12 w-12 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400">
-                    <CalendarClock size={24} />
-                  </div>
+                  {#if !settingsDeleteConfirmOpen}
+                    <Button
+                      variant="destructive"
+                      class="gap-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30"
+                      onclick={() => (settingsDeleteConfirmOpen = true)}
+                    >
+                      <Trash2 size={14} />
+                      Delete Event
+                    </Button>
+                  {:else}
+                    <div class="space-y-4">
+                      <p class="text-sm text-ink-300">
+                        Type <span class="font-mono font-bold text-red-400"
+                          >{currentEvent.slug}</span
+                        > to confirm deletion:
+                      </p>
+                      <Input
+                        bind:value={settingsDeleteConfirmText}
+                        placeholder={currentEvent.slug}
+                        class="bg-white/5 border-red-500/30 text-white placeholder:text-ink-600 focus:border-red-400/50 font-mono max-w-md"
+                      />
+                      <div class="flex gap-3">
+                        <Button
+                          variant="destructive"
+                          class="gap-2 bg-red-600 hover:bg-red-700 text-white"
+                          disabled={settingsDeleteConfirmText !==
+                            currentEvent.slug || settingsDeleting}
+                          onclick={deleteEventInSettings}
+                        >
+                          {#if settingsDeleting}
+                            <LoaderCircle size={14} class="animate-spin" />
+                            Deleting…
+                          {:else}
+                            <Trash2 size={14} />
+                            Confirm Delete
+                          {/if}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          class="text-ink-400 hover:text-white"
+                          onclick={() => {
+                            settingsDeleteConfirmOpen = false;
+                            settingsDeleteConfirmText = "";
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              </Tabs.Content>
+
+              <!-- Host Timeline Tab -->
+              <Tabs.Content value="timeline" class="mt-4 space-y-6">
+                <!-- Header Card -->
+                <div
+                  class="glass rounded-2xl border border-white/8 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
                   <div>
-                    <h3 class="text-base font-bold text-white mb-1">No Schedule Sessions Yet</h3>
-                    <p class="text-xs text-ink-400 max-w-sm mx-auto">
-                      Add keynote talks, breakouts, panel discussions, and breaks so attendees can view the official agenda.
+                    <div class="flex items-center gap-2 mb-1">
+                      <CalendarClock size={20} class="text-amber-400" />
+                      <h2 class="text-xl font-bold text-white">
+                        Event Timeline &amp; Schedule
+                      </h2>
+                    </div>
+                    <p class="text-xs text-ink-400">
+                      Manage sessions, keynote talks, workshops, and agenda for
+                      your event attendees.
                     </p>
                   </div>
+
                   <Button
                     onclick={openCreateTimelineModal}
-                    variant="outline"
-                    class="gap-2 border-amber-400/30 text-amber-300 hover:bg-amber-400/10"
+                    class="gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2 text-xs rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all"
                   >
-                    <Plus size={14} />
-                    Add First Session
+                    <Plus size={16} />
+                    Add Session
                   </Button>
                 </div>
-              {:else}
-                <div class="space-y-4">
-                  {#each timelineItems as item (item.id)}
-                    {@const style = getCategoryColor(item.category)}
-                    <div class="glass rounded-2xl border border-white/8 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-white/15 transition-all">
-                      <div class="space-y-2 flex-1">
-                        <div class="flex flex-wrap items-center gap-2">
-                          <span class="inline-flex items-center gap-1 text-xs font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 rounded-md">
-                            <Clock size={12} />
-                            {formatTimelineTimeRange(item.start_time, item.end_time)}
-                          </span>
-                          <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border {style.bg} {style.text} {style.border}">
-                            {item.category || 'General'}
-                          </span>
-                          {#if item.location}
-                            <button
-                              type="button"
-                              onclick={() => jumpToVenueLocation(item.location)}
-                              class="inline-flex items-center gap-1 text-xs text-ink-300 bg-white/4 hover:bg-amber-400/15 hover:text-amber-300 hover:border-amber-400/30 transition-colors px-2 py-0.5 rounded-md border border-white/6 cursor-pointer"
-                              title={currentEvent.is_venue_enabled ? `Click to view ${item.location} on Venue Map` : item.location}
+
+                <!-- Sessions List -->
+                {#if timelineItems.length === 0}
+                  <div
+                    class="glass rounded-2xl border border-white/8 p-12 text-center space-y-4"
+                  >
+                    <div
+                      class="mx-auto h-12 w-12 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400"
+                    >
+                      <CalendarClock size={24} />
+                    </div>
+                    <div>
+                      <h3 class="text-base font-bold text-white mb-1">
+                        No Schedule Sessions Yet
+                      </h3>
+                      <p class="text-xs text-ink-400 max-w-sm mx-auto">
+                        Add keynote talks, breakouts, panel discussions, and
+                        breaks so attendees can view the official agenda.
+                      </p>
+                    </div>
+                    <Button
+                      onclick={openCreateTimelineModal}
+                      variant="outline"
+                      class="gap-2 border-amber-400/30 text-amber-300 hover:bg-amber-400/10"
+                    >
+                      <Plus size={14} />
+                      Add First Session
+                    </Button>
+                  </div>
+                {:else}
+                  <div class="space-y-4">
+                    {#each timelineItems as item (item.id)}
+                      {@const style = getCategoryColor(item.category)}
+                      <div
+                        class="glass rounded-2xl border border-white/8 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-white/15 transition-all"
+                      >
+                        <div class="space-y-2 flex-1">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span
+                              class="inline-flex items-center gap-1 text-xs font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 rounded-md"
                             >
-                              <MapPin size={12} class="text-amber-400" />
-                              {item.location}
-                            </button>
+                              <Clock size={12} />
+                              {formatTimelineTimeRange(
+                                item.start_time,
+                                item.end_time,
+                              )}
+                            </span>
+                            <span
+                              class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border {style.bg} {style.text} {style.border}"
+                            >
+                              {item.category || "General"}
+                            </span>
+                            {#if item.location}
+                              <button
+                                type="button"
+                                onclick={() =>
+                                  jumpToVenueLocation(item.location)}
+                                class="inline-flex items-center gap-1 text-xs text-ink-300 bg-white/4 hover:bg-amber-400/15 hover:text-amber-300 hover:border-amber-400/30 transition-colors px-2 py-0.5 rounded-md border border-white/6 cursor-pointer"
+                                title={currentEvent.is_venue_enabled
+                                  ? `Click to view ${item.location} on Venue Map`
+                                  : item.location}
+                              >
+                                <MapPin size={12} class="text-amber-400" />
+                                {item.location}
+                              </button>
+                            {/if}
+                          </div>
+
+                          <h4 class="text-base font-bold text-white">
+                            {item.title}
+                          </h4>
+
+                          {#if item.description}
+                            <p class="text-xs text-ink-300 line-clamp-2">
+                              {item.description}
+                            </p>
+                          {/if}
+
+                          {#if item.speaker_name}
+                            <div
+                              class="flex items-center gap-2 pt-1 text-xs text-ink-400"
+                            >
+                              <UserCircle2 size={14} class="text-indigo-400" />
+                              <span class="font-medium text-white"
+                                >{item.speaker_name}</span
+                              >
+                              {#if item.speaker_role}
+                                <span class="text-ink-500"
+                                  >({item.speaker_role})</span
+                                >
+                              {/if}
+                            </div>
                           {/if}
                         </div>
 
-                        <h4 class="text-base font-bold text-white">{item.title}</h4>
-
-                        {#if item.description}
-                          <p class="text-xs text-ink-300 line-clamp-2">{item.description}</p>
-                        {/if}
-
-                        {#if item.speaker_name}
-                          <div class="flex items-center gap-2 pt-1 text-xs text-ink-400">
-                            <UserCircle2 size={14} class="text-indigo-400" />
-                            <span class="font-medium text-white">{item.speaker_name}</span>
-                            {#if item.speaker_role}
-                              <span class="text-ink-500">({item.speaker_role})</span>
+                        <div
+                          class="flex items-center gap-2 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-white/6"
+                        >
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onclick={() => openEditTimelineModal(item)}
+                            class="gap-1 text-xs border-white/10 text-white hover:bg-white/10"
+                          >
+                            <Pencil size={13} />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={deletingTimelineItemId === item.id}
+                            onclick={() => deleteTimelineItem(item.id)}
+                            class="gap-1 text-xs border-red-500/20 text-red-400 hover:bg-red-500/10"
+                          >
+                            {#if deletingTimelineItemId === item.id}
+                              <LoaderCircle size={13} class="animate-spin" />
+                            {:else}
+                              <Trash2 size={13} />
                             {/if}
-                          </div>
-                        {/if}
+                            Delete
+                          </Button>
+                        </div>
                       </div>
-
-                      <div class="flex items-center gap-2 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-white/6">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onclick={() => openEditTimelineModal(item)}
-                          class="gap-1 text-xs border-white/10 text-white hover:bg-white/10"
-                        >
-                          <Pencil size={13} />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={deletingTimelineItemId === item.id}
-                          onclick={() => deleteTimelineItem(item.id)}
-                          class="gap-1 text-xs border-red-500/20 text-red-400 hover:bg-red-500/10"
-                        >
-                          {#if deletingTimelineItemId === item.id}
-                            <LoaderCircle size={13} class="animate-spin" />
-                          {:else}
-                            <Trash2 size={13} />
-                          {/if}
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              {/if}
-            </Tabs.Content>
-          {/if}
-        </Tabs.Root>
+                    {/each}
+                  </div>
+                {/if}
+              </Tabs.Content>
+            {/if}
+          </Tabs.Root>
         {/if}
 
         <!-- Create / Edit Timeline Session Modal -->
         {#if timelineModalOpen}
-          <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fade-in">
-            <div class="glass rounded-2xl border border-white/10 p-5 sm:p-7 max-w-xl sm:max-w-2xl w-full max-h-[88vh] flex flex-col shadow-2xl bg-neutral-950/95 overflow-hidden">
+          <div
+            class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fade-in"
+          >
+            <div
+              class="glass rounded-2xl border border-white/10 p-5 sm:p-7 max-w-xl sm:max-w-2xl w-full max-h-[88vh] flex flex-col shadow-2xl bg-neutral-950/95 overflow-hidden"
+            >
               <!-- Fixed Header -->
-              <div class="flex items-center justify-between border-b border-white/10 pb-4 shrink-0">
+              <div
+                class="flex items-center justify-between border-b border-white/10 pb-4 shrink-0"
+              >
                 <div class="flex items-center gap-3">
-                  <div class="h-9 w-9 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400 shrink-0">
+                  <div
+                    class="h-9 w-9 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400 shrink-0"
+                  >
                     <CalendarClock size={20} />
                   </div>
                   <div>
                     <h3 class="text-base font-bold text-white leading-tight">
-                      {editingTimelineItem ? 'Edit Schedule Session' : 'Add Schedule Session'}
+                      {editingTimelineItem
+                        ? "Edit Schedule Session"
+                        : "Add Schedule Session"}
                     </h3>
-                    <p class="text-xs text-ink-400 mt-0.5">Configure timing, location, speaker, and session details</p>
+                    <p class="text-xs text-ink-400 mt-0.5">
+                      Configure timing, location, speaker, and session details
+                    </p>
                   </div>
                 </div>
-                <button type="button" onclick={() => (timelineModalOpen = false)} class="text-ink-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-colors">
+                <button
+                  type="button"
+                  onclick={() => (timelineModalOpen = false)}
+                  class="text-ink-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-colors"
+                >
                   <X size={18} />
                 </button>
               </div>
 
               {#if timelineError}
-                <div class="flex items-center gap-2.5 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mt-4 shrink-0">
+                <div
+                  class="flex items-center gap-2.5 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mt-4 shrink-0"
+                >
                   <AlertTriangle size={14} class="shrink-0" />
                   <span>{timelineError}</span>
                 </div>
               {/if}
 
               <!-- Inner Scrollable Form Content -->
-              <div class="flex-1 overflow-y-auto py-5 pl-1 pr-4 sm:pr-5 space-y-5 text-left scrollbar-thin">
+              <div
+                class="flex-1 overflow-y-auto py-5 pl-1 pr-4 sm:pr-5 space-y-5 text-left scrollbar-thin"
+              >
                 <!-- Title -->
                 <div class="space-y-2">
-                  <Label class="text-sm font-semibold text-white">Session Title *</Label>
+                  <Label class="text-sm font-semibold text-white"
+                    >Session Title *</Label
+                  >
                   <Input
                     bind:value={timelineTitle}
                     placeholder="e.g., Keynote: The Future of AI in Networking"
@@ -6943,7 +8306,9 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <!-- Category -->
                   <div class="space-y-2">
-                    <Label class="text-sm font-semibold text-white">Category</Label>
+                    <Label class="text-sm font-semibold text-white"
+                      >Category</Label
+                    >
                     <Input
                       bind:value={timelineCategory}
                       placeholder="e.g. Fireside Chat, Workshop..."
@@ -6954,15 +8319,22 @@
                         <button
                           type="button"
                           onclick={() => (timelineCategory = sug)}
-                          class="text-xs px-2.5 py-0.5 rounded-full border transition-all whitespace-nowrap shrink-0 cursor-pointer {timelineCategory?.toLowerCase().trim() === sug.toLowerCase().trim() ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-semibold' : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
-                        >{sug}</button>
+                          class="text-xs px-2.5 py-0.5 rounded-full border transition-all whitespace-nowrap shrink-0 cursor-pointer {timelineCategory
+                            ?.toLowerCase()
+                            .trim() === sug.toLowerCase().trim()
+                            ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-semibold'
+                            : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
+                          >{sug}</button
+                        >
                       {/each}
                     </PillScroller>
                   </div>
 
                   <!-- Location / Stage -->
                   <div class="space-y-2">
-                    <Label class="text-sm font-semibold text-white">Location / Stage</Label>
+                    <Label class="text-sm font-semibold text-white"
+                      >Location / Stage</Label
+                    >
                     <Input
                       bind:value={timelineLocation}
                       placeholder="e.g., Main Stage, Hall A, Room 302"
@@ -6974,8 +8346,13 @@
                           <button
                             type="button"
                             onclick={() => (timelineLocation = z.name)}
-                            class="text-xs px-2.5 py-0.5 rounded-full border transition-all whitespace-nowrap shrink-0 cursor-pointer {timelineLocation?.toLowerCase().trim() === z.name.toLowerCase().trim() ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-semibold' : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
-                          >📍 {z.name}</button>
+                            class="text-xs px-2.5 py-0.5 rounded-full border transition-all whitespace-nowrap shrink-0 cursor-pointer {timelineLocation
+                              ?.toLowerCase()
+                              .trim() === z.name.toLowerCase().trim()
+                              ? 'bg-amber-400/20 border-amber-400/50 text-amber-300 font-semibold'
+                              : 'bg-white/5 border-white/10 text-ink-400 hover:text-white hover:bg-white/10'}"
+                            >📍 {z.name}</button
+                          >
                         {/each}
                       </PillScroller>
                     {/if}
@@ -6983,20 +8360,48 @@
                 </div>
 
                 <!-- Venue Map Sync Note -->
-                <div class="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-blue-500/8 border border-blue-500/20">
-                  <svg class="w-4 h-4 mt-0.5 shrink-0 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div
+                  class="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-blue-500/8 border border-blue-500/20"
+                >
+                  <svg
+                    class="w-4 h-4 mt-0.5 shrink-0 text-blue-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    /></svg
+                  >
                   <p class="text-xs text-blue-300 leading-relaxed">
-                    <span class="font-semibold text-blue-200">Venue Map Sync:</span> Set the <span class="font-semibold text-blue-200">Location / Stage</span> to exactly match a zone name from your Venue Map — this session will automatically appear inside that block on the map, so attendees can see what's happening at each location.
+                    <span class="font-semibold text-blue-200"
+                      >Venue Map Sync:</span
+                    >
+                    Set the
+                    <span class="font-semibold text-blue-200"
+                      >Location / Stage</span
+                    > to exactly match a zone name from your Venue Map — this session
+                    will automatically appear inside that block on the map, so attendees
+                    can see what's happening at each location.
                   </p>
                 </div>
 
                 <!-- Session Timing -->
-                <div class="space-y-4 p-4 sm:p-5 bg-white/[0.03] rounded-xl border border-white/10">
+                <div
+                  class="space-y-4 p-4 sm:p-5 bg-white/[0.03] rounded-xl border border-white/10"
+                >
                   <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2">
-                      <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Session Timing</span>
+                      <span
+                        class="text-xs font-bold uppercase tracking-wider text-amber-400"
+                        >Session Timing</span
+                      >
                       {#if calculatedDurationText}
-                        <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-amber-400/15 border border-amber-400/30 text-amber-300">
+                        <span
+                          class="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-amber-400/15 border border-amber-400/30 text-amber-300"
+                        >
                           ⏱️ {calculatedDurationText}
                         </span>
                       {/if}
@@ -7005,21 +8410,26 @@
                       type="button"
                       onclick={setTimelineStartToNow}
                       class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/20 transition-colors shrink-0 cursor-pointer"
-                    >⚡ Next Available Slot</button>
+                      >⚡ Next Available Slot</button
+                    >
                   </div>
 
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <!-- Start Date & Time -->
                     <div class="space-y-1.5">
-                      <div class="text-xs text-ink-300 font-medium flex items-center justify-between">
+                      <div
+                        class="text-xs text-ink-300 font-medium flex items-center justify-between"
+                      >
                         <span>Start Date & Time</span>
-                        <span class="text-[10px] text-ink-400 font-mono">5m interval</span>
+                        <span class="text-[10px] text-ink-400 font-mono"
+                          >5m interval</span
+                        >
                       </div>
                       <div class="grid grid-cols-2 gap-2">
                         <!-- Custom Date Button -->
                         <button
                           type="button"
-                          onclick={() => openTimelineCalendar('start')}
+                          onclick={() => openTimelineCalendar("start")}
                           class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors"
                         >
                           <span class="flex items-center gap-2">
@@ -7030,8 +8440,10 @@
                         <!-- Custom Clock Time Button -->
                         <button
                           type="button"
-                          onclick={() => openTimelineClock('start')}
-                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors {isStartTimeInPast ? 'border-red-500/60 bg-red-500/10 text-red-300' : ''}"
+                          onclick={() => openTimelineClock("start")}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors {isStartTimeInPast
+                            ? 'border-red-500/60 bg-red-500/10 text-red-300'
+                            : ''}"
                         >
                           <span class="flex items-center gap-2">
                             <Clock size={14} class="text-amber-400" />
@@ -7040,7 +8452,9 @@
                         </button>
                       </div>
                       {#if isStartTimeInPast}
-                        <p class="text-[11px] text-red-400 flex items-center gap-1 font-medium pt-0.5">
+                        <p
+                          class="text-[11px] text-red-400 flex items-center gap-1 font-medium pt-0.5"
+                        >
                           ⚠️ Start time cannot be in the past.
                         </p>
                       {/if}
@@ -7048,12 +8462,14 @@
 
                     <!-- End Date & Time -->
                     <div class="space-y-1.5">
-                      <div class="text-xs text-ink-300 font-medium block">End Date & Time</div>
+                      <div class="text-xs text-ink-300 font-medium block">
+                        End Date & Time
+                      </div>
                       <div class="grid grid-cols-2 gap-2">
                         <!-- Custom Date Button -->
                         <button
                           type="button"
-                          onclick={() => openTimelineCalendar('end')}
+                          onclick={() => openTimelineCalendar("end")}
                           class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors"
                         >
                           <span class="flex items-center gap-2">
@@ -7064,8 +8480,10 @@
                         <!-- Custom Clock Time Button -->
                         <button
                           type="button"
-                          onclick={() => openTimelineClock('end')}
-                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors {isEndTimeBeforeStart ? 'border-red-500/60 bg-red-500/10 text-red-300' : ''}"
+                          onclick={() => openTimelineClock("end")}
+                          class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white transition-colors {isEndTimeBeforeStart
+                            ? 'border-red-500/60 bg-red-500/10 text-red-300'
+                            : ''}"
                         >
                           <span class="flex items-center gap-2">
                             <Clock size={14} class="text-amber-400" />
@@ -7074,7 +8492,9 @@
                         </button>
                       </div>
                       {#if isEndTimeBeforeStart}
-                        <p class="text-[11px] text-red-400 flex items-center gap-1 font-medium pt-0.5">
+                        <p
+                          class="text-[11px] text-red-400 flex items-center gap-1 font-medium pt-0.5"
+                        >
                           ⚠️ End time must be after start time.
                         </p>
                       {/if}
@@ -7089,7 +8509,8 @@
                           type="button"
                           onclick={() => applyDurationShortcut(dur.minutes)}
                           class="text-xs px-2.5 py-1 rounded-lg border bg-white/5 hover:bg-amber-400/15 hover:text-amber-300 hover:border-amber-400/30 text-ink-300 border-white/10 transition-colors font-mono whitespace-nowrap shrink-0 cursor-pointer"
-                        >+{dur.label}</button>
+                          >+{dur.label}</button
+                        >
                       {/each}
                     </PillScroller>
                   </div>
@@ -7097,7 +8518,9 @@
 
                 <!-- Description -->
                 <div class="space-y-2">
-                  <Label class="text-sm font-semibold text-white">Description</Label>
+                  <Label class="text-sm font-semibold text-white"
+                    >Description</Label
+                  >
                   <textarea
                     bind:value={timelineDescription}
                     rows="3"
@@ -7108,7 +8531,13 @@
 
                 <!-- Speaker Details -->
                 <div class="space-y-4 pt-4 border-t border-white/8">
-                  <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Speaker Information <span class="normal-case font-normal text-ink-500">(Optional)</span></span>
+                  <span
+                    class="text-xs font-bold uppercase tracking-wider text-indigo-400"
+                    >Speaker Information <span
+                      class="normal-case font-normal text-ink-500"
+                      >(Optional)</span
+                    ></span
+                  >
 
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="space-y-2">
@@ -7121,7 +8550,9 @@
                     </div>
 
                     <div class="space-y-2">
-                      <Label class="text-sm text-ink-300">Speaker Title / Role</Label>
+                      <Label class="text-sm text-ink-300"
+                        >Speaker Title / Role</Label
+                      >
                       <Input
                         bind:value={timelineSpeakerRole}
                         placeholder="e.g., VP of Engineering, OpenTech"
@@ -7131,7 +8562,9 @@
                   </div>
 
                   <div class="space-y-2">
-                    <Label class="text-sm text-ink-300">Speaker Avatar URL</Label>
+                    <Label class="text-sm text-ink-300"
+                      >Speaker Avatar URL</Label
+                    >
                     <Input
                       bind:value={timelineSpeakerAvatarUrl}
                       placeholder="https://..."
@@ -7142,7 +8575,9 @@
               </div>
 
               <!-- Footer -->
-              <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10 shrink-0">
+              <div
+                class="flex items-center justify-end gap-3 pt-4 border-t border-white/10 shrink-0"
+              >
                 <Button
                   variant="ghost"
                   onclick={() => (timelineModalOpen = false)}
@@ -7153,7 +8588,9 @@
 
                 <Button
                   onclick={saveTimelineItem}
-                  disabled={savingTimelineItem || isStartTimeInPast || isEndTimeBeforeStart}
+                  disabled={savingTimelineItem ||
+                    isStartTimeInPast ||
+                    isEndTimeBeforeStart}
                   class="gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-5 h-10 text-sm rounded-xl shadow-[0_0_14px_rgba(251,191,36,0.25)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {#if savingTimelineItem}
@@ -7161,7 +8598,7 @@
                     Saving…
                   {:else}
                     <Save size={15} />
-                    {editingTimelineItem ? 'Update Session' : 'Save Session'}
+                    {editingTimelineItem ? "Update Session" : "Save Session"}
                   {/if}
                 </Button>
               </div>
@@ -7171,41 +8608,73 @@
 
         <!-- Timeline Date Calendar Popover Modal -->
         {#if activeTimelineDatePicker}
-          <div class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-4 shadow-2xl bg-neutral-950/95">
+          <div
+            class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          >
+            <div
+              class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-4 shadow-2xl bg-neutral-950/95"
+            >
               <div class="flex items-center justify-between">
-                <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-                  {activeTimelineDatePicker === 'start' ? 'Select Start Date' : 'Select End Date'}
+                <h3
+                  class="text-sm font-bold text-white uppercase tracking-wider"
+                >
+                  {activeTimelineDatePicker === "start"
+                    ? "Select Start Date"
+                    : "Select End Date"}
                 </h3>
-                <button type="button" onclick={() => (activeTimelineDatePicker = null)} class="text-ink-400 hover:text-white">
+                <button
+                  type="button"
+                  onclick={() => (activeTimelineDatePicker = null)}
+                  class="text-ink-400 hover:text-white"
+                >
                   <X size={16} />
                 </button>
               </div>
 
-              <div class="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
-                <button type="button" onclick={prevMonth} class="text-ink-400 hover:text-white p-1">
+              <div
+                class="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2"
+              >
+                <button
+                  type="button"
+                  onclick={prevMonth}
+                  class="text-ink-400 hover:text-white p-1"
+                >
                   <ArrowLeft size={16} />
                 </button>
                 <span class="text-sm font-semibold text-white">
-                  {MONTH_NAMES[viewMonth]} {viewYear}
+                  {MONTH_NAMES[viewMonth]}
+                  {viewYear}
                 </span>
-                <button type="button" onclick={nextMonth} class="text-ink-400 hover:text-white p-1">
+                <button
+                  type="button"
+                  onclick={nextMonth}
+                  class="text-ink-400 hover:text-white p-1"
+                >
                   <ArrowRight size={16} />
                 </button>
               </div>
 
               <div class="grid grid-cols-7 gap-1 text-center">
-                {#each ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as dayHead}
-                  <span class="text-[11px] font-bold text-ink-500 py-1">{dayHead}</span>
+                {#each ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as dayHead}
+                  <span class="text-[11px] font-bold text-ink-500 py-1"
+                    >{dayHead}</span
+                  >
                 {/each}
 
                 {#each getCalendarGrid(viewYear, viewMonth) as item}
                   {#if !item}
                     <div></div>
                   {:else}
-                    {@const minAllowed = activeTimelineDatePicker === 'start' ? todayStr : (timelineStartDate || todayStr)}
+                    {@const minAllowed =
+                      activeTimelineDatePicker === "start"
+                        ? todayStr
+                        : timelineStartDate || todayStr}
                     {@const isDisabled = item.dateStr < minAllowed}
-                    {@const isSelected = item.dateStr === (activeTimelineDatePicker === 'start' ? timelineStartDate : timelineEndDate)}
+                    {@const isSelected =
+                      item.dateStr ===
+                      (activeTimelineDatePicker === "start"
+                        ? timelineStartDate
+                        : timelineEndDate)}
                     <button
                       type="button"
                       disabled={isDisabled}
@@ -7213,8 +8682,8 @@
                       class="h-9 w-9 mx-auto rounded-xl text-xs font-semibold flex items-center justify-center transition-all {isSelected
                         ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
                         : isDisabled
-                        ? 'text-white/20 cursor-not-allowed opacity-30'
-                        : 'text-ink-300 hover:bg-white/10 hover:text-white'}"
+                          ? 'text-white/20 cursor-not-allowed opacity-30'
+                          : 'text-ink-300 hover:bg-white/10 hover:text-white'}"
                     >
                       {item.day}
                     </button>
@@ -7222,8 +8691,12 @@
                 {/each}
               </div>
 
-              <div class="text-[11px] text-ink-500 text-center pt-1 border-t border-white/6">
-                Dates prior to {activeTimelineDatePicker === 'start' ? 'today' : 'start date'} are blocked.
+              <div
+                class="text-[11px] text-ink-500 text-center pt-1 border-t border-white/6"
+              >
+                Dates prior to {activeTimelineDatePicker === "start"
+                  ? "today"
+                  : "start date"} are blocked.
               </div>
             </div>
           </div>
@@ -7231,35 +8704,59 @@
 
         <!-- Timeline Clock Time Picker Popover Modal -->
         {#if activeTimelineTimePicker}
-          <div class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-5 shadow-2xl bg-neutral-950/95">
+          <div
+            class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          >
+            <div
+              class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-5 shadow-2xl bg-neutral-950/95"
+            >
               <div class="flex items-center justify-between">
-                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <h3
+                  class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2"
+                >
                   <Clock size={16} class="text-amber-400" />
-                  {activeTimelineTimePicker === 'start' ? 'Set Start Time' : 'Set End Time'}
+                  {activeTimelineTimePicker === "start"
+                    ? "Set Start Time"
+                    : "Set End Time"}
                 </h3>
-                <button type="button" onclick={() => (activeTimelineTimePicker = null)} class="text-ink-400 hover:text-white">
+                <button
+                  type="button"
+                  onclick={() => (activeTimelineTimePicker = null)}
+                  class="text-ink-400 hover:text-white"
+                >
                   <X size={16} />
                 </button>
               </div>
 
               <!-- Clock Display -->
-              <div class="flex items-center justify-center gap-3 bg-white/5 rounded-2xl p-4 border border-white/8">
-                <div class="text-3xl font-black font-mono text-white tracking-wider">
-                  {String(clockHour).padStart(2, '0')}:{String(clockMinute).padStart(2, '0')}
+              <div
+                class="flex items-center justify-center gap-3 bg-white/5 rounded-2xl p-4 border border-white/8"
+              >
+                <div
+                  class="text-3xl font-black font-mono text-white tracking-wider"
+                >
+                  {String(clockHour).padStart(2, "0")}:{String(
+                    clockMinute,
+                  ).padStart(2, "0")}
                 </div>
                 <div class="flex flex-col gap-1">
                   <button
                     type="button"
-                    onclick={() => (clockPeriod = 'AM')}
-                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'AM' ? 'bg-amber-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                    onclick={() => (clockPeriod = "AM")}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod ===
+                    'AM'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-white/5 text-ink-400 hover:text-white'}"
                   >
                     AM
                   </button>
                   <button
                     type="button"
-                    onclick={() => (clockPeriod = 'PM')}
-                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'PM' ? 'bg-amber-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                    onclick={() => (clockPeriod = "PM")}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod ===
+                    'PM'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-white/5 text-ink-400 hover:text-white'}"
                   >
                     PM
                   </button>
@@ -7268,13 +8765,17 @@
 
               <!-- Hours Selection Grid -->
               <div class="space-y-1.5">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Hour</span>
+                <span
+                  class="text-[11px] font-bold uppercase tracking-wider text-ink-400"
+                  >Hour</span
+                >
                 <div class="grid grid-cols-6 gap-1.5">
                   {#each [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as h}
                     <button
                       type="button"
                       onclick={() => (clockHour = h)}
-                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockHour === h
+                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockHour ===
+                      h
                         ? 'bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold'
                         : 'bg-white/5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10'}"
                     >
@@ -7286,24 +8787,34 @@
 
               <!-- Minutes Selection Grid -->
               <div class="space-y-1.5">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-ink-400 flex items-center justify-between">
+                <span
+                  class="text-[11px] font-bold uppercase tracking-wider text-ink-400 flex items-center justify-between"
+                >
                   <span>Minute</span>
-                  <span class="text-[9px] text-ink-500 font-normal normal-case">5m steps</span>
+                  <span class="text-[9px] text-ink-500 font-normal normal-case"
+                    >5m steps</span
+                  >
                 </span>
                 <div class="grid grid-cols-6 gap-1.5">
                   {#each [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] as m}
-                    {@const isDisabled = isTimelineTimeDisabled(clockHour, m, clockPeriod, activeTimelineTimePicker)}
+                    {@const isDisabled = isTimelineTimeDisabled(
+                      clockHour,
+                      m,
+                      clockPeriod,
+                      activeTimelineTimePicker,
+                    )}
                     <button
                       type="button"
                       disabled={isDisabled}
                       onclick={() => (clockMinute = m)}
-                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockMinute === m
+                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockMinute ===
+                      m
                         ? 'bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold'
                         : isDisabled
-                        ? 'text-white/20 cursor-not-allowed opacity-30'
-                        : 'bg-white/5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10'}"
+                          ? 'text-white/20 cursor-not-allowed opacity-30'
+                          : 'bg-white/5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10'}"
                     >
-                      {String(m).padStart(2, '0')}
+                      {String(m).padStart(2, "0")}
                     </button>
                   {/each}
                 </div>
@@ -7312,11 +8823,18 @@
               <!-- Action Buttons -->
               <div class="pt-2 flex flex-col gap-2">
                 {#if isTimelineTimeDisabled(clockHour, clockMinute, clockPeriod, activeTimelineTimePicker)}
-                  <p class="text-[11px] text-red-400 text-center font-medium">Selected time is in the past.</p>
+                  <p class="text-[11px] text-red-400 text-center font-medium">
+                    Selected time is in the past.
+                  </p>
                 {/if}
                 <Button
                   onclick={applyTimelineClockTime}
-                  disabled={isTimelineTimeDisabled(clockHour, clockMinute, clockPeriod, activeTimelineTimePicker)}
+                  disabled={isTimelineTimeDisabled(
+                    clockHour,
+                    clockMinute,
+                    clockPeriod,
+                    activeTimelineTimePicker,
+                  )}
                   class="w-full gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold disabled:opacity-50"
                 >
                   <Check size={16} />
@@ -7329,41 +8847,73 @@
 
         <!-- Settings Date Calendar Popover Modal -->
         {#if activeDatePicker}
-          <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-4 shadow-2xl bg-neutral-950/95">
+          <div
+            class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          >
+            <div
+              class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-4 shadow-2xl bg-neutral-950/95"
+            >
               <div class="flex items-center justify-between">
-                <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-                  {activeDatePicker === 'start' ? 'Select Start Date' : 'Select End Date'}
+                <h3
+                  class="text-sm font-bold text-white uppercase tracking-wider"
+                >
+                  {activeDatePicker === "start"
+                    ? "Select Start Date"
+                    : "Select End Date"}
                 </h3>
-                <button type="button" onclick={() => (activeDatePicker = null)} class="text-ink-400 hover:text-white">
+                <button
+                  type="button"
+                  onclick={() => (activeDatePicker = null)}
+                  class="text-ink-400 hover:text-white"
+                >
                   <X size={16} />
                 </button>
               </div>
 
-              <div class="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
-                <button type="button" onclick={prevMonth} class="text-ink-400 hover:text-white p-1">
+              <div
+                class="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2"
+              >
+                <button
+                  type="button"
+                  onclick={prevMonth}
+                  class="text-ink-400 hover:text-white p-1"
+                >
                   <ArrowLeft size={16} />
                 </button>
                 <span class="text-sm font-semibold text-white">
-                  {MONTH_NAMES[viewMonth]} {viewYear}
+                  {MONTH_NAMES[viewMonth]}
+                  {viewYear}
                 </span>
-                <button type="button" onclick={nextMonth} class="text-ink-400 hover:text-white p-1">
+                <button
+                  type="button"
+                  onclick={nextMonth}
+                  class="text-ink-400 hover:text-white p-1"
+                >
                   <ArrowRight size={16} />
                 </button>
               </div>
 
               <div class="grid grid-cols-7 gap-1 text-center">
-                {#each ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as dayHead}
-                  <span class="text-[11px] font-bold text-ink-500 py-1">{dayHead}</span>
+                {#each ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as dayHead}
+                  <span class="text-[11px] font-bold text-ink-500 py-1"
+                    >{dayHead}</span
+                  >
                 {/each}
 
                 {#each getCalendarGrid(viewYear, viewMonth) as item}
                   {#if !item}
                     <div></div>
                   {:else}
-                    {@const minAllowed = activeDatePicker === 'start' ? todayStr : (settingsStartDate || todayStr)}
+                    {@const minAllowed =
+                      activeDatePicker === "start"
+                        ? todayStr
+                        : settingsStartDate || todayStr}
                     {@const isDisabled = item.dateStr < minAllowed}
-                    {@const isSelected = item.dateStr === (activeDatePicker === 'start' ? settingsStartDate : settingsEndDate)}
+                    {@const isSelected =
+                      item.dateStr ===
+                      (activeDatePicker === "start"
+                        ? settingsStartDate
+                        : settingsEndDate)}
                     <button
                       type="button"
                       disabled={isDisabled}
@@ -7371,8 +8921,8 @@
                       class="h-9 w-9 mx-auto rounded-xl text-xs font-semibold flex items-center justify-center transition-all {isSelected
                         ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
                         : isDisabled
-                        ? 'text-white/20 cursor-not-allowed opacity-30'
-                        : 'text-ink-300 hover:bg-white/10 hover:text-white'}"
+                          ? 'text-white/20 cursor-not-allowed opacity-30'
+                          : 'text-ink-300 hover:bg-white/10 hover:text-white'}"
                     >
                       {item.day}
                     </button>
@@ -7380,8 +8930,12 @@
                 {/each}
               </div>
 
-              <div class="text-[11px] text-ink-500 text-center pt-1 border-t border-white/6">
-                Dates prior to {activeDatePicker === 'start' ? 'today' : 'start date'} are blocked.
+              <div
+                class="text-[11px] text-ink-500 text-center pt-1 border-t border-white/6"
+              >
+                Dates prior to {activeDatePicker === "start"
+                  ? "today"
+                  : "start date"} are blocked.
               </div>
             </div>
           </div>
@@ -7389,34 +8943,58 @@
 
         <!-- Settings Clock Time Picker Popover Modal -->
         {#if activeTimePicker}
-          <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-5 shadow-2xl bg-neutral-950/95">
+          <div
+            class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          >
+            <div
+              class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-5 shadow-2xl bg-neutral-950/95"
+            >
               <div class="flex items-center justify-between">
-                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <h3
+                  class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2"
+                >
                   <Clock size={16} class="text-indigo-400" />
-                  {activeTimePicker === 'start' ? 'Set Start Time' : 'Set End Time'}
+                  {activeTimePicker === "start"
+                    ? "Set Start Time"
+                    : "Set End Time"}
                 </h3>
-                <button type="button" onclick={() => (activeTimePicker = null)} class="text-ink-400 hover:text-white">
+                <button
+                  type="button"
+                  onclick={() => (activeTimePicker = null)}
+                  class="text-ink-400 hover:text-white"
+                >
                   <X size={16} />
                 </button>
               </div>
 
-              <div class="flex items-center justify-center gap-3 bg-white/5 rounded-2xl p-4 border border-white/8">
-                <div class="text-3xl font-black font-mono text-white tracking-wider">
-                  {String(clockHour).padStart(2, '0')}:{String(clockMinute).padStart(2, '0')}
+              <div
+                class="flex items-center justify-center gap-3 bg-white/5 rounded-2xl p-4 border border-white/8"
+              >
+                <div
+                  class="text-3xl font-black font-mono text-white tracking-wider"
+                >
+                  {String(clockHour).padStart(2, "0")}:{String(
+                    clockMinute,
+                  ).padStart(2, "0")}
                 </div>
                 <div class="flex flex-col gap-1">
                   <button
                     type="button"
-                    onclick={() => (clockPeriod = 'AM')}
-                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'AM' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                    onclick={() => (clockPeriod = "AM")}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod ===
+                    'AM'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-white/5 text-ink-400 hover:text-white'}"
                   >
                     AM
                   </button>
                   <button
                     type="button"
-                    onclick={() => (clockPeriod = 'PM')}
-                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'PM' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                    onclick={() => (clockPeriod = "PM")}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod ===
+                    'PM'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-white/5 text-ink-400 hover:text-white'}"
                   >
                     PM
                   </button>
@@ -7424,13 +9002,17 @@
               </div>
 
               <div class="space-y-1.5">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Hour</span>
+                <span
+                  class="text-[11px] font-bold uppercase tracking-wider text-ink-400"
+                  >Hour</span
+                >
                 <div class="grid grid-cols-6 gap-1.5">
                   {#each [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as h}
                     <button
                       type="button"
                       onclick={() => (clockHour = h)}
-                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockHour === h
+                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockHour ===
+                      h
                         ? 'bg-indigo-500/30 border border-indigo-400/50 text-indigo-300 font-bold'
                         : 'bg-white/4 border border-white/6 text-ink-300 hover:bg-white/10 hover:text-white'}"
                     >
@@ -7441,17 +9023,21 @@
               </div>
 
               <div class="space-y-1.5">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Minute</span>
+                <span
+                  class="text-[11px] font-bold uppercase tracking-wider text-ink-400"
+                  >Minute</span
+                >
                 <div class="grid grid-cols-4 gap-2">
                   {#each [0, 15, 30, 45] as m}
                     <button
                       type="button"
                       onclick={() => (clockMinute = m)}
-                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockMinute === m
+                      class="py-2 rounded-xl text-xs font-semibold transition-all {clockMinute ===
+                      m
                         ? 'bg-indigo-500/30 border border-indigo-400/50 text-indigo-300 font-bold'
                         : 'bg-white/4 border border-white/6 text-ink-300 hover:bg-white/10 hover:text-white'}"
                     >
-                      :{String(m).padStart(2, '0')}
+                      :{String(m).padStart(2, "0")}
                     </button>
                   {/each}
                 </div>
@@ -7465,7 +9051,6 @@
         {/if}
       </div>
     {/if}
-
 
     <!-- Edit Event Modal -->
     <Dialog.Root bind:open={editEventModalOpen}>
@@ -7490,28 +9075,39 @@
           </div>
 
           <div class="space-y-1.5">
-            <Label class="text-xs uppercase tracking-widest text-ink-400 font-semibold">
+            <Label
+              class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
+            >
               Event Format
             </Label>
             <div class="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg border text-xs font-semibold transition {editEventFormat === 'offline' ? 'bg-amber-400/15 border-amber-400/40 text-amber-300' : 'bg-white/4 border-white/8 text-ink-400 hover:text-white'}"
-                onclick={() => editEventFormat = 'offline'}
+                class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg border text-xs font-semibold transition {editEventFormat ===
+                'offline'
+                  ? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
+                  : 'bg-white/4 border-white/8 text-ink-400 hover:text-white'}"
+                onclick={() => (editEventFormat = "offline")}
               >
                 <MapPin size={13} /> Offline
               </button>
               <button
                 type="button"
-                class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg border text-xs font-semibold transition {editEventFormat === 'online' ? 'bg-amber-400/15 border-amber-400/40 text-amber-300' : 'bg-white/4 border-white/8 text-ink-400 hover:text-white'}"
-                onclick={() => editEventFormat = 'online'}
+                class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg border text-xs font-semibold transition {editEventFormat ===
+                'online'
+                  ? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
+                  : 'bg-white/4 border-white/8 text-ink-400 hover:text-white'}"
+                onclick={() => (editEventFormat = "online")}
               >
                 <Globe size={13} /> Online
               </button>
               <button
                 type="button"
-                class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg border text-xs font-semibold transition {editEventFormat === 'hybrid' ? 'bg-amber-400/15 border-amber-400/40 text-amber-300' : 'bg-white/4 border-white/8 text-ink-400 hover:text-white'}"
-                onclick={() => editEventFormat = 'hybrid'}
+                class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg border text-xs font-semibold transition {editEventFormat ===
+                'hybrid'
+                  ? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
+                  : 'bg-white/4 border-white/8 text-ink-400 hover:text-white'}"
+                onclick={() => (editEventFormat = "hybrid")}
               >
                 <Globe size={13} /> Hybrid
               </button>
@@ -7551,17 +9147,21 @@
             <Label
               for="edit-location"
               class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
-              >{editEventFormat === 'online' ? 'Meeting Link' : 'Location / Venue Address'}</Label
+              >{editEventFormat === "online"
+                ? "Meeting Link"
+                : "Location / Venue Address"}</Label
             >
             <Input
               id="edit-location"
               bind:value={editEventLocation}
-              placeholder={editEventFormat === 'online' ? 'https://meet.google.com/xyz' : 'Venue address'}
+              placeholder={editEventFormat === "online"
+                ? "https://meet.google.com/xyz"
+                : "Venue address"}
               class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
             />
           </div>
 
-          {#if editEventFormat !== 'online'}
+          {#if editEventFormat !== "online"}
             <div class="space-y-1.5">
               <Label
                 for="edit-map-url"
@@ -7606,8 +9206,12 @@
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4">
-              <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+            <div
+              class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4"
+            >
+              <span
+                class="text-xs font-semibold text-white flex items-center gap-1.5"
+              >
                 <Megaphone size={13} class="text-rose-400" />
                 Enable Announcements
               </span>
@@ -7618,8 +9222,12 @@
               />
             </div>
 
-            <div class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4">
-              <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+            <div
+              class="flex items-center justify-between p-3 rounded-xl border border-white/8 bg-white/4"
+            >
+              <span
+                class="text-xs font-semibold text-white flex items-center gap-1.5"
+              >
                 <Lock size={13} class="text-amber-400" />
                 Require Host Approval
               </span>
@@ -7713,23 +9321,37 @@
 
     <!-- Announcement Create/Edit Modal -->
     <Dialog.Root bind:open={showAnnouncementModal}>
-      <Dialog.Content class="sm:max-w-xl bg-[#0f0f11] border border-white/10 text-white p-6 sm:p-8">
+      <Dialog.Content
+        class="sm:max-w-xl bg-[#0f0f11] border border-white/10 text-white p-6 sm:p-8"
+      >
         <Dialog.Header class="space-y-1.5 mb-5">
           <div class="flex items-center gap-2">
             <Megaphone size={18} class="text-rose-400" />
             <Dialog.Title class="text-lg font-bold text-white">
-              {editingAnnouncement ? "Edit Announcement" : "Create Announcement"}
+              {editingAnnouncement
+                ? "Edit Announcement"
+                : "Create Announcement"}
             </Dialog.Title>
           </div>
           <Dialog.Description class="text-xs text-ink-400">
-            {editingAnnouncement ? "Modify this event update broadcast for attendees." : "Broadcast an official update or notice to all event attendees."}
+            {editingAnnouncement
+              ? "Modify this event update broadcast for attendees."
+              : "Broadcast an official update or notice to all event attendees."}
           </Dialog.Description>
         </Dialog.Header>
 
-        <form onsubmit={(e) => { e.preventDefault(); handleSaveAnnouncement(); }} class="space-y-4">
+        <form
+          onsubmit={(e) => {
+            e.preventDefault();
+            handleSaveAnnouncement();
+          }}
+          class="space-y-4"
+        >
           <!-- Title -->
           <div class="space-y-2">
-            <Label class="text-xs font-semibold uppercase tracking-wider text-ink-300">
+            <Label
+              class="text-xs font-semibold uppercase tracking-wider text-ink-300"
+            >
               Title <span class="text-rose-400">*</span>
             </Label>
             <Input
@@ -7742,7 +9364,9 @@
 
           <!-- Content -->
           <div class="space-y-2">
-            <Label class="text-xs font-semibold uppercase tracking-wider text-ink-300">
+            <Label
+              class="text-xs font-semibold uppercase tracking-wider text-ink-300"
+            >
               Content / Notice Details <span class="text-rose-400">*</span>
             </Label>
             <textarea
@@ -7750,31 +9374,42 @@
               rows="5"
               placeholder="Write the details of your announcement here..."
               class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm text-white placeholder:text-ink-600 focus:border-rose-400/50 focus:outline-none focus:ring-1 focus:ring-rose-400/20 resize-y"
-              required
-            ></textarea>
+              required></textarea>
           </div>
 
           <!-- Priority & Pin Row -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <!-- Priority selector -->
             <div class="space-y-2">
-              <Label class="text-xs font-semibold uppercase tracking-wider text-ink-300">
+              <Label
+                class="text-xs font-semibold uppercase tracking-wider text-ink-300"
+              >
                 Priority Level
               </Label>
               <select
                 bind:value={announcementPriority}
                 class="w-full bg-[#18181b] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:border-rose-400/50 focus:outline-none"
               >
-                <option value="normal" class="bg-[#18181b] text-white">Normal</option>
-                <option value="high" class="bg-[#18181b] text-amber-300">High Priority</option>
-                <option value="urgent" class="bg-[#18181b] text-rose-400">Urgent</option>
-                <option value="low" class="bg-[#18181b] text-ink-400">Low Priority</option>
+                <option value="normal" class="bg-[#18181b] text-white"
+                  >Normal</option
+                >
+                <option value="high" class="bg-[#18181b] text-amber-300"
+                  >High Priority</option
+                >
+                <option value="urgent" class="bg-[#18181b] text-rose-400"
+                  >Urgent</option
+                >
+                <option value="low" class="bg-[#18181b] text-ink-400"
+                  >Low Priority</option
+                >
               </select>
             </div>
 
             <!-- Pin Toggle -->
             <div class="space-y-2">
-              <Label class="text-xs font-semibold uppercase tracking-wider text-ink-300">
+              <Label
+                class="text-xs font-semibold uppercase tracking-wider text-ink-300"
+              >
                 Pin to Top
               </Label>
               <button
@@ -7782,19 +9417,31 @@
                 onclick={() => (announcementIsPinned = !announcementIsPinned)}
                 class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/4 hover:bg-white/8 transition-colors"
               >
-                <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+                <span
+                  class="text-xs font-semibold text-white flex items-center gap-1.5"
+                >
                   <Pin size={13} class="text-amber-400 rotate-45" />
                   {announcementIsPinned ? "Pinned" : "Normal Position"}
                 </span>
-                <div class="w-8 h-4.5 rounded-full transition-colors relative {announcementIsPinned ? 'bg-amber-500' : 'bg-white/15'}">
-                  <div class="w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 left-0.5 transition-transform {announcementIsPinned ? 'translate-x-3.5' : 'translate-x-0'}"></div>
+                <div
+                  class="w-8 h-4.5 rounded-full transition-colors relative {announcementIsPinned
+                    ? 'bg-amber-500'
+                    : 'bg-white/15'}"
+                >
+                  <div
+                    class="w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 left-0.5 transition-transform {announcementIsPinned
+                      ? 'translate-x-3.5'
+                      : 'translate-x-0'}"
+                  ></div>
                 </div>
               </button>
             </div>
           </div>
 
           <!-- Buttons -->
-          <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+          <div
+            class="flex items-center justify-end gap-3 pt-4 border-t border-white/10"
+          >
             <Button
               type="button"
               variant="ghost"
@@ -7805,14 +9452,18 @@
             </Button>
             <Button
               type="submit"
-              disabled={savingAnnouncement || !announcementTitle.trim() || !announcementContent.trim()}
+              disabled={savingAnnouncement ||
+                !announcementTitle.trim() ||
+                !announcementContent.trim()}
               class="gap-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-semibold text-xs px-5 h-9"
             >
               {#if savingAnnouncement}
                 <LoaderCircle size={14} class="animate-spin" /> Saving…
               {:else}
                 <Megaphone size={14} />
-                {editingAnnouncement ? "Update Announcement" : "Post Announcement"}
+                {editingAnnouncement
+                  ? "Update Announcement"
+                  : "Post Announcement"}
               {/if}
             </Button>
           </div>

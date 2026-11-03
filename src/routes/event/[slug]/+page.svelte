@@ -1851,11 +1851,31 @@
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
   }
+  let networkProfileCheckComplete = Boolean(data.networkProfile) || !data.isParticipant;
+  let checkingStoredNetworkProfile = false;
+
+  async function loadStoredNetworkProfile() {
+    if (networkProfileCheckComplete || checkingStoredNetworkProfile || !data.isParticipant) return;
+    checkingStoredNetworkProfile = true;
+    try {
+      const res = await fetch(`/api/network_profiles?event_id=${encodeURIComponent(data.event.id)}`, { credentials: "include" });
+      const payload = await res.json().catch(() => ({}));
+      if (res.ok && payload.profile) {
+        networkingProfile = { ...networkingProfile, ...payload.profile };
+        data = { ...data, networkProfile: payload.profile };
+      }
+    } catch (error) {
+      console.warn("Could not check the saved networking profile", error);
+    } finally {
+      networkProfileCheckComplete = true;
+      checkingStoredNetworkProfile = false;
+    }
+  }
   let profileFillMode = "ai"; // "ai" | "manual"
-  $: hasCompletedProfile = Boolean(
-    data.networkProfile ||
-    (networkingProfile?.whatTheyDo?.trim()?.length >= 10 && networkingProfile?.whoTheyWant?.trim()?.length >= 10)
-  );
+  // A generated or manually typed draft is not complete until it is saved.
+  // Otherwise AI generation fills the fields and immediately hides its own
+  // review form before the attendee can save the profile.
+  $: hasCompletedProfile = Boolean(data.networkProfile);
   let loadingConnections = false;
   let connectionFilter = "received"; // received | sent | connected | met
   let networkFilter = "matches"; // matches | received | connected | sent | met
@@ -1963,6 +1983,7 @@
     if (!loadingConnections) {
       fetchAllConnections();
     }
+    loadStoredNetworkProfile();
   } else if ($activeTab !== "network") {
     lastSeenNetworkTab = $activeTab;
   }
@@ -2271,12 +2292,13 @@
         };
       };
       if (profilePayload.profile) {
-        data.networkProfile = profilePayload.profile;
+        data = { ...data, networkProfile: profilePayload.profile };
         networkingProfile = {
           ...networkingProfile,
           ...normalizeProfile(profilePayload.profile),
         };
       }
+      networkProfileCheckComplete = true;
       stage = "workspace";
       editProfileOpen = false;
       toast.success("Networking profile saved", {
@@ -4732,7 +4754,11 @@
 {#if Boolean(currentEvent.is_network_enabled)}
           <!-- Network tab (unified Matches + Connections) -->
           <Tabs.Content value="network" class="mt-4">
-            {#if !hasCompletedProfile}
+            {#if !networkProfileCheckComplete}
+              <div class="flex min-h-56 items-center justify-center rounded-3xl border border-white/8 bg-white/[0.03]">
+                <LoaderCircle size={22} class="animate-spin text-violet-300" />
+              </div>
+            {:else if !hasCompletedProfile}
               <!-- ─── PROFILE STAGE IN NETWORK TAB ─── -->
               <div class="mx-auto max-w-5xl animate-slide-up my-4">
                 <div

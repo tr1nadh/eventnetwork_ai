@@ -216,8 +216,9 @@ export const load = async ({ params, locals }) => {
   let networkProfile = null;
   let suggestedMatches = [];
   
-  if (isParticipant) {
-    // Fetch profile and matches in parallel to speed up load time
+  if (isParticipant || isOrganizer) {
+    // Hosts can switch to attendee view, so load their event profile too.
+    // Fetch profile and matches in parallel to speed up load time.
     const [profileRes, matchRes] = await Promise.all([
       admin
         .from('network_profiles')

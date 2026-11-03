@@ -1851,11 +1851,13 @@
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
   }
-  let networkProfileCheckComplete = Boolean(data.networkProfile) || !data.isParticipant;
+  let canUseEventNetworking = Boolean(data.isParticipant || data.isOrganizer);
+  $: canUseEventNetworking = Boolean(data.isParticipant || data.isOrganizer);
+  let networkProfileCheckComplete = Boolean(data.networkProfile) || !(data.isParticipant || data.isOrganizer);
   let checkingStoredNetworkProfile = false;
 
   async function loadStoredNetworkProfile() {
-    if (networkProfileCheckComplete || checkingStoredNetworkProfile || !data.isParticipant) return;
+    if (networkProfileCheckComplete || checkingStoredNetworkProfile || !canUseEventNetworking) return;
     checkingStoredNetworkProfile = true;
     try {
       const res = await fetch(`/api/network_profiles?event_id=${encodeURIComponent(data.event.id)}`, { credentials: "include" });
@@ -1978,7 +1980,7 @@
 
   // Auto-sync connections when Network tab is selected
   let lastSeenNetworkTab = "";
-  $: if ($activeTab === "network" && data.isParticipant && lastSeenNetworkTab !== "network") {
+  $: if ($activeTab === "network" && canUseEventNetworking && lastSeenNetworkTab !== "network") {
     lastSeenNetworkTab = "network";
     if (!loadingConnections) {
       fetchAllConnections();

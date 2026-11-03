@@ -74,39 +74,84 @@ The current user's networking profile (create profiles relevant to this person):
   }
 
   // ── 1. Clean up previous dummy users for this event ──────────────────
-  const dummyEmailPattern = `dummy%+${event_id}@Evenai.ai`;
-  const { data: existingDummies } = await supabase
-    .from('network_profiles')
-    .select('user_id')
-    .eq('event_id', event_id)
-    .filter('user_id', 'in', `(SELECT id FROM auth.users WHERE email ILIKE '${dummyEmailPattern}')`);
-
-  // Clean up by querying users table for matching dummy emails
-  const { data: existingUsers } = await supabase
-    .rpc('get_dummy_user_ids', { pattern: dummyEmailPattern })
-    .select('id');
-
-  // Fallback: look up dummy users by email in auth
+  // Auth user listing is paginated. Looking only at its first page left old
+  // dummies behind in established projects, so subsequent simulations failed
+  // on duplicate email addresses.
+  const dummyEmails = new Set(
+    Array.from({ length: 10 }, (_, index) =>
+      `dummy${index + 1}+${event_id}@evenai.ai`
+    )
+  );
   const dummyIds = [];
+  let page = 1;
+  let hasMoreUsers = true;
 
-  // We cannot trust listUsers to filter properly, so fetch all and filter manually
-  const { data: list } = await supabase.auth.admin.listUsers();
-  const allUsers = list?.users ?? [];
-
-  for (let i = 1; i <= 10; i++) {
-    const email = `dummy${i}+${event_id}@Evenai.ai`;
-    const foundUser = allUsers.find(u => u.email === email);
-    if (foundUser) {
-      dummyIds.push(foundUser.id);
+  while (hasMoreUsers) {
+    const { data: listedUsers, error: listUsersError } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 1000
+    });
+    if (listUsersError) {
+      await refundAiCredit(locals.user.id);
+      return json({ error: `Could not prepare the simulation: ${listUsersError.message}` }, { status: 500 });
     }
+
+    const users = listedUsers?.users ?? [];
+    for (const listedUser of users) {
+      if (dummyEmails.has(listedUser.email?.toLowerCase())) {
+        dummyIds.push(listedUser.id);
+      }
+    }
+
+    hasMoreUsers = users.length === 1000;
+    page += 1;
   }
 
-  // Delete associated data, then auth users
+  // Remove records that can reference dummy accounts before deleting them.
   if (dummyIds.length > 0) {
-    await supabase.from('network_profiles').delete().in('user_id', dummyIds);
-    await supabase.from('event_participants').delete().in('user_id', dummyIds);
+    const { data: dummyConnections, error: connectionLookupError } = await supabase
+      .from('connections')
+      .select('id')
+      .eq('event_id', event_id)
+      .or(`sender_user_id.in.(${dummyIds.join(',')}),receiver_user_id.in.(${dummyIds.join(',')})`);
+    if (connectionLookupError) {
+      await refundAiCredit(locals.user.id);
+      return json({ error: `Could not prepare the simulation: ${connectionLookupError.message}` }, { status: 500 });
+    }
+
+    const connectionIds = (dummyConnections ?? []).map((connection) => connection.id);
+    if (connectionIds.length) {
+      const { error: messagesError } = await supabase.from('messages').delete().in('connection_id', connectionIds);
+      if (messagesError) {
+        await refundAiCredit(locals.user.id);
+        return json({ error: `Could not reset the previous simulation: ${messagesError.message}` }, { status: 500 });
+      }
+
+      const { error: connectionsError } = await supabase.from('connections').delete().in('id', connectionIds);
+      if (connectionsError) {
+        await refundAiCredit(locals.user.id);
+        return json({ error: `Could not reset the previous simulation: ${connectionsError.message}` }, { status: 500 });
+      }
+    }
+
+    const cleanupQueries = [
+      supabase.from('matches').delete().eq('event_id', event_id).in('matched_user_id', dummyIds),
+      supabase.from('network_profiles').delete().eq('event_id', event_id).in('user_id', dummyIds),
+      supabase.from('event_participants').delete().eq('event_id', event_id).in('user_id', dummyIds)
+    ];
+    const cleanupResults = await Promise.all(cleanupQueries);
+    const cleanupError = cleanupResults.find((result) => result.error)?.error;
+    if (cleanupError) {
+      await refundAiCredit(locals.user.id);
+      return json({ error: `Could not reset the previous simulation: ${cleanupError.message}` }, { status: 500 });
+    }
+
     for (const id of dummyIds) {
-      await supabase.auth.admin.deleteUser(id);
+      const { error: deleteUserError } = await supabase.auth.admin.deleteUser(id);
+      if (deleteUserError) {
+        await refundAiCredit(locals.user.id);
+        return json({ error: `Could not reset the previous simulation: ${deleteUserError.message}` }, { status: 500 });
+      }
     }
   }
 
@@ -144,6 +189,9 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.8,
+      // Five detailed profiles regularly exceed the shared helper's 2,048-token
+      // default, which truncates the JSON response before its closing bracket.
+      max_tokens: 5000,
       response_format: { type: 'json_object' }
     });
 
@@ -199,8 +247,8 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
       endIdx = jsonStr.lastIndexOf(endChar, endIdx - 1);
     }
 
-    if (!parsed || profiles.length < 1) {
-      throw new Error(`LLM did not return a valid array of profiles. Raw content: ${content}`);
+    if (!parsed || profiles.length !== 5) {
+      throw new Error(`LLM did not return five complete profiles. Raw content: ${content}`);
     }
   } catch (err) {
     console.error('LLM profile generation failed:', err);

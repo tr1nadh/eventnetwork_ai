@@ -5053,14 +5053,16 @@
                     {#if refreshingMatches}<LoaderCircle size={13} class="animate-spin" />{:else}<Sparkles size={13} />{/if}
                     {refreshingMatches ? "Finding…" : "Find Matches"}
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
-                    onclick={() => (dummyModalOpen = true)}
-                  >
-                    <Users size={13} /> Simulation
-                  </Button>
+                  {#if data.isOrganizer}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                      onclick={() => (dummyModalOpen = true)}
+                    >
+                      <Users size={13} /> Simulation
+                    </Button>
+                  {/if}
                 </div>
               </div>
             </div>
@@ -5646,16 +5648,18 @@
                   </Button>
                 </div>
 
-                <div class="flex-1 sm:flex-none w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    class="w-full gap-2 border-white/10 text-white hover:bg-white/10"
-                    onclick={() => (dummyModalOpen = true)}
-                  >
-                    <Users size={15} />
-                    Simulation
-                  </Button>
-                </div>
+                {#if data.isOrganizer}
+                  <div class="flex-1 sm:flex-none w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      class="w-full gap-2 border-white/10 text-white hover:bg-white/10"
+                      onclick={() => (dummyModalOpen = true)}
+                    >
+                      <Users size={15} />
+                      Simulation
+                    </Button>
+                  </div>
+                {/if}
               </div>
             </div>
             {#if refreshingMatches}

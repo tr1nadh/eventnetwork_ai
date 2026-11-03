@@ -5605,7 +5605,7 @@
                         Generating fields...
                       {:else}
                         <Sparkles size={12} class="mr-2" />
-                        Auto-fill below fields
+                        Auto-fill below fields - 1 AI Credit
                       {/if}
                     </Button>
                     <div
@@ -6007,7 +6007,7 @@
                               size={13}
                               class="animate-spin"
                             />{:else}<RefreshCcw size={13} />{/if}
-                          Refresh
+                          Refresh matches
                         </Button>
                         <Button
                           size="sm"
@@ -6061,18 +6061,6 @@
                       </button>
                     {/each}
 
-                    <!-- Refresh connections -->
-                    <button
-                      onclick={fetchAllConnections}
-                      disabled={loadingConnections}
-                      class="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border border-white/8 bg-white/4 text-ink-400 hover:text-white hover:border-white/20 transition-all"
-                    >
-                      <RefreshCw
-                        size={13}
-                        class={loadingConnections ? "animate-spin" : ""}
-                      />
-                      Sync
-                    </button>
                   </div>
 
                   <!-- ── AI MATCHES view ── -->
@@ -6650,7 +6638,7 @@
                     {:else}
                       <RefreshCcw size={15} />
                     {/if}
-                    <span class="hidden sm:inline">Refresh</span>
+                    <span class="hidden sm:inline">Refresh matches</span>
                   </Button>
                   <div class="flex-1 sm:flex-none w-full sm:w-auto">
                     <Button

@@ -5118,121 +5118,45 @@
                       ></div>
 
                       <div class="flex-1 flex flex-col p-5">
-                        <Tabs.Root
-                          value="ai-insights"
-                          class="flex-1 flex flex-col"
-                        >
-                          <Tabs.List
-                            class="grid w-full grid-cols-2 mb-4 bg-white/5 border border-white/10 rounded-xl p-1"
-                          >
-                            <Tabs.Trigger
-                              value="ai-insights"
-                              class="rounded-lg text-xs font-semibold data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-300"
+                        <div class="flex-1 space-y-4">
+                          <div class="flex items-start justify-between gap-3">
+                            <h3 class="text-base font-bold text-white">
+                              {match.name}
+                            </h3>
+                            <span
+                              class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
                             >
-                              🤖 AI Insights
-                            </Tabs.Trigger>
-                            <Tabs.Trigger
-                              value="profile"
-                              class="rounded-lg text-xs font-semibold data-[state=active]:bg-white/10 data-[state=active]:text-white"
-                            >
-                              👤 Profile
-                            </Tabs.Trigger>
-                          </Tabs.List>
+                              {match.matchPercentage ?? "—"}% Match
+                            </span>
+                          </div>
 
-                          <!-- AI Insights Tab -->
-                          <Tabs.Content
-                            value="ai-insights"
-                            class="flex-1 space-y-4 outline-none m-0"
-                          >
-                            <div
-                              class="flex items-start justify-between gap-3 mb-2"
-                            >
-                              <div>
-                                <h3 class="text-base font-bold text-white">
-                                  {match.name}
-                                </h3>
-                                <p class="mt-0.5 text-xs text-ink-400">
-                                  AI Match Analysis
-                                </p>
-                              </div>
-                              <span
-                                class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
-                              >
-                                {match.matchPercentage ?? "—"}% Match
-                              </span>
-                            </div>
+                          <div class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-4">
+                            <p class="mb-2 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
+                              Reason for match
+                            </p>
+                            <p class="text-sm leading-6 text-ink-300">
+                              {match.explanation || "This person is a relevant match based on your networking profile."}
+                            </p>
+                          </div>
 
-                            {#if match.explanation}
-                              <div
-                                class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-4"
-                              >
-                                <p
-                                  class="text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2"
-                                >
-                                  Why this match
-                                </p>
-                                <p class="text-sm leading-6 text-ink-300">
-                                  {match.explanation}
-                                </p>
-                              </div>
-                            {:else}
-                              <div
-                                class="rounded-xl border border-white/5 bg-white/5 p-4 text-center"
-                              >
-                                <p class="text-xs text-ink-400">
-                                  No detailed AI insights available for this
-                                  match.
-                                </p>
-                              </div>
-                            {/if}
-                          </Tabs.Content>
+                          <div>
+                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500">
+                              What they do
+                            </p>
+                            <p class="text-sm leading-6 text-ink-300">
+                              {match.role}{match.company ? ` · ${match.company}` : ""}
+                            </p>
+                          </div>
 
-                          <!-- Profile Tab -->
-                          <Tabs.Content
-                            value="profile"
-                            class="flex-1 space-y-4 outline-none m-0"
-                          >
-                            <div
-                              class="flex items-start justify-between gap-3 mb-2"
-                            >
-                              <div>
-                                <h3 class="text-base font-bold text-white">
-                                  {match.name}
-                                </h3>
-                                <p class="mt-0.5 text-xs text-ink-400">
-                                  {match.role}{match.company
-                                    ? ` · ${match.company}`
-                                    : ""}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div class="space-y-3">
-                              <div>
-                                <p
-                                  class="text-[10px] font-bold uppercase tracking-widest text-ink-500 mb-1"
-                                >
-                                  About Me
-                                </p>
-                                <p class="text-xs leading-5 text-ink-300">
-                                  {match.about}
-                                </p>
-                              </div>
-                            </div>
-
-                            {#if match.tags?.length}
-                              <div class="flex flex-wrap gap-1.5 pt-2">
-                                {#each match.tags.slice(0, 4) as tag}
-                                  <span
-                                    class="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-[10px] text-ink-400"
-                                  >
-                                    #{tag}
-                                  </span>
-                                {/each}
-                              </div>
-                            {/if}
-                          </Tabs.Content>
-                        </Tabs.Root>
+                          <div>
+                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500">
+                              About them
+                            </p>
+                            <p class="text-sm leading-6 text-ink-300">
+                              {match.about}
+                            </p>
+                          </div>
+                        </div>
                         <!-- Connect Button -->
                         <div class="pt-4 mt-auto">
                           {#if !conn || conn.status === "cancelled"}

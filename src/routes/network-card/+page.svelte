@@ -1,6 +1,6 @@
 <script>
   import { onDestroy, onMount, tick } from 'svelte';
-  import { Camera, Edit3, ImageUp, LoaderCircle, Save, Share2, X } from '@lucide/svelte';
+  import { Camera, Edit3, LoaderCircle, Save, ScanLine, Share2, X } from '@lucide/svelte';
   import QRCode from 'qrcode';
   import jsQR from 'jsqr';
   import PageShell from '$lib/components/page-shell.svelte';
@@ -34,7 +34,7 @@
   let scannerStream;
   let scanTimer;
   let scannerCanvas;
-  let imageScannerInput;
+  let scannerCapturing = false;
 
   function scanQrValue(rawValue) {
     if (!rawValue) return false;
@@ -49,36 +49,30 @@
     return false;
   }
 
-  async function scanImage(event) {
-    const imageFile = event.currentTarget.files?.[0];
-    event.currentTarget.value = '';
-    if (!imageFile) return;
+  function decodeCameraFrame() {
+    if (!scannerVideo?.videoWidth || !scannerCanvas) {
+      throw new Error('Camera is still starting. Please wait a moment and try again.');
+    }
 
+    scannerCanvas.width = scannerVideo.videoWidth;
+    scannerCanvas.height = scannerVideo.videoHeight;
+    const context = scannerCanvas.getContext('2d', { willReadFrequently: true });
+    context?.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
+    const image = context?.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
+    return image ? jsQR(image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' })?.data : undefined;
+  }
+
+  function captureAndScan() {
     scannerError = '';
-    scannerStarting = true;
+    scannerCapturing = true;
     try {
-      const imageUrl = URL.createObjectURL(imageFile);
-      const image = new Image();
-      image.src = imageUrl;
-      await new Promise((resolve, reject) => {
-        image.onload = resolve;
-        image.onerror = () => reject(new Error('The selected image could not be read.'));
-      });
-      URL.revokeObjectURL(imageUrl);
-
-      const canvas = document.createElement('canvas');
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
-      const context = canvas.getContext('2d', { willReadFrequently: true });
-      context?.drawImage(image, 0, 0);
-      const pixels = context?.getImageData(0, 0, canvas.width, canvas.height);
-      const result = pixels && jsQR(pixels.data, pixels.width, pixels.height, { inversionAttempts: 'attemptBoth' });
-      if (!result) throw new Error('No QR code was found in that image. Try a clearer, closer photo.');
-      scanQrValue(result.data);
+      const rawValue = decodeCameraFrame();
+      if (!rawValue) throw new Error('No QR code found. Hold the QR code inside the camera frame, then try again.');
+      scanQrValue(rawValue);
     } catch (error) {
-      scannerError = error.message || 'Could not scan that image.';
+      scannerError = error.message || 'Could not scan the camera frame.';
     } finally {
-      scannerStarting = false;
+      scannerCapturing = false;
     }
   }
 
@@ -185,12 +179,7 @@
           // BarcodeDetector is unavailable in Safari and some mobile/in-app browsers.
           // Decode the current video frame in JavaScript as a compatible fallback.
           if (!rawValue && scannerVideo.videoWidth && scannerCanvas) {
-            scannerCanvas.width = scannerVideo.videoWidth;
-            scannerCanvas.height = scannerVideo.videoHeight;
-            const context = scannerCanvas.getContext('2d', { willReadFrequently: true });
-            context?.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
-            const image = context?.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
-            rawValue = image ? jsQR(image.data, image.width, image.height, { inversionAttempts: 'dontInvert' })?.data : undefined;
+            rawValue = decodeCameraFrame();
           }
           if (rawValue) {
             if (scanQrValue(rawValue)) return;
@@ -224,8 +213,7 @@
       <div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-wider text-cyan-300">Network Card</p><h2 id="scan-title" class="mt-1 text-xl font-bold text-white">Scan a QR code</h2></div><button class="rounded-xl p-2 text-ink-300 hover:bg-white/10 hover:text-white" onclick={stopScanner} aria-label="Close scanner"><X size={20} /></button></div>
       <div class="scan-preview mt-5">{#if scannerStarting}<LoaderCircle size={28} class="animate-spin text-cyan-300" />{/if}<video bind:this={scannerVideo} class:invisible={scannerStarting} playsinline muted></video></div>
       <p class="mt-4 text-center text-sm leading-6 text-ink-300">Point your camera at another person’s Network Card QR code.</p>
-      <input bind:this={imageScannerInput} class="sr-only" type="file" accept="image/*" capture="environment" onchange={scanImage} />
-      <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm font-medium text-ink-200 hover:bg-white/5" onclick={() => imageScannerInput?.click()} disabled={scannerStarting}><ImageUp size={16} /> Scan a QR image instead</button>
+      <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm font-medium text-ink-200 hover:bg-white/5 disabled:opacity-60" onclick={captureAndScan} disabled={scannerStarting || scannerCapturing}>{#if scannerCapturing}<LoaderCircle size={16} class="animate-spin" /> Scanning…{:else}<ScanLine size={16} /> Capture & scan QR{/if}</button>
       {#if scannerError}<p class="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-center text-xs leading-5 text-amber-100">{scannerError}</p>{/if}
     </div>
   {/if}

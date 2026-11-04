@@ -188,24 +188,25 @@
       });
       scannerStarting = false;
 
+      // Keep scanning in the background until the dialog is closed or a QR is found.
       const scanFrame = async () => {
         if (!scannerOpen || !scannerVideo) return;
         if (scanInProgress) {
-          scanTimer = window.setTimeout(scanFrame, 250);
+          scanTimer = window.setTimeout(scanFrame, 150);
           return;
         }
+
         scanInProgress = true;
         try {
           const rawValue = await decodeCameraFrame();
-          if (rawValue) {
-            if (scanQrValue(rawValue)) return;
-          }
-        } catch (error) {
-          // A frame may be unavailable while the camera starts. Keep auto-scanning.
+          if (rawValue && scanQrValue(rawValue)) return;
+        } catch {
+          // A camera frame may be unavailable or out of focus. Continue scanning.
         } finally {
           scanInProgress = false;
         }
-        scanTimer = window.setTimeout(scanFrame, 250);
+
+        if (scannerOpen) scanTimer = window.setTimeout(scanFrame, 150);
       };
       scanFrame();
     } catch (error) {
@@ -230,8 +231,8 @@
     <div class="scan-dialog" role="dialog" aria-modal="true" aria-labelledby="scan-title">
       <div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-wider text-cyan-300">Network Card</p><h2 id="scan-title" class="mt-1 text-xl font-bold text-white">Scan a QR code</h2></div><button class="rounded-xl p-2 text-ink-300 hover:bg-white/10 hover:text-white" onclick={stopScanner} aria-label="Close scanner"><X size={20} /></button></div>
       <div class="scan-preview mt-5">{#if scannerStarting}<LoaderCircle size={28} class="animate-spin text-cyan-300" />{/if}<video bind:this={scannerVideo} class:invisible={scannerStarting} autoplay playsinline muted></video></div>
-      <p class="mt-4 text-center text-sm leading-6 text-ink-300">Point your camera at another person’s Network Card QR code.</p>
-      <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm font-medium text-ink-200 hover:bg-white/5 disabled:opacity-60" onclick={captureAndScan} disabled={scannerStarting || scannerCapturing}>{#if scannerCapturing}<LoaderCircle size={16} class="animate-spin" /> Scanning…{:else}<ScanLine size={16} /> Capture & scan QR{/if}</button>
+      <p class="mt-4 text-center text-sm leading-6 text-ink-300">The scanner detects QR codes automatically. You can also capture the current frame to scan it.</p>
+      <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm font-medium text-ink-200 hover:bg-white/5 disabled:opacity-60" onclick={captureAndScan} disabled={scannerStarting || scannerCapturing}>{#if scannerCapturing}<LoaderCircle size={16} class="animate-spin" /> Scanning capture…{:else}<ScanLine size={16} /> Capture & scan QR{/if}</button>
       {#if scannerError}<p class="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-center text-xs leading-5 text-amber-100">{scannerError}</p>{/if}
     </div>
   {/if}

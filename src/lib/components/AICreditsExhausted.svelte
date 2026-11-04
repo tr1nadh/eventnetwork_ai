@@ -55,7 +55,7 @@
           >AI Credits Exhausted</Dialog.Title
         >
         <Dialog.Description class="mt-2 text-sm text-ink-300">
-          You've used all <span class="font-bold text-white">50</span> AI credits
+          You've used all <span class="font-bold text-white">{$aiCreditsStore.limit}</span> AI credits
           for this month.
         </Dialog.Description>
       </Dialog.Header>
@@ -74,7 +74,7 @@
             Auto-resets every month
           </p>
           <p class="mt-1 text-xs leading-5 text-ink-400">
-            Your credits will automatically reset to 50 on <span
+            Your credits will automatically reset to {$aiCreditsStore.limit} on <span
               class="font-semibold text-ink-300">{resetDateFormatted}</span
             >. No action needed.
           </p>

@@ -2,7 +2,7 @@ import { Redis } from '@upstash/redis';
 import { Ratelimit } from '@upstash/ratelimit';
 import { KV_REST_API_URL, KV_REST_API_TOKEN } from '$env/static/private';
 
-export const MONTHLY_LIMIT = 50;
+export const MONTHLY_LIMIT = 10;
 
 // Initialize Redis explicitly to avoid process.env issues in serverless
 let redis = null;
@@ -123,7 +123,7 @@ export async function checkAiQuota(userId) {
       reason: 'MONTHLY_AI_LIMIT_EXCEEDED',
       errorData: {
         error: 'MONTHLY_AI_LIMIT_EXCEEDED',
-        message: 'You\'ve used all 50 AI credits for this month.',
+        message: 'You\'ve used all 10 AI credits for this month.',
         resetAt: getNextMonthDate().toISOString()
       }
     };

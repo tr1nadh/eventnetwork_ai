@@ -2,9 +2,9 @@ import { writable } from 'svelte/store';
 
 function createAiCreditsStore() {
   const { subscribe, set, update } = writable({
-    limit: 50,
+    limit: 10,
     used: 0,
-    remaining: 50,
+    remaining: 10,
     resetAt: null,
     loading: true,
     error: null,

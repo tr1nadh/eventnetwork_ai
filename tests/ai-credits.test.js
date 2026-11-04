@@ -88,7 +88,7 @@ describe('AI credit and rate‑limit utilities', () => {
     const status = await getAiCreditStatus('new-user');
     expect(status.used).toBe(0);
     expect(status.remaining).toBe(MONTHLY_LIMIT);
-    expect(status.limit).toBe(50);
+    expect(status.limit).toBe(10);
   });
 
   test('TEST 2 – Credit consumption per successful call', async () => {
@@ -201,7 +201,7 @@ describe('AI credit and rate‑limit utilities', () => {
     // Current month (July) status uses a DIFFERENT key → 0 usage
     const status = await getAiCreditStatus('user-month');
     expect(status.used).toBe(0);
-    expect(status.remaining).toBe(50);
+    expect(status.remaining).toBe(10);
 
     // Past month key untouched
     const pastVal = await mockRedis.get(pastKey);
@@ -228,7 +228,7 @@ describe('AI credit and rate‑limit utilities', () => {
   test('TEST 12 – Credit status endpoint shape', async () => {
     const status = await getAiCreditStatus('user-shape');
     expect(status).toMatchObject({
-      limit: 50,
+      limit: 10,
       used: expect.any(Number),
       remaining: expect.any(Number),
       resetAt: expect.any(String)

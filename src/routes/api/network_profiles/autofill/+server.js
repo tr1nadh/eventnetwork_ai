@@ -85,7 +85,7 @@ Use this exact schema:
 }
 
 Rules:
-- Keep text concise.
+- Keep each field below 240 characters.
 - Preserve the user's intent.
 - Never invent facts.
 - Infer only when strongly supported.
@@ -118,7 +118,10 @@ Rules:
 					],
 
 					temperature: 0,
-					max_tokens: 300
+					// 300 tokens can cut the final field off before the closing brace.
+					// JSON mode also prevents prose or markdown around the result.
+					max_tokens: 800,
+					response_format: { type: 'json_object' }
 				}),
 				signal: controller.signal
 			});

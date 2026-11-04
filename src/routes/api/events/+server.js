@@ -9,7 +9,7 @@ function slugify(input) {
     .replace(/^-+|-+$/g, '');
 }
 
-const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_format, attendees_count, event_logo_url, event_banner_url, is_public, allow_join_after_start, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
+const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_meeting_url, event_format, attendees_count, event_logo_url, event_banner_url, is_public, allow_join_after_start, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
 
 export async function POST({ request, locals }) {
   if (!locals.user) {
@@ -50,6 +50,7 @@ export async function POST({ request, locals }) {
   const endTime = endTimeDate.toISOString();
   const location = body?.location?.trim() || null;
   const google_map_url = body?.google_map_url?.trim() || null;
+  const event_meeting_url = body?.event_meeting_url?.trim() || null;
   const event_format = ['online', 'offline', 'hybrid'].includes(body?.event_format) ? body.event_format : 'offline';
   const is_public = body?.is_public !== undefined ? Boolean(body.is_public) : true;
   const allow_join_after_start = body?.allow_join_after_start !== undefined ? Boolean(body.allow_join_after_start) : true;
@@ -85,6 +86,7 @@ export async function POST({ request, locals }) {
       end_time: endTime,
       location,
       google_map_url,
+      event_meeting_url,
       event_format,
       event_logo_url,
       event_banner_url,

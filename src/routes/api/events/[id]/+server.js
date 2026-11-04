@@ -114,6 +114,7 @@ export async function PUT({ request, params, locals }) {
 
   if (body?.location !== undefined) updatePayload.location = body.location ? body.location.trim() : null;
   if (body?.google_map_url !== undefined) updatePayload.google_map_url = body.google_map_url ? body.google_map_url.trim() : null;
+  if (body?.event_meeting_url !== undefined) updatePayload.event_meeting_url = body.event_meeting_url ? body.event_meeting_url.trim() : null;
   if (body?.event_format && ['online', 'offline', 'hybrid'].includes(body.event_format)) {
     updatePayload.event_format = body.event_format;
   }

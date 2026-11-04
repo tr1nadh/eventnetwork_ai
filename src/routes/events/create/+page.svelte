@@ -17,6 +17,7 @@
     Calendar,
     Clock,
     X,
+    Video,
   } from '@lucide/svelte';
   import { createSupabaseBrowserClient } from '$lib/supabase/client';
   import { clearAllEventStores } from '$lib/stores/eventStore';
@@ -68,6 +69,7 @@
   let eventFormat = 'offline';
   let location = '';
   let googleMapUrl = '';
+  let eventMeetingUrl = '';
   let logoFile = null;
   let bannerFile = null;
   let logoPreview = '';
@@ -325,6 +327,7 @@
           event_format: eventFormat,
           location: location.trim() || null,
           google_map_url: googleMapUrl.trim() || null,
+          event_meeting_url: eventMeetingUrl.trim() || null,
           event_logo_url: eventLogoUrl,
           event_banner_url: eventBannerUrl,
           is_public: isPublic,
@@ -601,6 +604,26 @@
           </div>
         {/if}
       </div>
+
+      <!-- Meeting Link (online/hybrid only) -->
+      {#if eventFormat === 'online' || eventFormat === 'hybrid'}
+        <div class="space-y-4 pt-2 border-t border-white/6">
+          <div>
+            <h3 class="text-sm font-bold text-white mb-0.5">Online Meeting</h3>
+            <p class="text-xs text-ink-500">Virtual meeting details for online and hybrid events.</p>
+          </div>
+          <div class="space-y-2">
+            <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+              <Video size={12} class="inline mr-1 text-cyan-400" />Meet Link
+            </Label>
+            <Input
+              bind:value={eventMeetingUrl}
+              placeholder="https://meet.google.com/... or https://zoom.us/..."
+              class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
+            />
+          </div>
+        </div>
+      {/if}
 
       <!-- Location & Venue Map (offline/hybrid only) -->
       {#if eventFormat !== 'online'}

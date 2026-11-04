@@ -54,6 +54,7 @@
     PinOff,
     Filter,
     Bell,
+    Video,
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
@@ -660,6 +661,7 @@
   let editEventFormat = "offline";
   let editEventLocation = "";
   let editEventGoogleMapUrl = "";
+  let editEventMeetingUrl = "";
   let editEventApprovalRequired = false;
   let editEventVenueEnabled = true;
   let editEventAnnouncementsEnabled = true;
@@ -1282,6 +1284,7 @@
   let settingsSlug = currentEvent?.slug ?? "";
   let settingsLocation = currentEvent?.location ?? "";
   let settingsGoogleMapUrl = currentEvent?.google_map_url ?? "";
+  let settingsMeetingUrl = currentEvent?.event_meeting_url ?? "";
   let settingsEventFormat = currentEvent?.event_format ?? "offline";
   let settingsLogoUrl = currentEvent?.event_logo_url ?? "";
   let settingsBannerUrl = currentEvent?.event_banner_url ?? "";
@@ -1312,6 +1315,7 @@
     settingsSlug = currentEvent.slug ?? "";
     settingsLocation = currentEvent.location ?? "";
     settingsGoogleMapUrl = currentEvent.google_map_url ?? "";
+    settingsMeetingUrl = currentEvent.event_meeting_url ?? "";
     settingsEventFormat = currentEvent.event_format ?? "offline";
     settingsLogoUrl = currentEvent.event_logo_url ?? "";
     settingsBannerUrl = currentEvent.event_banner_url ?? "";
@@ -1791,6 +1795,7 @@
           slug: settingsSlug,
           location: settingsLocation,
           google_map_url: settingsGoogleMapUrl,
+          event_meeting_url: settingsMeetingUrl,
           event_format: settingsEventFormat,
           event_logo_url: settingsLogoUrl || null,
           event_banner_url: settingsBannerUrl || null,
@@ -1882,6 +1887,7 @@
     editEventFormat = currentEvent.event_format || "offline";
     editEventLocation = currentEvent.location || "";
     editEventGoogleMapUrl = currentEvent.google_map_url || "";
+    editEventMeetingUrl = currentEvent.event_meeting_url || "";
     editEventApprovalRequired = Boolean(currentEvent.is_approval_required);
     editEventVenueEnabled = currentEvent.is_venue_enabled !== false;
     editEventAnnouncementsEnabled =
@@ -1919,6 +1925,7 @@
           event_format: editEventFormat,
           location: editEventLocation,
           google_map_url: editEventGoogleMapUrl,
+          event_meeting_url: editEventMeetingUrl,
           is_approval_required: editEventApprovalRequired,
           is_venue_enabled: editEventVenueEnabled,
           is_announcements_enabled: editEventAnnouncementsEnabled,
@@ -3669,22 +3676,51 @@
                       <div class="min-w-0">
                         <p class="text-xs font-semibold text-white">Location</p>
                         {#if currentEvent.event_format === "online"}
-                          <p class="text-xs text-ink-300 mt-0.5">
-                            Online Event (Virtual link visible upon joining)
-                          </p>
+                          {#if currentEvent.event_meeting_url}
+                            <p class="text-xs text-ink-300 mt-0.5">
+                              Online Event
+                            </p>
+                            <a
+                              href={currentEvent.event_meeting_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-400 hover:text-cyan-300 hover:underline mt-1 transition-colors break-all"
+                            >
+                              <Video size={11} />
+                              Join Meeting
+                              <ArrowRight size={10} />
+                            </a>
+                          {:else}
+                            <p class="text-xs text-ink-300 mt-0.5">
+                              Online Event (Virtual link visible upon joining)
+                            </p>
+                          {/if}
                         {:else if currentEvent.location}
                           <p
                             class="text-xs text-ink-300 mt-0.5 leading-relaxed"
                           >
                             {currentEvent.location}
                           </p>
+                          {#if currentEvent.google_map_url}
+                            <a
+                              href={currentEvent.google_map_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-400/15 hover:text-amber-200 mt-2 transition-colors w-fit"
+                            >
+                              <MapPin size={12} class="text-amber-400" />
+                              Open in Google Maps
+                              <ArrowRight size={10} />
+                            </a>
+                          {/if}
+                        {:else if currentEvent.google_map_url}
                           <a
-                            href={currentEvent.google_map_url ||
-                              `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentEvent.location)}`}
+                            href={currentEvent.google_map_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 hover:text-amber-300 hover:underline mt-1 transition-colors"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-400/15 hover:text-amber-200 mt-1 transition-colors w-fit"
                           >
+                            <MapPin size={12} class="text-amber-400" />
                             Open in Google Maps
                             <ArrowRight size={10} />
                           </a>
@@ -3695,6 +3731,29 @@
                         {/if}
                       </div>
                     </div>
+
+                    <!-- Online Meet link for Hybrid events -->
+                    {#if currentEvent.event_format === "hybrid" && currentEvent.event_meeting_url}
+                      <div class="flex items-start gap-3">
+                        <div
+                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-cyan-400"
+                        >
+                          <Video size={16} />
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-xs font-semibold text-white">Virtual Stream / Meeting</p>
+                          <a
+                            href={currentEvent.event_meeting_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-400 hover:text-cyan-300 hover:underline mt-1 transition-colors break-all"
+                          >
+                            Join Meeting
+                            <ArrowRight size={10} />
+                          </a>
+                        </div>
+                      </div>
+                    {/if}
 
                     <!-- Attendees Count -->
                     <div class="flex items-start gap-3">
@@ -4374,16 +4433,36 @@
                         </span>
                       {/if}
 
-                      {#if currentEvent.location && currentEvent.event_format !== "online"}
+                      {#if currentEvent.event_meeting_url && (currentEvent.event_format === "online" || currentEvent.event_format === "hybrid")}
                         <a
-                          href={currentEvent.google_map_url ||
-                            `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentEvent.location)}`}
+                          href={currentEvent.event_meeting_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          class="inline-flex items-center gap-1.5 text-xs text-ink-300 hover:text-white bg-white/4 hover:bg-white/8 border border-white/8 px-3 py-1.5 rounded-lg transition-colors"
+                          class="inline-flex items-center gap-1.5 text-xs text-cyan-300 hover:text-white bg-cyan-400/10 hover:bg-cyan-400/20 border border-cyan-400/20 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Video size={13} class="text-cyan-400" />
+                          Join Meeting
+                        </a>
+                      {/if}
+
+                      {#if currentEvent.location && currentEvent.event_format !== "online"}
+                        <span
+                          class="inline-flex items-center gap-1.5 text-xs text-ink-300 bg-white/4 border border-white/8 px-3 py-1.5 rounded-lg"
                         >
                           <MapPin size={13} class="text-amber-400" />
                           {currentEvent.location}
+                        </span>
+                      {/if}
+
+                      {#if currentEvent.event_format !== "online" && currentEvent.google_map_url}
+                        <a
+                          href={currentEvent.google_map_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-white bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/25 px-3 py-1.5 rounded-lg transition-colors font-medium"
+                        >
+                          <MapPin size={13} class="text-amber-400" />
+                          Google Maps
                         </a>
                       {/if}
 
@@ -7902,6 +7981,36 @@
                     {/if}
                   </div>
 
+                  <!-- Meeting Link (online/hybrid only) -->
+                  {#if settingsEventFormat === "online" || settingsEventFormat === "hybrid"}
+                    <div class="space-y-4 pt-2 border-t border-white/6">
+                      <div>
+                        <h3 class="text-sm font-bold text-white mb-0.5">
+                          Online Meeting
+                        </h3>
+                        <p class="text-xs text-ink-500">
+                          Virtual meeting details for online and hybrid events.
+                        </p>
+                      </div>
+                      <div class="space-y-2">
+                        <Label
+                          class="text-xs font-semibold uppercase tracking-widest text-ink-400"
+                        >
+                          <Video
+                            size={12}
+                            class="inline mr-1 text-cyan-400"
+                          />Meet Link
+                        </Label>
+                        <Input
+                          bind:value={settingsMeetingUrl}
+                          disabled={isEventEnded}
+                          placeholder="https://meet.google.com/... or https://zoom.us/..."
+                          class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
+                        />
+                      </div>
+                    </div>
+                  {/if}
+
                   <!-- Location & Venue Map -->
                   {#if settingsEventFormat !== "online"}
                     <div class="space-y-4 pt-2 border-t border-white/6">
@@ -9342,36 +9451,49 @@
             </div>
           </div>
 
-          <div class="space-y-1.5">
-            <Label
-              for="edit-location"
-              class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
-              >{editEventFormat === "online"
-                ? "Meeting Link"
-                : "Location / Venue Address"}</Label
-            >
-            <Input
-              id="edit-location"
-              bind:value={editEventLocation}
-              placeholder={editEventFormat === "online"
-                ? "https://meet.google.com/xyz"
-                : "Venue address"}
-              class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
-            />
-          </div>
+          {#if editEventFormat === "online" || editEventFormat === "hybrid"}
+            <div class="space-y-1.5">
+              <Label
+                for="edit-meeting-url"
+                class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
+                >Meet Link</Label
+              >
+              <Input
+                id="edit-meeting-url"
+                type="url"
+                bind:value={editEventMeetingUrl}
+                placeholder="https://meet.google.com/... or https://zoom.us/..."
+                class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+              />
+            </div>
+          {/if}
 
           {#if editEventFormat !== "online"}
             <div class="space-y-1.5">
               <Label
+                for="edit-location"
+                class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
+                >Location / Venue Address</Label
+              >
+              <Input
+                id="edit-location"
+                bind:value={editEventLocation}
+                placeholder="Venue address"
+                class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <Label
                 for="edit-map-url"
                 class="text-xs uppercase tracking-widest text-ink-400 font-semibold"
-                >Google Map Link</Label
+                >Google Maps URL</Label
               >
               <Input
                 id="edit-map-url"
                 type="url"
                 bind:value={editEventGoogleMapUrl}
-                placeholder="https://maps.app.goo.gl/..."
+                placeholder="https://maps.google.com/..."
                 class="bg-white/5 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20 font-mono text-xs"
               />
             </div>

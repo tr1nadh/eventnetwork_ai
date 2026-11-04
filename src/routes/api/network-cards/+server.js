@@ -6,8 +6,13 @@ function clean(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function cardPayload(body) {
-  const display_name = clean(body?.display_name);
+function userName(user) {
+  const metadata = user.user_metadata ?? {};
+  return clean(metadata.full_name ?? metadata.name ?? metadata.display_name ?? user.email?.split('@')[0]);
+}
+
+function cardPayload(body, user) {
+  const display_name = userName(user);
   const what_i_do = clean(body?.what_i_do);
   const about_me = clean(body?.about_me);
   if (!display_name || !what_i_do || !about_me) return null;
@@ -25,22 +30,27 @@ async function getUser(cookies) {
 }
 
 export async function GET({ cookies }) {
-  const user = await getUser(cookies);
-  if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
-  const { data, error: queryError } = await createSupabaseAdminClient()
-    .from('network_cards')
-    .select('id, title, display_name, what_i_do, about_me, is_archived, created_at, updated_at')
-    .eq('user_id', user.id)
-    .eq('is_archived', false)
-    .order('updated_at', { ascending: false });
-  if (queryError) return json({ error: queryError.message }, { status: 500 });
-  return json({ cards: data ?? [] });
+  try {
+    const user = await getUser(cookies);
+    if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
+    const { data, error: queryError } = await createSupabaseAdminClient()
+      .from('network_cards')
+      .select('id, title, display_name, what_i_do, about_me, is_archived, created_at, updated_at')
+      .eq('user_id', user.id)
+      .eq('is_archived', false)
+      .order('updated_at', { ascending: false });
+    if (queryError) throw queryError;
+    return json({ cards: data ?? [] });
+  } catch (error) {
+    console.error('Failed to load Network Card:', error);
+    return json({ error: error instanceof Error ? error.message : 'Could not load Network Card.' }, { status: 500 });
+  }
 }
 
 export async function POST({ request, cookies }) {
   const user = await getUser(cookies);
   if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
-  const payload = cardPayload(await request.json().catch(() => null));
+  const payload = cardPayload(await request.json().catch(() => null), user);
   if (!payload) return json({ error: 'Name, what you do, and about you are required.' }, { status: 400 });
   const admin = createSupabaseAdminClient();
   const { data: existing, error: existingError } = await admin

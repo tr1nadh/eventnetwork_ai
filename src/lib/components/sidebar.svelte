@@ -13,6 +13,7 @@
     Cpu,
     Compass,
     ContactRound,
+    Settings,
   } from "@lucide/svelte";
   import * as Avatar from "$lib/components/ui/avatar/index.js";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
@@ -174,7 +175,10 @@
         </Avatar.Root>
         {#if !collapsed}
           <div class="user-info">
-            <p class="user-name">{firstName}</p>
+            <div class="user-name-row">
+              <p class="user-name">{firstName}</p>
+              <button class="settings-button" onclick={() => goto('/settings')} aria-label="Settings" title="Settings"><Settings size={15} /></button>
+            </div>
             <p class="user-email">{user.email}</p>
           </div>
         {/if}
@@ -269,6 +273,11 @@
         <div class="px-1 py-1.5">
           <AICredits />
         </div>
+
+        <DropdownMenu.Item class="gap-2.5 cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10" onSelect={(event) => { event.preventDefault(); goto('/settings'); }}>
+          <Settings size={15} />
+          <span>Settings</span>
+        </DropdownMenu.Item>
 
         <DropdownMenu.Separator class="my-1.5 border-white/10" />
 
@@ -554,6 +563,9 @@
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
   }
+  .user-name-row { display: flex; align-items: center; gap: 0.15rem; min-width: 0; }
+  .settings-button { display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border: 0; border-radius: .4rem; color: rgba(148,163,184,.8); background: transparent; cursor: pointer; }
+  .settings-button:hover { color: #67e8f9; background: rgba(103,232,249,.1); }
 
   :global(.avatar-root) {
     width: 28px !important;
@@ -572,6 +584,7 @@
     overflow: hidden;
   }
   .user-name {
+    min-width: 0;
     font-size: 0.8rem;
     font-weight: 600;
     color: #f1f5f9;

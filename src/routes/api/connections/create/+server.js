@@ -98,7 +98,7 @@ export async function POST({ request, cookies }) {
       about_me: '',
       looking_for: ''
     }),
-    display_name: profile?.display_name ?? otherUser?.name ?? 'Unknown',
+    display_name: otherUser?.name || profile?.display_name || 'Unknown',
     avatar_url: otherUser?.avatar_url ?? null
   };
 

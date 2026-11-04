@@ -2,8 +2,6 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import { Camera, Edit3, LoaderCircle, Save, Share2, X } from '@lucide/svelte';
   import QRCode from 'qrcode';
-  import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
-  import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
   import PageShell from '$lib/components/page-shell.svelte';
   import Sidebar from '$lib/components/sidebar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -30,6 +28,7 @@
   let generatingQr = false;
   let nativeQrInput;
   let scanningQr = false;
+  $: settingsName = data.user?.user_metadata?.full_name ?? data.user?.user_metadata?.name ?? data.user?.user_metadata?.display_name ?? data.user?.email?.split('@')[0] ?? 'Account';
   let liveScannerOpen = false;
   let liveScannerStarting = false;
   let liveScannerError = '';
@@ -39,6 +38,7 @@
   let liveScanTimer;
   let liveScanBusy = false;
   let liveScanStatus = 'searching';
+  let zxingReaderPromise;
 
   const scannerOptions = {
     formats: ['QRCode'],
@@ -59,13 +59,24 @@
     openNativeQrCamera();
   }
 
-  async function prepareReader() {
-    await prepareZXingModule({
-      overrides: {
-        locateFile: (path) => path.endsWith('.wasm') ? zxingReaderWasmUrl : path
-      },
-      fireImmediately: true
-    });
+  async function getZxingReader() {
+    // ZXing uses browser/WASM APIs. Load it only after a scan is requested so
+    // this page can render safely in the serverless SSR runtime.
+    if (!zxingReaderPromise) {
+      zxingReaderPromise = Promise.all([
+        import('zxing-wasm/reader'),
+        import('zxing-wasm/reader/zxing_reader.wasm?url')
+      ]).then(async ([reader, wasm]) => {
+        await reader.prepareZXingModule({
+          overrides: {
+            locateFile: (path) => path.endsWith('.wasm') ? wasm.default : path
+          },
+          fireImmediately: true
+        });
+        return reader;
+      });
+    }
+    return zxingReaderPromise;
   }
 
   function openScannedQr(rawValue) {
@@ -86,7 +97,7 @@
 
     scanningQr = true;
     try {
-      await prepareReader();
+      const { readBarcodes } = await getZxingReader();
       const results = await readBarcodes(image, scannerOptions);
       const rawValue = results[0]?.text;
       if (!rawValue) throw new Error('No QR code was found in the captured image. Try again with a closer, sharper image.');
@@ -101,9 +112,10 @@
   async function loadCard() {
     try {
       const res = await fetch('/api/network-cards');
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
-      if (body.cards?.[0]) card = { ...body.cards[0] };
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `Could not load Network Card (${res.status}).`);
+      if (body.cards?.[0]) card = { ...body.cards[0], display_name: settingsName };
+      else card = { ...card, display_name: settingsName };
     } catch (error) { toast.error(error.message ?? 'Could not load your network card.'); }
     finally { loading = false; }
   }
@@ -183,7 +195,7 @@
       liveScannerVideo.srcObject = liveScannerStream;
       await liveScannerVideo.play();
       liveScannerCanvas = document.createElement('canvas');
-      await prepareReader();
+      const { readBarcodes } = await getZxingReader();
       liveScannerStarting = false;
 
       const scanFrame = async () => {
@@ -256,14 +268,14 @@
         <section class:share-active={sharing} class="network-card relative rounded-3xl border border-white/10 p-6 sm:p-10 {sharing ? 'pointer-events-auto' : ''}">
           {#if editing}
             <div class="space-y-4">
-              <label class="block text-sm text-ink-300">Display name<Input bind:value={card.display_name} class="mt-1.5 border-white/10 bg-white/5 text-white" /></label>
+              <div><p class="text-sm text-ink-300">Display name</p><Input value={settingsName} readonly class="mt-1.5 border-white/10 bg-white/5 text-ink-300" /><p class="mt-1.5 text-xs text-ink-500">Change your name in <a class="text-cyan-300 hover:underline" href="/settings">Settings</a>.</p></div>
               <label class="block text-sm text-ink-300">What I do<textarea bind:value={card.what_i_do} rows="4" class="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"></textarea></label>
               <label class="block text-sm text-ink-300">About me<textarea bind:value={card.about_me} rows="5" class="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"></textarea></label>
               <div class="flex gap-3"><Button class="gap-2" disabled={saving} onclick={saveCard}>{#if saving}<LoaderCircle size={16} class="animate-spin" /> Saving…{:else}<Save size={16} /> Save{/if}</Button><Button variant="outline" class="border-white/10" onclick={() => editing = false}>Cancel</Button></div>
             </div>
           {:else}
             <div class="flex items-start justify-between gap-4"><span class="rounded-full bg-violet-400/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-violet-200">Network card</span><span class="flex size-11 items-center justify-center rounded-2xl bg-white/8 text-lg font-black text-white">{card.display_name.slice(0, 1).toUpperCase()}</span></div>
-            <h1 class="mt-12 text-3xl font-black text-white sm:text-4xl">{card.display_name}</h1>
+            <h1 class="mt-12 text-3xl font-black text-white sm:text-4xl">{settingsName}</h1>
             <div class="mt-9 space-y-7 text-sm leading-7 sm:text-base"><div><p class="text-xs font-bold uppercase tracking-wider text-violet-200">What I do</p><p class="mt-2 text-ink-200">{card.what_i_do}</p></div><div><p class="text-xs font-bold uppercase tracking-wider text-violet-200">About me</p><p class="mt-2 text-ink-300">{card.about_me}</p></div></div>
             {#if sharing}<div class="mt-7 border-t border-white/10 pt-6"><img class="qr-code mx-auto" src={qrDataUrl} alt="Temporary Network Card QR code" /><p class="mt-3 text-center text-xs text-ink-400">Scan to connect and mark both of you as met{#if qrExpiresAt} · Expires at {new Date(qrExpiresAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}{/if}</p></div>{/if}
           {/if}

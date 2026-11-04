@@ -248,8 +248,10 @@ export const load = async ({ params, locals }) => {
         }
       } catch (e) {}
 
+      const metadata = locals.user.user_metadata ?? {};
+      const accountName = metadata.full_name ?? metadata.name ?? metadata.display_name ?? locals.user.email?.split('@')[0] ?? profileData.display_name;
       networkProfile = {
-        whoTheyAre: profileData.display_name,
+        whoTheyAre: accountName,
         whatTheyDo: profileData.what_i_do,
         whoTheyWant: lookingForStr,
         expectations: profileData.about_me

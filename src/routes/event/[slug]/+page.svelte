@@ -393,6 +393,19 @@
     goto(backUrl);
   }
 
+  async function connectionDisplayName(userId, fallback) {
+    const [{ data: account }, { data: profile }] = await Promise.all([
+      supabase.from("users").select("name").eq("id", userId).maybeSingle(),
+      supabase
+        .from("network_profiles")
+        .select("display_name")
+        .eq("user_id", userId)
+        .eq("event_id", data.event.id)
+        .maybeSingle(),
+    ]);
+    return account?.name || profile?.display_name || fallback;
+  }
+
   let timeInterval;
   let currentTime = new Date();
 
@@ -446,13 +459,7 @@
                 newRecord.receiver_user_id === data.user.id &&
                 newRecord.status === "pending"
               ) {
-                const { data: profile } = await supabase
-                  .from("network_profiles")
-                  .select("display_name")
-                  .eq("user_id", newRecord.sender_user_id)
-                  .eq("event_id", data.event.id)
-                  .single();
-                const senderName = profile?.display_name || "Someone";
+                const senderName = await connectionDisplayName(newRecord.sender_user_id, "Someone");
 
                 connectionsStore.update((conns) => {
                   if (conns.find((c) => c.id === newRecord.id)) return conns;
@@ -510,13 +517,7 @@
                 newRecord.status === "accepted" &&
                 !newRecord.met_at
               ) {
-                const { data: profile } = await supabase
-                  .from("network_profiles")
-                  .select("display_name")
-                  .eq("user_id", newRecord.receiver_user_id)
-                  .eq("event_id", data.event.id)
-                  .single();
-                const receiverName = profile?.display_name || "Your connection";
+                const receiverName = await connectionDisplayName(newRecord.receiver_user_id, "Your connection");
 
                 toast.custom(ConnectionToast, {
                   componentProps: {
@@ -545,13 +546,7 @@
                 oldRecord.status === "pending" &&
                 newRecord.status === "rejected"
               ) {
-                const { data: profile } = await supabase
-                  .from("network_profiles")
-                  .select("display_name")
-                  .eq("user_id", newRecord.receiver_user_id)
-                  .eq("event_id", data.event.id)
-                  .single();
-                const receiverName = profile?.display_name || "Your connection";
+                const receiverName = await connectionDisplayName(newRecord.receiver_user_id, "Your connection");
 
                 toast.custom(ConnectionToast, {
                   componentProps: {
@@ -569,13 +564,7 @@
                   newRecord.sender_user_id === data.user.id
                     ? newRecord.receiver_user_id
                     : newRecord.sender_user_id;
-                const { data: profile } = await supabase
-                  .from("network_profiles")
-                  .select("display_name")
-                  .eq("user_id", otherUserId)
-                  .eq("event_id", data.event.id)
-                  .single();
-                const name = profile?.display_name || "Your connection";
+                const name = await connectionDisplayName(otherUserId, "Your connection");
 
                 toast.custom(ConnectionToast, {
                   componentProps: {
@@ -2120,7 +2109,7 @@
   }
 
   let networkingProfile = {
-    whoTheyAre: "",
+    whoTheyAre: data.user?.user_metadata?.full_name ?? data.user?.user_metadata?.name ?? data.user?.user_metadata?.display_name ?? data.user?.email?.split("@")[0] ?? "",
     whatTheyDo: "",
     whoTheyWant: "",
     expectations: "",
@@ -2129,6 +2118,7 @@
   if (data.networkProfile) {
     networkingProfile = { ...networkingProfile, ...data.networkProfile };
   }
+  networkingProfile.whoTheyAre = data.user?.user_metadata?.full_name ?? data.user?.user_metadata?.name ?? data.user?.user_metadata?.display_name ?? data.user?.email?.split("@")[0] ?? networkingProfile.whoTheyAre;
 
   function formatMatchExplanation(explanation) {
     const fallback =
@@ -2172,8 +2162,9 @@
       );
       const payload = await res.json().catch(() => ({}));
       if (res.ok && payload.profile) {
-        networkingProfile = { ...networkingProfile, ...payload.profile };
-        data = { ...data, networkProfile: payload.profile };
+        const accountName = networkingProfile.whoTheyAre;
+        networkingProfile = { ...networkingProfile, ...payload.profile, whoTheyAre: accountName };
+        data = { ...data, networkProfile: { ...payload.profile, whoTheyAre: accountName } };
       }
     } catch (error) {
       console.warn("Could not check the saved networking profile", error);
@@ -2675,7 +2666,7 @@
       const generatedProfile = responseData.profile ?? {};
       networkingProfile = {
         ...networkingProfile,
-        whoTheyAre: generatedProfile.displayName ?? "",
+        whoTheyAre: networkingProfile.whoTheyAre,
         whatTheyDo: generatedProfile.whatTheyDo ?? "",
         expectations: generatedProfile.aboutMe ?? "",
         whoTheyWant: generatedProfile.whoTheyWant ?? "",
@@ -2707,9 +2698,8 @@
   const profileFields = [
     {
       key: "whoTheyAre",
-      label: "Display Name",
-      placeholder:
-        "Enter the name you'd like other attendees to see during networking.",
+      label: "Display Name (from Settings)",
+      placeholder: "Managed in Settings",
       id: "whoTheyAre",
       wsId: "ws-whoTheyAre",
     },
@@ -5632,9 +5622,11 @@
                       {#if field.key === "whoTheyAre"}
                         <Input
                           id={field.wsId}
-                          bind:value={networkingProfile[field.key]}
-                          class="bg-white/4 border-white/10 text-white focus:border-amber-400/50 focus:ring-amber-400/20"
+                          value={networkingProfile[field.key]}
+                          readonly
+                          class="bg-white/4 border-white/10 text-ink-300"
                         />
+                        <p class="text-[10px] text-ink-500">Change your name in <a class="text-cyan-300 hover:underline" href="/settings">Settings</a>.</p>
                       {:else}
                         <textarea
                           id={field.wsId}
@@ -5894,10 +5886,11 @@
                                   {#if field.key === "whoTheyAre"}
                                     <Input
                                       id={field.wsId}
-                                      bind:value={networkingProfile[field.key]}
-                                      placeholder="Your name or headline"
-                                      class="rounded-xl border border-white/10 bg-white/4 p-3 text-sm text-white placeholder:text-ink-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
+                                      value={networkingProfile[field.key]}
+                                      readonly
+                                      class="rounded-xl border border-white/10 bg-white/4 p-3 text-sm text-ink-300"
                                     />
+                                    <p class="text-[10px] text-ink-500">Change your name in <a class="text-cyan-300 hover:underline" href="/settings">Settings</a>.</p>
                                   {:else}
                                     <textarea
                                       id={field.wsId}

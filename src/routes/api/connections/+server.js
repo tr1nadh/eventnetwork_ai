@@ -101,7 +101,7 @@ export async function GET({ url, cookies }) {
       matchDetails,
       profile: {
         ...profile,
-        display_name: profile.display_name ?? otherUser?.name ?? 'Unknown',
+        display_name: otherUser?.name || profile.display_name || 'Unknown',
         avatar_url: otherUser?.avatar_url ?? null
       }
     };

@@ -42,9 +42,12 @@ export async function GET({ url, cookies }) {
     // Keep as is if not valid JSON
   }
 
+  const metadata = user.user_metadata ?? {};
+  const accountName = metadata.full_name ?? metadata.name ?? metadata.display_name ?? user.email?.split('@')[0] ?? profile.display_name;
+
   return json({
     profile: {
-      whoTheyAre: profile.display_name,
+      whoTheyAre: accountName,
       whatTheyDo: profile.what_i_do,
       whoTheyWant: lookingForStr,
       expectations: profile.about_me
@@ -75,7 +78,9 @@ export async function POST({ request, cookies }) {
     return json({ error: 'profile is required' }, { status: 400 });
   }
 
-  const { whoTheyAre, whatTheyDo, whoTheyWant, expectations, about_user_embed, looking_for_embed } = profile;
+  const { whatTheyDo, whoTheyWant, expectations, about_user_embed, looking_for_embed } = profile;
+  const metadata = user.user_metadata ?? {};
+  const whoTheyAre = metadata.full_name ?? metadata.name ?? metadata.display_name ?? user.email?.split('@')[0] ?? 'User';
 
   // Ensure looking_for is stored as plain text – convert any array to a CSV string
   const lookingForStr = Array.isArray(whoTheyWant)

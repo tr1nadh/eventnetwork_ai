@@ -182,7 +182,7 @@ export async function GET({ url, cookies }) {
         }
       }
 
-      const name = prof?.display_name || userRec?.name || 'Attendee';
+      const name = userRec?.name || prof?.display_name || 'Attendee';
       const role = prof?.what_i_do || 'Participant';
       const about = prof?.about_me || '';
 

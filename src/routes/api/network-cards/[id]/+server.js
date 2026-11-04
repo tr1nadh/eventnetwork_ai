@@ -16,7 +16,7 @@ export async function PATCH({ params, request, cookies }) {
   if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
   const body = await request.json().catch(() => null);
   const update = {};
-  for (const field of ['display_name', 'what_i_do', 'about_me']) {
+  for (const field of ['what_i_do', 'about_me']) {
     if (body?.[field] !== undefined) update[field] = clean(body[field]);
   }
   if (body?.is_archived !== undefined) update.is_archived = Boolean(body.is_archived);

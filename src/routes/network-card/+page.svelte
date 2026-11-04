@@ -1,6 +1,6 @@
 <script>
-  import { onDestroy, onMount, tick } from 'svelte';
-  import { Camera, Edit3, LoaderCircle, Save, ScanLine, Share2, X } from '@lucide/svelte';
+  import { onMount } from 'svelte';
+  import { Camera, Edit3, LoaderCircle, Save, Share2, X } from '@lucide/svelte';
   import QRCode from 'qrcode';
   import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
   import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
@@ -28,17 +28,8 @@
   let qrDataUrl = '';
   let qrExpiresAt = null;
   let generatingQr = false;
-  let scannerOpen = false;
-  let scannerStarting = false;
-  let scannerError = '';
-  let scannerVideo;
-  let scannerStream;
-  let scanTimer;
-  let scannerCanvas;
-  let scannerCapturing = false;
-  let scanInProgress = false;
-  let capturedQrFrame;
-  let capturedQrFrameUrl = '';
+  let nativeQrInput;
+  let scanningQr = false;
 
   const scannerOptions = {
     formats: ['QRCode'],
@@ -46,69 +37,42 @@
     tryHarder: true
   };
 
-  function scanQrValue(rawValue) {
+  function openNativeQrCamera() {
+    nativeQrInput?.click();
+  }
+
+  function openScannedQr(rawValue) {
     if (!rawValue) return false;
     const url = new URL(rawValue, window.location.origin);
     const token = url.searchParams.get('token');
     if (url.pathname === '/network-card/scan' && token) {
-      stopScanner();
       window.location.assign(`/network-card/scan?token=${encodeURIComponent(token)}`);
       return true;
     }
-    scannerError = 'This is not an Evenai Network Card QR code.';
-    return false;
+    throw new Error('This is not an Evenai Network Card QR code.');
   }
 
-  function captureCameraFrame() {
-    if (!scannerVideo?.videoWidth || !scannerCanvas) {
-      throw new Error('Camera is still starting. Please wait a moment and try again.');
-    }
+  async function scanNativeQrImage(event) {
+    const image = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!image) return;
 
-    // Decoding every full-resolution camera frame can starve slower phones.
-    // Keep enough detail for a QR code while maintaining a continuous scan loop.
-    const maxScanWidth = 960;
-    const scale = Math.min(1, maxScanWidth / scannerVideo.videoWidth);
-    scannerCanvas.width = Math.round(scannerVideo.videoWidth * scale);
-    scannerCanvas.height = Math.round(scannerVideo.videoHeight * scale);
-    const context = scannerCanvas.getContext('2d', { willReadFrequently: true });
-    context?.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
-    const image = context?.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
-    if (!image) throw new Error('Could not capture the camera frame. Please try again.');
-    return image;
-  }
-
-  async function decodeImage(image) {
-    if (!image) return undefined;
-    const results = await readBarcodes(image, scannerOptions);
-    return results[0]?.text;
-  }
-
-  async function decodeCameraFrame() {
-    return decodeImage(captureCameraFrame());
-  }
-
-  function captureQrImage() {
-    scannerError = '';
+    scanningQr = true;
     try {
-      capturedQrFrame = captureCameraFrame();
-      capturedQrFrameUrl = scannerCanvas.toDataURL('image/jpeg', 0.92);
+      await prepareZXingModule({
+        overrides: {
+          locateFile: (path) => path.endsWith('.wasm') ? zxingReaderWasmUrl : path
+        },
+        fireImmediately: true
+      });
+      const results = await readBarcodes(image, scannerOptions);
+      const rawValue = results[0]?.text;
+      if (!rawValue) throw new Error('No QR code was found in the captured image. Try again with a closer, sharper image.');
+      openScannedQr(rawValue);
     } catch (error) {
-      scannerError = error.message || 'Could not capture the camera frame.';
-    }
-  }
-
-  async function scanCapturedQrImage() {
-    if (!capturedQrFrame) return;
-    scannerError = '';
-    scannerCapturing = true;
-    try {
-      const rawValue = await decodeImage(capturedQrFrame);
-      if (!rawValue) throw new Error('No QR code was found in the captured image. Retake it closer and in better light.');
-      scanQrValue(rawValue);
-    } catch (error) {
-      scannerError = error.message || 'Could not scan the captured image.';
+      toast.error(error.message || 'Could not scan the captured image.');
     } finally {
-      scannerCapturing = false;
+      scanningQr = false;
     }
   }
 
@@ -171,78 +135,8 @@
   }
 
   async function signOut() { signingOut = true; await createSupabaseBrowserClient().auth.signOut(); }
-  function stopScanner() {
-    if (scanTimer) window.clearTimeout(scanTimer);
-    scanTimer = undefined;
-    scannerStream?.getTracks().forEach((track) => track.stop());
-    scannerStream = undefined;
-    scannerCanvas = undefined;
-    capturedQrFrame = undefined;
-    capturedQrFrameUrl = '';
-    scannerOpen = false;
-  }
-
-  async function startScanner() {
-    scannerError = '';
-    scannerOpen = true;
-    scannerStarting = true;
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Camera access is not supported in this browser. Open the site in a current browser over HTTPS.');
-      }
-      await tick();
-      scannerStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: false
-      });
-      scannerVideo.srcObject = scannerStream;
-      await scannerVideo.play();
-      scannerCanvas = document.createElement('canvas');
-      await prepareZXingModule({
-        overrides: {
-          // Ship the exact matching WASM binary with the Vercel build instead
-          // of relying on a third-party CDN while a scanner is open.
-          locateFile: (path) => path.endsWith('.wasm') ? zxingReaderWasmUrl : path
-        },
-        fireImmediately: true
-      });
-      scannerStarting = false;
-
-      // Keep scanning in the background until the dialog is closed or a QR is found.
-      const scanFrame = async () => {
-        if (!scannerOpen || !scannerVideo) return;
-        if (scanInProgress) {
-          scanTimer = window.setTimeout(scanFrame, 150);
-          return;
-        }
-
-        scanInProgress = true;
-        try {
-          const rawValue = await decodeCameraFrame();
-          if (rawValue && scanQrValue(rawValue)) return;
-        } catch {
-          // A camera frame may be unavailable or out of focus. Continue scanning.
-        } finally {
-          scanInProgress = false;
-        }
-
-        if (scannerOpen) scanTimer = window.setTimeout(scanFrame, 150);
-      };
-      scanFrame();
-    } catch (error) {
-      scannerStarting = false;
-      scannerError = error.message || 'Could not open the camera. Check your camera permission and try again.';
-      scannerStream?.getTracks().forEach((track) => track.stop());
-      scannerStream = undefined;
-    }
-  }
 
   onMount(loadCard);
-  onDestroy(stopScanner);
 </script>
 
 <svelte:head><title>Network Card | Evenai</title></svelte:head>
@@ -250,20 +144,7 @@
 <PageShell user={data.user}>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
   {#if sharing}<div class="share-backdrop" onclick={() => sharing = false} aria-hidden="true"></div>{/if}
-  {#if scannerOpen}
-    <div class="scan-backdrop" role="presentation" onclick={stopScanner}></div>
-    <div class="scan-dialog" role="dialog" aria-modal="true" aria-labelledby="scan-title">
-      <div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-wider text-cyan-300">Network Card</p><h2 id="scan-title" class="mt-1 text-xl font-bold text-white">Scan a QR code</h2></div><button class="rounded-xl p-2 text-ink-300 hover:bg-white/10 hover:text-white" onclick={stopScanner} aria-label="Close scanner"><X size={20} /></button></div>
-      <div class="scan-preview mt-5">{#if scannerStarting}<LoaderCircle size={28} class="animate-spin text-cyan-300" />{/if}<video bind:this={scannerVideo} class:invisible={scannerStarting} autoplay playsinline muted></video></div>
-      <p class="mt-4 text-center text-sm leading-6 text-ink-300">The scanner detects QR codes automatically. If needed, capture an image first, then scan that image.</p>
-      <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm font-medium text-ink-200 hover:bg-white/5 disabled:opacity-60" onclick={captureQrImage} disabled={scannerStarting || scannerCapturing}><Camera size={16} /> Capture QR image</button>
-      {#if capturedQrFrameUrl}
-        <img class="mt-3 max-h-36 w-full rounded-xl border border-white/10 object-contain" src={capturedQrFrameUrl} alt="Captured QR scan frame" />
-        <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200 disabled:opacity-60" onclick={scanCapturedQrImage} disabled={scannerCapturing}>{#if scannerCapturing}<LoaderCircle size={16} class="animate-spin" /> Scanning captured image…{:else}<ScanLine size={16} /> Scan captured image{/if}</button>
-      {/if}
-      {#if scannerError}<p class="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-center text-xs leading-5 text-amber-100">{scannerError}</p>{/if}
-    </div>
-  {/if}
+  <input bind:this={nativeQrInput} class="sr-only" type="file" accept="image/*" capture="environment" onchange={scanNativeQrImage} />
   <main class="relative flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8 sm:px-6 {sharing ? 'z-[110] pointer-events-none' : 'z-20'}">
     {#if loading}
       <div class="text-sm text-ink-400">Loading…</div>
@@ -284,7 +165,7 @@
             {#if sharing}<div class="mt-7 border-t border-white/10 pt-6"><img class="qr-code mx-auto" src={qrDataUrl} alt="Temporary Network Card QR code" /><p class="mt-3 text-center text-xs text-ink-400">Scan to connect and mark both of you as met{#if qrExpiresAt} · Expires at {new Date(qrExpiresAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}{/if}</p></div>{/if}
           {/if}
         </section>
-        {#if !editing}<div class="card-actions pointer-events-auto flex justify-center gap-3 rounded-2xl bg-ink-950/80 p-2 backdrop-blur-md">{#if sharing}<Button variant="outline" class="gap-2 border-white/10" onclick={() => sharing = false}><X size={16} /> Close</Button>{:else}<Button variant="outline" class="gap-2 border-white/10" onclick={startSharing} disabled={generatingQr}>{#if generatingQr}<LoaderCircle size={16} class="animate-spin" /> Creating…{:else}<Share2 size={16} /> Share{/if}</Button><Button variant="outline" class="gap-2 border-white/10" onclick={startScanner}><Camera size={16} /> Scan</Button><Button class="gap-2" onclick={startEditing}><Edit3 size={16} /> Edit</Button>{/if}</div>{/if}
+        {#if !editing}<div class="card-actions pointer-events-auto flex justify-center gap-3 rounded-2xl bg-ink-950/80 p-2 backdrop-blur-md">{#if sharing}<Button variant="outline" class="gap-2 border-white/10" onclick={() => sharing = false}><X size={16} /> Close</Button>{:else}<Button variant="outline" class="gap-2 border-white/10" onclick={startSharing} disabled={generatingQr}>{#if generatingQr}<LoaderCircle size={16} class="animate-spin" /> Creating…{:else}<Share2 size={16} /> Share{/if}</Button><Button variant="outline" class="gap-2 border-white/10" onclick={openNativeQrCamera} disabled={scanningQr}>{#if scanningQr}<LoaderCircle size={16} class="animate-spin" /> Scanning…{:else}<Camera size={16} /> Scan{/if}</Button><Button class="gap-2" onclick={startEditing}><Edit3 size={16} /> Edit</Button>{/if}</div>{/if}
       </div>
     {/if}
   </main>
@@ -294,10 +175,6 @@
   .network-card { z-index: 20; background: linear-gradient(145deg, rgba(49, 46, 129, .48), rgba(15, 23, 42, .94)); box-shadow: 0 22px 55px rgba(0, 0, 0, .32); }
   .network-card.share-active { box-shadow: 0 25px 70px rgba(0, 0, 0, .7); }
   .share-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .76); backdrop-filter: blur(3px); }
-  .scan-backdrop { position: fixed; inset: 0; z-index: 140; background: rgba(0, 0, 0, .78); backdrop-filter: blur(3px); }
-  .scan-dialog { position: fixed; z-index: 150; top: 50%; left: 50%; width: min(92vw, 28rem); transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,.12); border-radius: 1.5rem; background: #12131a; padding: 1.25rem; box-shadow: 0 25px 70px rgba(0,0,0,.55); }
-  .scan-preview { display: grid; aspect-ratio: 1; place-items: center; overflow: hidden; border: 1px solid rgba(103,232,249,.28); border-radius: 1rem; background: #05070c; }
-  .scan-preview video { width: 100%; height: 100%; object-fit: cover; }
   .qr-code { width: 180px; height: 180px; border-radius: 12px; background: white; }
   .card-actions { position: fixed; z-index: 120; bottom: calc(4.5rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); }
   @media (min-width: 768px) { .card-actions { bottom: 1.25rem; left: calc(50% + 120px); } }

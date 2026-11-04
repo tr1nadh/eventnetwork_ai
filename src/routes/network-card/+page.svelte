@@ -2,7 +2,7 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import { Camera, Edit3, LoaderCircle, Save, ScanLine, Share2, X } from '@lucide/svelte';
   import QRCode from 'qrcode';
-  import jsQR from 'jsqr';
+  import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
   import PageShell from '$lib/components/page-shell.svelte';
   import Sidebar from '$lib/components/sidebar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -35,6 +35,7 @@
   let scanTimer;
   let scannerCanvas;
   let scannerCapturing = false;
+  let scanInProgress = false;
 
   function scanQrValue(rawValue) {
     if (!rawValue) return false;
@@ -49,7 +50,7 @@
     return false;
   }
 
-  function decodeCameraFrame() {
+  async function decodeCameraFrame() {
     if (!scannerVideo?.videoWidth || !scannerCanvas) {
       throw new Error('Camera is still starting. Please wait a moment and try again.');
     }
@@ -59,14 +60,20 @@
     const context = scannerCanvas.getContext('2d', { willReadFrequently: true });
     context?.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
     const image = context?.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
-    return image ? jsQR(image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' })?.data : undefined;
+    if (!image) return undefined;
+    const results = await readBarcodes(image, {
+      formats: ['QRCode'],
+      maxNumberOfSymbols: 1,
+      tryHarder: true
+    });
+    return results[0]?.text;
   }
 
-  function captureAndScan() {
+  async function captureAndScan() {
     scannerError = '';
     scannerCapturing = true;
     try {
-      const rawValue = decodeCameraFrame();
+      const rawValue = await decodeCameraFrame();
       if (!rawValue) throw new Error('No QR code found. Hold the QR code inside the camera frame, then try again.');
       scanQrValue(rawValue);
     } catch (error) {
@@ -156,36 +163,26 @@
       scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
       scannerVideo.srcObject = scannerStream;
       await scannerVideo.play();
-      const detector = 'BarcodeDetector' in window
-        ? new window.BarcodeDetector({ formats: ['qr_code'] })
-        : null;
       scannerCanvas = document.createElement('canvas');
+      await prepareZXingModule({ fireImmediately: true });
       scannerStarting = false;
 
       const scanFrame = async () => {
         if (!scannerOpen || !scannerVideo) return;
+        if (scanInProgress) {
+          scanTimer = window.setTimeout(scanFrame, 250);
+          return;
+        }
+        scanInProgress = true;
         try {
-          let rawValue;
-          if (detector) {
-            try {
-              const codes = await detector.detect(scannerVideo);
-              rawValue = codes[0]?.rawValue;
-            } catch {
-              // Some implementations expose BarcodeDetector but cannot decode a video frame.
-              // Continue with the JavaScript decoder below.
-            }
-          }
-
-          // BarcodeDetector is unavailable in Safari and some mobile/in-app browsers.
-          // Decode the current video frame in JavaScript as a compatible fallback.
-          if (!rawValue && scannerVideo.videoWidth && scannerCanvas) {
-            rawValue = decodeCameraFrame();
-          }
+          const rawValue = await decodeCameraFrame();
           if (rawValue) {
             if (scanQrValue(rawValue)) return;
           }
         } catch (error) {
-          // Keep scanning; a frame may be unavailable while the camera starts.
+          // A frame may be unavailable while the camera starts. Keep auto-scanning.
+        } finally {
+          scanInProgress = false;
         }
         scanTimer = window.setTimeout(scanFrame, 250);
       };

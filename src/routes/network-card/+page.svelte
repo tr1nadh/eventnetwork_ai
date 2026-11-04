@@ -37,6 +37,8 @@
   let scannerCanvas;
   let scannerCapturing = false;
   let scanInProgress = false;
+  let capturedQrFrame;
+  let capturedQrFrameUrl = '';
 
   const scannerOptions = {
     formats: ['QRCode'],
@@ -57,7 +59,7 @@
     return false;
   }
 
-  async function decodeCameraFrame() {
+  function captureCameraFrame() {
     if (!scannerVideo?.videoWidth || !scannerCanvas) {
       throw new Error('Camera is still starting. Please wait a moment and try again.');
     }
@@ -71,20 +73,40 @@
     const context = scannerCanvas.getContext('2d', { willReadFrequently: true });
     context?.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
     const image = context?.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
+    if (!image) throw new Error('Could not capture the camera frame. Please try again.');
+    return image;
+  }
+
+  async function decodeImage(image) {
     if (!image) return undefined;
     const results = await readBarcodes(image, scannerOptions);
     return results[0]?.text;
   }
 
-  async function captureAndScan() {
+  async function decodeCameraFrame() {
+    return decodeImage(captureCameraFrame());
+  }
+
+  function captureQrImage() {
+    scannerError = '';
+    try {
+      capturedQrFrame = captureCameraFrame();
+      capturedQrFrameUrl = scannerCanvas.toDataURL('image/jpeg', 0.92);
+    } catch (error) {
+      scannerError = error.message || 'Could not capture the camera frame.';
+    }
+  }
+
+  async function scanCapturedQrImage() {
+    if (!capturedQrFrame) return;
     scannerError = '';
     scannerCapturing = true;
     try {
-      const rawValue = await decodeCameraFrame();
-      if (!rawValue) throw new Error('No QR code found. Hold the QR code inside the camera frame, then try again.');
+      const rawValue = await decodeImage(capturedQrFrame);
+      if (!rawValue) throw new Error('No QR code was found in the captured image. Retake it closer and in better light.');
       scanQrValue(rawValue);
     } catch (error) {
-      scannerError = error.message || 'Could not scan the camera frame.';
+      scannerError = error.message || 'Could not scan the captured image.';
     } finally {
       scannerCapturing = false;
     }
@@ -155,6 +177,8 @@
     scannerStream?.getTracks().forEach((track) => track.stop());
     scannerStream = undefined;
     scannerCanvas = undefined;
+    capturedQrFrame = undefined;
+    capturedQrFrameUrl = '';
     scannerOpen = false;
   }
 
@@ -231,8 +255,12 @@
     <div class="scan-dialog" role="dialog" aria-modal="true" aria-labelledby="scan-title">
       <div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-wider text-cyan-300">Network Card</p><h2 id="scan-title" class="mt-1 text-xl font-bold text-white">Scan a QR code</h2></div><button class="rounded-xl p-2 text-ink-300 hover:bg-white/10 hover:text-white" onclick={stopScanner} aria-label="Close scanner"><X size={20} /></button></div>
       <div class="scan-preview mt-5">{#if scannerStarting}<LoaderCircle size={28} class="animate-spin text-cyan-300" />{/if}<video bind:this={scannerVideo} class:invisible={scannerStarting} autoplay playsinline muted></video></div>
-      <p class="mt-4 text-center text-sm leading-6 text-ink-300">The scanner detects QR codes automatically. You can also capture the current frame to scan it.</p>
-      <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm font-medium text-ink-200 hover:bg-white/5 disabled:opacity-60" onclick={captureAndScan} disabled={scannerStarting || scannerCapturing}>{#if scannerCapturing}<LoaderCircle size={16} class="animate-spin" /> Scanning capture…{:else}<ScanLine size={16} /> Capture & scan QR{/if}</button>
+      <p class="mt-4 text-center text-sm leading-6 text-ink-300">The scanner detects QR codes automatically. If needed, capture an image first, then scan that image.</p>
+      <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm font-medium text-ink-200 hover:bg-white/5 disabled:opacity-60" onclick={captureQrImage} disabled={scannerStarting || scannerCapturing}><Camera size={16} /> Capture QR image</button>
+      {#if capturedQrFrameUrl}
+        <img class="mt-3 max-h-36 w-full rounded-xl border border-white/10 object-contain" src={capturedQrFrameUrl} alt="Captured QR scan frame" />
+        <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200 disabled:opacity-60" onclick={scanCapturedQrImage} disabled={scannerCapturing}>{#if scannerCapturing}<LoaderCircle size={16} class="animate-spin" /> Scanning captured image…{:else}<ScanLine size={16} /> Scan captured image{/if}</button>
+      {/if}
       {#if scannerError}<p class="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-center text-xs leading-5 text-amber-100">{scannerError}</p>{/if}
     </div>
   {/if}

@@ -2246,11 +2246,14 @@
   async function refreshFromDb() {
     refreshingFromDb = true;
     try {
-      const res = await fetch(`/api/matches?event_id=${data.event.id}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to refresh matches from DB");
-      const { matches: dbMatches } = await res.json();
+      const [matchesRes] = await Promise.all([
+        fetch(`/api/matches?event_id=${data.event.id}`, {
+          credentials: "include",
+        }),
+        fetchAllConnections(),
+      ]);
+      if (!matchesRes.ok) throw new Error("Failed to refresh matches from DB");
+      const { matches: dbMatches } = await matchesRes.json();
       matchesStore.set(dbMatches || []);
       toast.success("Matches refreshed");
     } catch (error) {

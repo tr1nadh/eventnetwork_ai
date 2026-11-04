@@ -2,6 +2,16 @@ import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { createSupabaseServerClient } from '$lib/supabase/server';
 import { json, error } from '@sveltejs/kit';
 
+const MAX_ATTENDEES_REGEX = /^[1-9]\d*$/;
+
+function parseMaxAttendees(value) {
+  const text = String(value ?? '').trim();
+  if (!MAX_ATTENDEES_REGEX.test(text)) return null;
+
+  const parsed = Number(text);
+  return Number.isSafeInteger(parsed) && parsed >= 4 ? parsed : null;
+}
+
 export async function PUT({ request, params, locals }) {
   if (!locals.user) {
     throw error(401, 'Unauthorized.');
@@ -137,6 +147,19 @@ export async function PUT({ request, params, locals }) {
   }
   if (body?.is_announcements_enabled !== undefined) {
     updatePayload.is_announcements_enabled = Boolean(body.is_announcements_enabled);
+  }
+  if (body?.max_attendees !== undefined) {
+    const maxAttendees = parseMaxAttendees(body.max_attendees);
+    if (maxAttendees === null) {
+      throw error(400, 'Max attendees must be a whole number of at least 4.');
+    }
+    updatePayload.max_attendees = maxAttendees;
+  }
+  if (body?.is_attendees_register_limited !== undefined) {
+    if (typeof body.is_attendees_register_limited !== 'boolean') {
+      throw error(400, 'Attendees register limited must be true or false.');
+    }
+    updatePayload.is_attendees_register_limited = body.is_attendees_register_limited;
   }
 
   const { data: updatedEvent, error: updateError } = await admin

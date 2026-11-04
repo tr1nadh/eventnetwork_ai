@@ -1,6 +1,6 @@
 <script>
   import { slide, fade, fly } from "svelte/transition";
-  import { goto, invalidateAll, afterNavigate } from "$app/navigation";
+  import { goto, invalidateAll, afterNavigate, beforeNavigate } from "$app/navigation";
   import { page } from "$app/stores";
   import {
     ArrowLeft,
@@ -97,7 +97,7 @@
     return embedding;
   }
   import { createSupabaseBrowserClient } from "$lib/supabase/client";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
 
   const supabase = createSupabaseBrowserClient();
 
@@ -1308,6 +1308,63 @@
   let settingsIsNetworkEnabled = Boolean(currentEvent?.is_network_enabled);
   let settingsIsAnnouncementsEnabled =
     currentEvent?.is_announcements_enabled !== false;
+  const MAX_ATTENDEES_REGEX = /^[1-9]\d*$/;
+  let settingsMaxAttendees = String(currentEvent?.max_attendees ?? 20);
+  let settingsIsAttendeesRegisterLimited =
+    currentEvent?.is_attendees_register_limited !== false;
+
+  function createTabSettingsSnapshot() {
+    return JSON.stringify({
+      name: settingsName,
+      description: settingsDescription,
+      slug: settingsSlug,
+      location: settingsLocation,
+      googleMapUrl: settingsGoogleMapUrl,
+      meetingUrl: settingsMeetingUrl,
+      eventFormat: settingsEventFormat,
+      logoUrl: settingsLogoUrl,
+      bannerUrl: settingsBannerUrl,
+      logoPreview: settingsLogoPreview,
+      bannerPreview: settingsBannerPreview,
+      startTime: settingsStartTime,
+      endTime: settingsEndTime,
+      isApprovalRequired: settingsIsApprovalRequired,
+      isPublic: settingsIsPublic,
+      allowJoinAfterStart: settingsAllowJoinAfterStart,
+      isVenueEnabled: settingsIsVenueEnabled,
+      isNetworkEnabled: settingsIsNetworkEnabled,
+      isAnnouncementsEnabled: settingsIsAnnouncementsEnabled,
+      maxAttendees: settingsMaxAttendees,
+      isAttendeesRegisterLimited: settingsIsAttendeesRegisterLimited,
+    });
+  }
+
+  let savedTabSettingsSnapshot = createTabSettingsSnapshot();
+  $: currentTabSettingsSnapshot = createTabSettingsSnapshot(
+    settingsName,
+    settingsDescription,
+    settingsSlug,
+    settingsLocation,
+    settingsGoogleMapUrl,
+    settingsMeetingUrl,
+    settingsEventFormat,
+    settingsLogoUrl,
+    settingsBannerUrl,
+    settingsLogoPreview,
+    settingsBannerPreview,
+    settingsStartTime,
+    settingsEndTime,
+    settingsIsApprovalRequired,
+    settingsIsPublic,
+    settingsAllowJoinAfterStart,
+    settingsIsVenueEnabled,
+    settingsIsNetworkEnabled,
+    settingsIsAnnouncementsEnabled,
+    settingsMaxAttendees,
+    settingsIsAttendeesRegisterLimited,
+  );
+  $: hasUnsavedTabSettings =
+    currentTabSettingsSnapshot !== savedTabSettingsSnapshot;
 
   $: if (currentEvent) {
     settingsName = currentEvent.name ?? "";
@@ -1334,6 +1391,10 @@
     settingsIsNetworkEnabled = Boolean(currentEvent.is_network_enabled);
     settingsIsAnnouncementsEnabled =
       currentEvent.is_announcements_enabled !== false;
+    settingsMaxAttendees = String(currentEvent.max_attendees ?? 20);
+    settingsIsAttendeesRegisterLimited =
+      currentEvent.is_attendees_register_limited !== false;
+    savedTabSettingsSnapshot = createTabSettingsSnapshot();
   }
 
   let settingsStartDate = settingsStartTime
@@ -1663,6 +1724,12 @@
   $: isJoinAfterStartClosed = Boolean(
     isEventLive && currentEvent?.allow_join_after_start === false,
   );
+  $: isAttendeeRegistrationFull = Boolean(
+    currentEvent?.is_attendees_register_limited !== false &&
+      Number(currentEvent?.attendees_count ?? 0) >= Number(currentEvent?.max_attendees ?? 20),
+  );
+  $: isSettingsMaxAttendeesValid =
+    MAX_ATTENDEES_REGEX.test(settingsMaxAttendees) && Number(settingsMaxAttendees) >= 4;
 
   $: isStartInPast = Boolean(
     !isEventLive &&
@@ -1686,6 +1753,75 @@
   let savingTabSettings = false;
   let saveTabSettingsError = "";
   let saveTabSettingsSuccess = false;
+  let showUnsavedTabSettingsModal = false;
+  let pendingTabChange = null;
+  let pendingPageNavigation = null;
+
+  function requestEventTabChange(nextTab) {
+    if (
+      $activeTab === "settings" &&
+      nextTab !== "settings" &&
+      hasUnsavedTabSettings
+    ) {
+      pendingTabChange = nextTab;
+      showUnsavedTabSettingsModal = true;
+      return;
+    }
+    activeTab.set(nextTab);
+  }
+
+  async function discardTabSettingsChanges() {
+    currentEvent = { ...currentEvent };
+    await tick();
+    savedTabSettingsSnapshot = currentTabSettingsSnapshot;
+  }
+
+  async function continueAfterTabSettingsDecision() {
+    const nextTab = pendingTabChange;
+    const nextPage = pendingPageNavigation;
+    pendingTabChange = null;
+    pendingPageNavigation = null;
+    showUnsavedTabSettingsModal = false;
+
+    if (nextTab) activeTab.set(nextTab);
+    if (nextPage) await goto(nextPage);
+  }
+
+  async function discardTabSettingsAndContinue() {
+    await discardTabSettingsChanges();
+    await continueAfterTabSettingsDecision();
+  }
+
+  async function saveTabSettingsAndContinue() {
+    await saveTabSettings();
+    if (saveTabSettingsSuccess) await continueAfterTabSettingsDecision();
+  }
+
+  beforeNavigate((navigation) => {
+    if (
+      $activeTab === "settings" &&
+      hasUnsavedTabSettings &&
+      !savingTabSettings &&
+      navigation.to
+    ) {
+      navigation.cancel();
+      pendingPageNavigation =
+        navigation.to.url.pathname + navigation.to.url.search;
+      showUnsavedTabSettingsModal = true;
+    }
+  });
+
+  onMount(() => {
+    const warnBeforeUnload = (event) => {
+      if ($activeTab === "settings" && hasUnsavedTabSettings) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  });
 
   let settingsDeleteConfirmOpen = false;
   let settingsDeleteConfirmText = "";
@@ -1767,6 +1903,10 @@
   }
 
   async function saveTabSettings() {
+    if (!isSettingsMaxAttendeesValid) {
+      saveTabSettingsError = "Max attendees must be a whole number of at least 4.";
+      return;
+    }
     savingTabSettings = true;
     saveTabSettingsError = "";
     saveTabSettingsSuccess = false;
@@ -1811,6 +1951,8 @@
           is_venue_enabled: settingsIsVenueEnabled,
           is_network_enabled: settingsIsNetworkEnabled,
           is_announcements_enabled: settingsIsAnnouncementsEnabled,
+          max_attendees: settingsMaxAttendees,
+          is_attendees_register_limited: settingsIsAttendeesRegisterLimited,
         }),
       });
 
@@ -1836,6 +1978,9 @@
           deleteSettingsImage(path).catch(() => null),
         ),
       );
+
+      await tick();
+      savedTabSettingsSnapshot = currentTabSettingsSnapshot;
 
       saveTabSettingsSuccess = true;
       toast.success("Event settings updated successfully.");
@@ -2518,6 +2663,12 @@
 
   async function joinEvent() {
     if (joining) return;
+    if (isAttendeeRegistrationFull) {
+      toast.error("Registration closed", {
+        description: "The maximum number of attendee registrations has been reached.",
+      });
+      return;
+    }
     if (isJoinAfterStartClosed) {
       toast.error("Registration closed", {
         description:
@@ -2544,8 +2695,9 @@
         body: JSON.stringify({ event_id: data.event.id }),
       });
 
+      const responseBody = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
+        const errBody = responseBody;
         throw new Error(
           errBody.message ||
             errBody.error ||
@@ -2557,8 +2709,10 @@
       data.isParticipant = true;
       data = { ...data, isParticipant: true };
       if (currentEvent) {
-        currentEvent.attendees_count = (currentEvent.attendees_count || 0) + 1;
-        currentEvent = { ...currentEvent };
+        currentEvent = {
+          ...currentEvent,
+          attendees_count: responseBody.attendees_count ?? (currentEvent.attendees_count || 0) + 1,
+        };
       }
       activeTab.set("details");
       stage = "workspace";
@@ -3605,7 +3759,7 @@
                     <Button
                       id="join-event-btn"
                       onclick={joinEvent}
-                      disabled={joining}
+                      disabled={joining || isJoinAfterStartClosed || isAttendeeRegistrationFull}
                       class="w-full h-12 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_24px_rgba(251,191,36,0.3)] hover:shadow-[0_0_32px_rgba(251,191,36,0.5)] transition-all hover:-translate-y-0.5 active:translate-y-0"
                     >
                       {#if joining}
@@ -3625,6 +3779,11 @@
                       <p class="text-xs text-center text-amber-300">
                         Registration is closed because this event has already
                         started.
+                      </p>
+                    {/if}
+                    {#if isAttendeeRegistrationFull}
+                      <p class="flex items-center justify-center gap-1 text-xs text-center text-red-400">
+                        <AlertTriangle size={13} /> Registration is closed because the maximum attendee limit has been reached.
                       </p>
                     {/if}
                     <p class="text-[11px] text-center text-ink-500">
@@ -4177,7 +4336,7 @@
                     <Button
                       id="join-event-btn"
                       onclick={joinEvent}
-                      disabled={joining}
+                      disabled={joining || isJoinAfterStartClosed || isAttendeeRegistrationFull}
                       class="h-11 px-8 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all"
                     >
                       {#if joining}
@@ -4194,6 +4353,11 @@
                         started.
                       </p>
                     {/if}
+                    {#if isAttendeeRegistrationFull}
+                      <p class="mt-2 flex items-center justify-center gap-1 text-xs text-center text-red-400">
+                        <AlertTriangle size={13} /> Registration is closed because the maximum attendee limit has been reached.
+                      </p>
+                    {/if}
                   </div>
                 {/if}
               </div>
@@ -4203,7 +4367,7 @@
           <Tabs.Root
             value={$activeTab}
             onValueChange={(v) => {
-              activeTab.set(v);
+              requestEventTabChange(v);
             }}
           >
             <!-- Scrollable tabs wrapper -->
@@ -8142,6 +8306,23 @@
                       </button>
                     </div>
 
+                    <div class="space-y-3 rounded-xl bg-white/3 border border-white/6 p-4">
+                      <div class="flex items-center justify-between gap-4">
+                        <div>
+                          <p class="text-sm font-semibold text-white">Attendee registration limit</p>
+                          <p class="text-xs text-ink-500 mt-0.5">Stop registration once the maximum number of attendees is reached.</p>
+                        </div>
+                        <button type="button" disabled={isEventEnded} onclick={() => (settingsIsAttendeesRegisterLimited = !settingsIsAttendeesRegisterLimited)} class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {settingsIsAttendeesRegisterLimited ? 'bg-rose-500' : 'bg-white/10'} disabled:opacity-50" role="switch" aria-checked={settingsIsAttendeesRegisterLimited} aria-label="Limit attendee registrations">
+                          <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {settingsIsAttendeesRegisterLimited ? 'translate-x-5' : 'translate-x-0'}"></span>
+                        </button>
+                      </div>
+                      <div>
+                        <Label class="text-xs text-ink-300">Max attendees</Label>
+                        <Input type="text" inputmode="numeric" pattern="[1-9][0-9]*" bind:value={settingsMaxAttendees} disabled={isEventEnded || !settingsIsAttendeesRegisterLimited} aria-invalid={!isSettingsMaxAttendeesValid} class="mt-1 bg-white/5 border-white/10 text-white disabled:opacity-50" />
+                        {#if !isSettingsMaxAttendeesValid}<p class="mt-1 text-xs text-red-400">Enter a whole number of at least 4.</p>{/if}
+                      </div>
+                    </div>
+
                     <!-- Enable Networking -->
                     <div
                       class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6"
@@ -9794,5 +9975,52 @@
 
     <!-- AI Credits Exhausted Modal -->
     <AICreditsExhausted />
+
+    {#if showUnsavedTabSettingsModal}
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+        <div class="glass w-full max-w-md space-y-6 rounded-2xl border border-amber-500/30 p-6 shadow-2xl sm:p-8">
+          <div class="flex items-start gap-4">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10">
+              <AlertTriangle class="text-amber-400" size={20} />
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white">Unsaved settings</h3>
+              <p class="mt-1 text-xs leading-relaxed text-ink-400">
+                Save or discard your changes before leaving the Settings tab.
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-col gap-2.5 border-t border-white/10 pt-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              class="border-white/10 text-ink-300 hover:text-white text-xs"
+              onclick={() => {
+                showUnsavedTabSettingsModal = false;
+                pendingTabChange = null;
+                pendingPageNavigation = null;
+              }}
+            >
+              Keep Editing
+            </Button>
+            <Button
+              variant="destructive"
+              class="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 text-xs"
+              onclick={discardTabSettingsAndContinue}
+            >
+              Discard Changes
+            </Button>
+            <Button
+              class="bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs"
+              onclick={saveTabSettingsAndContinue}
+              disabled={savingTabSettings || isTimeInvalid || isEventEnded}
+            >
+              {#if savingTabSettings}<LoaderCircle size={14} class="animate-spin" />{/if}
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </div>
+    {/if}
+
   </main>
 </PageShell>

@@ -93,6 +93,10 @@
   let isVenueEnabled = event?.is_venue_enabled ?? true;
   let isNetworkEnabled = event?.is_network_enabled ?? false;
   let isAnnouncementsEnabled = event?.is_announcements_enabled ?? true;
+  const MAX_ATTENDEES_REGEX = /^[1-9]\d*$/;
+  let maxAttendees = String(event?.max_attendees ?? 20);
+  let isAttendeesRegisterLimited = event?.is_attendees_register_limited ?? true;
+  $: isMaxAttendeesValid = MAX_ATTENDEES_REGEX.test(maxAttendees) && Number(maxAttendees) >= 4;
 
   function eventImageSrc(path) {
     return path ? `/api/events/images?path=${encodeURIComponent(path)}` : '';
@@ -308,6 +312,8 @@
     isVenueEnabled,
     isNetworkEnabled,
     isAnnouncementsEnabled,
+    maxAttendees,
+    isAttendeesRegisterLimited,
   });
 
   $: currentFormSnapshot = JSON.stringify({
@@ -329,6 +335,8 @@
     isVenueEnabled,
     isNetworkEnabled,
     isAnnouncementsEnabled,
+    maxAttendees,
+    isAttendeesRegisterLimited,
   });
 
   $: isDirty = currentFormSnapshot !== initialFormSnapshot;
@@ -455,6 +463,10 @@
   }
 
   async function saveSettings() {
+    if (!isMaxAttendeesValid) {
+      saveError = 'Max attendees must be a whole number of at least 4.';
+      return;
+    }
     saving = true;
     saveError = '';
     saveSuccess = false;
@@ -492,6 +504,8 @@
           is_venue_enabled: isVenueEnabled,
           is_network_enabled: isNetworkEnabled,
           is_announcements_enabled: isAnnouncementsEnabled,
+          max_attendees: maxAttendees,
+          is_attendees_register_limited: isAttendeesRegisterLimited,
         }),
       });
 
@@ -935,6 +949,23 @@
           </button>
         </div>
 
+        <div class="space-y-3 rounded-xl bg-white/3 border border-white/6 p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-white">Attendee registration limit</p>
+              <p class="text-xs text-ink-500 mt-0.5">Stop registration once the maximum number of attendees is reached.</p>
+            </div>
+            <button type="button" disabled={isEventEnded} onclick={() => (isAttendeesRegisterLimited = !isAttendeesRegisterLimited)} class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isAttendeesRegisterLimited ? 'bg-rose-500' : 'bg-white/10'} disabled:opacity-50" role="switch" aria-checked={isAttendeesRegisterLimited} aria-label="Limit attendee registrations">
+              <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isAttendeesRegisterLimited ? 'translate-x-5' : 'translate-x-0'}"></span>
+            </button>
+          </div>
+          <div>
+            <Label for="max-attendees" class="text-xs text-ink-300">Max attendees</Label>
+            <Input id="max-attendees" type="text" inputmode="numeric" pattern="[1-9][0-9]*" bind:value={maxAttendees} disabled={isEventEnded || !isAttendeesRegisterLimited} aria-invalid={!isMaxAttendeesValid} class="mt-1 bg-white/5 border-white/10 text-white disabled:opacity-50" />
+            {#if !isMaxAttendeesValid}<p class="mt-1 text-xs text-red-400">Enter a whole number of at least 4.</p>{/if}
+          </div>
+        </div>
+
         <!-- Enable Networking -->
         <div class="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/3 border border-white/6">
           <div class="flex items-start gap-3">
@@ -1050,7 +1081,6 @@
         </div>
       {/if}
 
-      <!-- Save Button -->
       <Button
         onclick={saveSettings}
         disabled={saving || isTimeInvalid || isEventEnded}

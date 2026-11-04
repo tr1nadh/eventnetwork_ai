@@ -80,6 +80,10 @@
   let isVenueEnabled = false;
   let isNetworkEnabled = false;
   let isAnnouncementsEnabled = true;
+  const MAX_ATTENDEES_REGEX = /^[1-9]\d*$/;
+  let maxAttendees = '20';
+  let isAttendeesRegisterLimited = true;
+  $: isMaxAttendeesValid = MAX_ATTENDEES_REGEX.test(maxAttendees) && Number(maxAttendees) >= 4;
 
   let startDate = getFormattedDateStr(defaultStartObj);
   let startTimeVal = `${String(defaultStartObj.getHours()).padStart(2, '0')}:${String(defaultStartObj.getMinutes()).padStart(2, '0')}`;
@@ -306,6 +310,10 @@
       return false;
     }
     if (isTimeInvalid) return false;
+    if (!isMaxAttendeesValid) {
+      createError = 'Max attendees must be a whole number of at least 4.';
+      return false;
+    }
 
     creatingEvent = true;
     createError = null;
@@ -336,6 +344,8 @@
           is_venue_enabled: isVenueEnabled,
           is_network_enabled: isNetworkEnabled,
           is_announcements_enabled: isAnnouncementsEnabled,
+          max_attendees: maxAttendees,
+          is_attendees_register_limited: isAttendeesRegisterLimited,
         }),
       });
 
@@ -700,6 +710,23 @@
           >
             <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {allowJoinAfterStart ? 'translate-x-5' : 'translate-x-0'}"></span>
           </button>
+        </div>
+
+        <div class="space-y-3 rounded-xl bg-white/3 border border-white/6 p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-white">Attendee registration limit</p>
+              <p class="text-xs text-ink-500 mt-0.5">Stop registration once the maximum number of attendees is reached.</p>
+            </div>
+            <button type="button" onclick={() => (isAttendeesRegisterLimited = !isAttendeesRegisterLimited)} class="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 {isAttendeesRegisterLimited ? 'bg-rose-500' : 'bg-white/10'}" role="switch" aria-checked={isAttendeesRegisterLimited} aria-label="Limit attendee registrations">
+              <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {isAttendeesRegisterLimited ? 'translate-x-5' : 'translate-x-0'}"></span>
+            </button>
+          </div>
+          <div>
+            <Label for="max-attendees" class="text-xs text-ink-300">Max attendees</Label>
+            <Input id="max-attendees" type="text" inputmode="numeric" pattern="[1-9][0-9]*" bind:value={maxAttendees} disabled={!isAttendeesRegisterLimited} aria-invalid={!isMaxAttendeesValid} class="mt-1 bg-white/5 border-white/10 text-white disabled:opacity-50" />
+            {#if !isMaxAttendeesValid}<p class="mt-1 text-xs text-red-400">Enter a whole number of at least 4.</p>{/if}
+          </div>
         </div>
 
         <!-- Enable Networking -->

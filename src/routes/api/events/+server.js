@@ -9,7 +9,16 @@ function slugify(input) {
     .replace(/^-+|-+$/g, '');
 }
 
-const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_meeting_url, event_format, attendees_count, event_logo_url, event_banner_url, is_public, allow_join_after_start, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
+const SELECT_FIELDS = 'id, name, description, slug, created_by, created_at, updated_at, venue_map, start_time, end_time, location, google_map_url, event_meeting_url, event_format, attendees_count, max_attendees, is_attendees_register_limited, event_logo_url, event_banner_url, is_public, allow_join_after_start, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
+const MAX_ATTENDEES_REGEX = /^[1-9]\d*$/;
+
+function parseMaxAttendees(value) {
+  const text = String(value ?? '').trim();
+  if (!MAX_ATTENDEES_REGEX.test(text)) return null;
+
+  const parsed = Number(text);
+  return Number.isSafeInteger(parsed) && parsed >= 4 ? parsed : null;
+}
 
 export async function POST({ request, locals }) {
   if (!locals.user) {
@@ -58,6 +67,14 @@ export async function POST({ request, locals }) {
   const is_venue_enabled = body?.is_venue_enabled !== undefined ? Boolean(body.is_venue_enabled) : true;
   const is_network_enabled = Boolean(body?.is_network_enabled);
   const is_announcements_enabled = body?.is_announcements_enabled !== undefined ? Boolean(body.is_announcements_enabled) : true;
+  const max_attendees = parseMaxAttendees(body?.max_attendees ?? 20);
+  if (max_attendees === null) {
+    throw error(400, 'Max attendees must be a whole number of at least 4.');
+  }
+  if (body?.is_attendees_register_limited !== undefined && typeof body.is_attendees_register_limited !== 'boolean') {
+    throw error(400, 'Attendees register limited must be true or false.');
+  }
+  const is_attendees_register_limited = body?.is_attendees_register_limited ?? true;
 
   const admin = createSupabaseAdminClient();
 
@@ -88,6 +105,8 @@ export async function POST({ request, locals }) {
       google_map_url,
       event_meeting_url,
       event_format,
+      max_attendees,
+      is_attendees_register_limited,
       event_logo_url,
       event_banner_url,
       is_public,

@@ -33,25 +33,22 @@ export async function POST({ request, locals }) {
     throw error(403, 'Registration is closed because this event has already started.');
   }
 
-  const { error: insertError } = await admin
-    .from('event_participants')
-    .upsert(
-      {
-        event_id,
-        user_id: locals.user.id,
-        status: 'joined',
-        joined_at: new Date().toISOString()
-      },
-      {
-        onConflict: 'event_id,user_id',
-        ignoreDuplicates: false
-      }
-    );
+  const { data: joinResult, error: joinError } = await admin.rpc(
+    'join_event_with_attendee_limit',
+    { p_event_id: event_id, p_user_id: locals.user.id }
+  );
 
-  if (insertError) {
-    console.error('[join] Supabase insert error:', insertError);
-    throw error(500, insertError.message);
+  if (joinError) {
+    console.error('[join] Supabase registration error:', joinError);
+    throw error(500, joinError.message);
   }
 
-  return json({ success: true, status: 'joined' });
+  if (joinResult?.success !== true) {
+    if (joinResult?.reason === 'capacity_reached') {
+      throw error(409, 'Registration is closed because the maximum attendee limit has been reached.');
+    }
+    throw error(400, 'Could not register for this event.');
+  }
+
+  return json({ success: true, status: 'joined', attendees_count: joinResult.attendees_count });
 }

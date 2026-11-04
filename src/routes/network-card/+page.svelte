@@ -3,6 +3,7 @@
   import { Camera, Edit3, LoaderCircle, Save, ScanLine, Share2, X } from '@lucide/svelte';
   import QRCode from 'qrcode';
   import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
+  import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
   import PageShell from '$lib/components/page-shell.svelte';
   import Sidebar from '$lib/components/sidebar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -37,6 +38,12 @@
   let scannerCapturing = false;
   let scanInProgress = false;
 
+  const scannerOptions = {
+    formats: ['QRCode'],
+    maxNumberOfSymbols: 1,
+    tryHarder: true
+  };
+
   function scanQrValue(rawValue) {
     if (!rawValue) return false;
     const url = new URL(rawValue, window.location.origin);
@@ -55,17 +62,17 @@
       throw new Error('Camera is still starting. Please wait a moment and try again.');
     }
 
-    scannerCanvas.width = scannerVideo.videoWidth;
-    scannerCanvas.height = scannerVideo.videoHeight;
+    // Decoding every full-resolution camera frame can starve slower phones.
+    // Keep enough detail for a QR code while maintaining a continuous scan loop.
+    const maxScanWidth = 960;
+    const scale = Math.min(1, maxScanWidth / scannerVideo.videoWidth);
+    scannerCanvas.width = Math.round(scannerVideo.videoWidth * scale);
+    scannerCanvas.height = Math.round(scannerVideo.videoHeight * scale);
     const context = scannerCanvas.getContext('2d', { willReadFrequently: true });
     context?.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
     const image = context?.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
     if (!image) return undefined;
-    const results = await readBarcodes(image, {
-      formats: ['QRCode'],
-      maxNumberOfSymbols: 1,
-      tryHarder: true
-    });
+    const results = await readBarcodes(image, scannerOptions);
     return results[0]?.text;
   }
 
@@ -160,11 +167,25 @@
         throw new Error('Camera access is not supported in this browser. Open the site in a current browser over HTTPS.');
       }
       await tick();
-      scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      scannerStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
       scannerVideo.srcObject = scannerStream;
       await scannerVideo.play();
       scannerCanvas = document.createElement('canvas');
-      await prepareZXingModule({ fireImmediately: true });
+      await prepareZXingModule({
+        overrides: {
+          // Ship the exact matching WASM binary with the Vercel build instead
+          // of relying on a third-party CDN while a scanner is open.
+          locateFile: (path) => path.endsWith('.wasm') ? zxingReaderWasmUrl : path
+        },
+        fireImmediately: true
+      });
       scannerStarting = false;
 
       const scanFrame = async () => {
@@ -208,7 +229,7 @@
     <div class="scan-backdrop" role="presentation" onclick={stopScanner}></div>
     <div class="scan-dialog" role="dialog" aria-modal="true" aria-labelledby="scan-title">
       <div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-wider text-cyan-300">Network Card</p><h2 id="scan-title" class="mt-1 text-xl font-bold text-white">Scan a QR code</h2></div><button class="rounded-xl p-2 text-ink-300 hover:bg-white/10 hover:text-white" onclick={stopScanner} aria-label="Close scanner"><X size={20} /></button></div>
-      <div class="scan-preview mt-5">{#if scannerStarting}<LoaderCircle size={28} class="animate-spin text-cyan-300" />{/if}<video bind:this={scannerVideo} class:invisible={scannerStarting} playsinline muted></video></div>
+      <div class="scan-preview mt-5">{#if scannerStarting}<LoaderCircle size={28} class="animate-spin text-cyan-300" />{/if}<video bind:this={scannerVideo} class:invisible={scannerStarting} autoplay playsinline muted></video></div>
       <p class="mt-4 text-center text-sm leading-6 text-ink-300">Point your camera at another person’s Network Card QR code.</p>
       <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm font-medium text-ink-200 hover:bg-white/5 disabled:opacity-60" onclick={captureAndScan} disabled={scannerStarting || scannerCapturing}>{#if scannerCapturing}<LoaderCircle size={16} class="animate-spin" /> Scanning…{:else}<ScanLine size={16} /> Capture & scan QR{/if}</button>
       {#if scannerError}<p class="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-center text-xs leading-5 text-amber-100">{scannerError}</p>{/if}

@@ -11,8 +11,11 @@ function signature(payload) {
   return createHmac('sha256', SUPABASE_SERVICE_ROLE_KEY).update(payload).digest('base64url');
 }
 
-export function createNetworkCardQrToken(cardId, ownerId) {
-  const payload = encode(JSON.stringify({ cardId, ownerId, exp: Date.now() + QR_TTL_MS }));
+export function createNetworkCardQrToken(cardId) {
+  // Keep the QR payload intentionally small. The card owner is resolved from
+  // the database when scanned, so embedding a second UUID only makes the QR
+  // denser and less reliable in a photographed image.
+  const payload = encode(JSON.stringify({ c: cardId, e: Date.now() + QR_TTL_MS }));
   return { token: `${payload}.${signature(payload)}`, expiresAt: new Date(Date.now() + QR_TTL_MS).toISOString() };
 }
 
@@ -27,8 +30,8 @@ export function verifyNetworkCardQrToken(token) {
 
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    if (!data?.cardId || !data?.ownerId || !Number.isFinite(data.exp) || data.exp <= Date.now()) return null;
-    return data;
+    if (!data?.c || !Number.isFinite(data.e) || data.e <= Date.now()) return null;
+    return { cardId: data.c };
   } catch {
     return null;
   }

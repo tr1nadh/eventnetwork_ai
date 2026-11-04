@@ -11,18 +11,16 @@ export async function POST({ request, cookies }) {
   const supabase = createSupabaseServerClient(cookies);
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return json({ error: 'Unauthenticated.' }, { status: 401 });
-  if (user.id === qrData.ownerId) return json({ error: 'You cannot scan your own Network Card.' }, { status: 400 });
-
   const admin = createSupabaseAdminClient();
   const { data: scannedCard, error: scannedCardError } = await admin
     .from('network_cards')
     .select('id, user_id, display_name')
     .eq('id', qrData.cardId)
-    .eq('user_id', qrData.ownerId)
     .eq('is_archived', false)
     .maybeSingle();
   if (scannedCardError) return json({ error: scannedCardError.message }, { status: 500 });
   if (!scannedCard) return json({ error: 'This Network Card is no longer available.' }, { status: 404 });
+  if (user.id === scannedCard.user_id) return json({ error: 'You cannot scan your own Network Card.' }, { status: 400 });
 
   const pairFilter = `and(sender_user_id.eq.${user.id},receiver_user_id.eq.${scannedCard.user_id}),and(sender_user_id.eq.${scannedCard.user_id},receiver_user_id.eq.${user.id})`;
   const { data: existing, error: existingError } = await admin

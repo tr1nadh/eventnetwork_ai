@@ -34,7 +34,11 @@
   const scannerOptions = {
     formats: ['QRCode'],
     maxNumberOfSymbols: 1,
-    tryHarder: true
+    tryHarder: true,
+    tryRotate: true,
+    tryInvert: true,
+    tryDownscale: true,
+    tryDenoise: true
   };
 
   function openNativeQrCamera() {
@@ -103,7 +107,7 @@
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || 'Could not create a temporary QR code.');
       const url = `${window.location.origin}/network-card/scan?token=${encodeURIComponent(body.token)}`;
-      qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#09090b', light: '#ffffff' } });
+      qrDataUrl = await QRCode.toDataURL(url, { width: 512, margin: 2, errorCorrectionLevel: 'H', color: { dark: '#000000', light: '#ffffff' } });
       qrExpiresAt = body.expiresAt;
       sharing = true;
     } catch (error) {
@@ -175,7 +179,7 @@
   .network-card { z-index: 20; background: linear-gradient(145deg, rgba(49, 46, 129, .48), rgba(15, 23, 42, .94)); box-shadow: 0 22px 55px rgba(0, 0, 0, .32); }
   .network-card.share-active { box-shadow: 0 25px 70px rgba(0, 0, 0, .7); }
   .share-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .76); backdrop-filter: blur(3px); }
-  .qr-code { width: 180px; height: 180px; border-radius: 12px; background: white; }
+  .qr-code { width: 256px; height: 256px; max-width: 100%; border-radius: 12px; background: white; }
   .card-actions { position: fixed; z-index: 120; bottom: calc(4.5rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); }
   @media (min-width: 768px) { .card-actions { bottom: 1.25rem; left: calc(50% + 120px); } }
 </style>

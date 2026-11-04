@@ -18,5 +18,5 @@ export async function POST({ params, cookies }) {
   if (cardError) return json({ error: cardError.message }, { status: 500 });
   if (!card) return json({ error: 'Network card not found.' }, { status: 404 });
 
-  return json(createNetworkCardQrToken(card.id, user.id));
+  return json(createNetworkCardQrToken(card.id));
 }

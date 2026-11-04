@@ -2366,6 +2366,8 @@
       });
       if (!res.ok) throw new Error("Failed to update connection");
 
+      const targetConn = $connectionsStore.find((c) => c.id === connectionId);
+
       connectionsStore.update((conns) => {
         return conns.map((c) => {
           if (c.id === connectionId) {
@@ -2378,6 +2380,37 @@
           return c;
         });
       });
+
+      // If accepted or rejected, add to matchesStore if not already present
+      if (targetConn && (newStatus === "accepted" || newStatus === "rejected")) {
+        const otherUserId =
+          targetConn.sender_user_id === data.user?.id
+            ? targetConn.receiver_user_id
+            : targetConn.sender_user_id;
+
+        const alreadyInMatches = $matchesStore.some(
+          (m) => m.user_id === otherUserId,
+        );
+
+        if (!alreadyInMatches && otherUserId) {
+          const newMatch = {
+            user_id: otherUserId,
+            name: targetConn.profile?.display_name || "Attendee",
+            role: targetConn.profile?.what_i_do || "Participant",
+            about: targetConn.profile?.about_me || "",
+            company: targetConn.profile?.company || "",
+            explanation:
+              targetConn.explanation ||
+              (newStatus === "accepted"
+                ? "Connection request accepted."
+                : "Connection request."),
+            matchPercentage: targetConn.matchPercentage ?? 75,
+            tags: [],
+          };
+          matchesStore.update((matches) => [newMatch, ...matches]);
+        }
+      }
+
       toast.success(`Connection ${newStatus}`);
     } catch (e) {
       toast.error("Could not update connection");
@@ -6297,78 +6330,229 @@
                             transition:slide
                             class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
                           >
-                            <div
-                              class="h-0.5 bg-gradient-to-r from-violet-400 to-pink-400"
-                              style="width: {conn.matchPercentage ?? 50}%"
-                            ></div>
-                            <div class="p-5 flex flex-col gap-2">
-                              <h3 class="text-base font-bold text-white">
-                                {conn.profile?.display_name || "Unknown"}
-                              </h3>
-                              <span
-                                class="rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-300"
-                                >{conn.matchPercentage ?? "—"}% Match</span
-                              >
-                              {#if conn.explanation}
-                                <div
-                                  class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300"
-                                >
-                                  {conn.explanation}
-                                </div>
-                              {/if}
-                              {#if conn.status === "accepted"}
-                                <div class="mt-2 flex gap-2">
-                                  <Button
-                                    variant="secondary"
-                                    class="flex-1 gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
-                                    onclick={() => openChatForConnection(conn)}
+                            {#if networkFilter === "received"}
+                              <!-- Match strength bar styled identical to AI Matches -->
+                              <div
+                                class="h-0.5 bg-gradient-to-r from-amber-400 to-cyan-400"
+                                style="width: {conn.matchPercentage ?? 50}%"
+                              ></div>
+
+                              <div class="flex-1 flex flex-col p-5">
+                                <div class="flex-1">
+                                  <div
+                                    class="flex items-start justify-between gap-3"
                                   >
-                                    <MessageCircle size={16} />
-                                    Chat
-                                  </Button>
-                                  {#if !conn.met_at}
-                                    <Button
-                                      variant="outline"
-                                      class="flex-1 gap-2 border-emerald-400/25 text-emerald-200 hover:bg-emerald-400/10"
-                                      onclick={() => updateConnection(conn.id, "met")}
+                                    <div class="min-w-0">
+                                      <h3 class="text-base font-bold text-white">
+                                        {conn.profile?.display_name || "Unknown"}
+                                      </h3>
+                                      <p class="text-xs text-violet-300 mt-0.5">
+                                        Wants to connect with you
+                                      </p>
+                                    </div>
+                                    <span
+                                      class="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300"
                                     >
-                                      <CheckCircle2 size={16} /> Mark as met
-                                    </Button>
-                                  {/if}
+                                      {conn.matchPercentage ?? "—"}% Match
+                                    </span>
+                                  </div>
+
+                                  <Tabs.Root value="why" class="mt-4">
+                                    <Tabs.List
+                                      class="grid w-full grid-cols-2 rounded-xl border border-white/10 bg-white/5 p-1"
+                                    >
+                                      <Tabs.Trigger
+                                        value="why"
+                                        class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-200"
+                                      >
+                                        Why
+                                      </Tabs.Trigger>
+                                      <Tabs.Trigger
+                                        value="profile"
+                                        class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                                      >
+                                        Profile
+                                      </Tabs.Trigger>
+                                    </Tabs.List>
+
+                                    <Tabs.Content
+                                      value="why"
+                                      class="m-0 pt-4 outline-none"
+                                    >
+                                      <div
+                                        class="rounded-xl border border-cyan-400/15 bg-cyan-400/6 p-3.5"
+                                      >
+                                        <p
+                                          class="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300"
+                                        >
+                                          Why you should meet
+                                        </p>
+                                        <p class="text-sm leading-6 text-ink-300">
+                                          {formatMatchExplanation(
+                                            conn.explanation || "Sent you a connection request to network."
+                                          )}
+                                        </p>
+                                      </div>
+                                    </Tabs.Content>
+
+                                    <Tabs.Content
+                                      value="profile"
+                                      class="m-0 space-y-3 pt-4 outline-none"
+                                    >
+                                      <div>
+                                        <p
+                                          class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500"
+                                        >
+                                          What i do
+                                        </p>
+                                        <p class="text-sm leading-6 text-ink-300">
+                                          {conn.profile?.what_i_do || "Attendee"}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p
+                                          class="mb-1 text-[10px] font-bold uppercase tracking-widest text-ink-500"
+                                        >
+                                          About me
+                                        </p>
+                                        <p class="text-sm leading-6 text-ink-300">
+                                          {conn.profile?.about_me || "No bio provided."}
+                                        </p>
+                                      </div>
+                                    </Tabs.Content>
+                                  </Tabs.Root>
                                 </div>
-                              {/if}
-                              <!-- Action buttons based on status -->
-                              {#if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
-                                <div class="flex gap-2 mt-2">
+
+                                <!-- Action Buttons: Accept / Reject -->
+                                <div class="pt-4 mt-auto flex gap-2">
                                   <Button
-                                    class="flex-1"
+                                    class="flex-1 bg-white text-black hover:bg-white/90 gap-2 font-medium"
                                     onclick={() =>
                                       updateConnection(conn.id, "accepted")}
-                                    >Accept</Button
                                   >
+                                    <CheckCircle2 size={16} /> Accept
+                                  </Button>
                                   <Button
                                     variant="destructive"
-                                    class="flex-1"
+                                    class="flex-1 gap-2 font-medium"
                                     onclick={() =>
                                       updateConnection(conn.id, "rejected")}
-                                    >Reject</Button
                                   >
+                                    Reject
+                                  </Button>
                                 </div>
-                              {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
-                                <Button
-                                  variant="outline"
-                                  class="mt-2 w-full"
-                                  onclick={() =>
-                                    updateConnection(conn.id, "cancelled")}
-                                  >Cancel Request</Button
-                                >
-                              {:else if conn.status === "accepted" && conn.met_at}
-                                <span
-                                  class="mt-2 text-xs text-emerald-400 font-semibold"
-                                  >✓ Met</span
-                                >
-                              {/if}
-                            </div>
+                              </div>
+                            {:else}
+                              <div
+                                class="h-0.5 bg-gradient-to-r from-violet-400 to-pink-400"
+                                style="width: {conn.matchPercentage ?? 50}%"
+                              ></div>
+                              <div class="p-5 flex flex-col gap-3">
+                                <div class="flex items-center gap-3">
+                                  <div
+                                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-400/30 bg-violet-400/12 text-sm font-bold text-violet-200"
+                                  >
+                                    {conn.profile?.display_name?.charAt(0)?.toUpperCase() || "?"}
+                                  </div>
+                                  <div class="min-w-0">
+                                    <h3 class="truncate text-base font-bold text-white">
+                                      {conn.profile?.display_name || "Unknown"}
+                                    </h3>
+                                    {#if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
+                                      <p class="text-xs text-violet-300">Wants to connect with you</p>
+                                    {/if}
+                                  </div>
+                                </div>
+                                {#if conn.matchPercentage !== null && conn.matchPercentage !== undefined}
+                                  <span
+                                    class="w-fit rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-300"
+                                    >{conn.matchPercentage}% Match</span
+                                  >
+                                {/if}
+                                {#if conn.profile?.what_i_do}
+                                  <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                                    <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-violet-300">What they do</p>
+                                    <p class="text-sm leading-5 text-ink-200">{conn.profile.what_i_do}</p>
+                                  </div>
+                                {/if}
+                                {#if conn.profile?.about_me}
+                                  <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                                    <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-violet-300">About</p>
+                                    <p class="text-sm leading-5 text-ink-300">{conn.profile.about_me}</p>
+                                  </div>
+                                {/if}
+                                {#if conn.profile?.looking_for}
+                                  <div class="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] p-3">
+                                    <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-cyan-300">Looking for</p>
+                                    <p class="text-sm leading-5 text-ink-300">{conn.profile.looking_for}</p>
+                                  </div>
+                                {/if}
+                                {#if !conn.profile?.what_i_do && !conn.profile?.about_me && !conn.profile?.looking_for}
+                                  <p class="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-3 text-sm text-ink-400">
+                                    This attendee has not added networking details yet.
+                                  </p>
+                                {/if}
+                                {#if conn.explanation}
+                                  <div
+                                    class="rounded-xl border border-pink-400/15 bg-pink-400/6 p-3 text-sm text-ink-300"
+                                  >
+                                    {conn.explanation}
+                                  </div>
+                                {/if}
+                                {#if conn.status === "accepted"}
+                                  <div class="mt-2 flex gap-2">
+                                    <Button
+                                      variant="secondary"
+                                      class="flex-1 gap-2 border border-cyan-400/20 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/18"
+                                      onclick={() => openChatForConnection(conn)}
+                                    >
+                                      <MessageCircle size={16} />
+                                      Chat
+                                    </Button>
+                                    {#if !conn.met_at}
+                                      <Button
+                                        variant="outline"
+                                        class="flex-1 gap-2 border-emerald-400/25 text-emerald-200 hover:bg-emerald-400/10"
+                                        onclick={() => updateConnection(conn.id, "met")}
+                                      >
+                                        <CheckCircle2 size={16} /> Mark as met
+                                      </Button>
+                                    {/if}
+                                  </div>
+                                {/if}
+                                <!-- Action buttons based on status -->
+                                {#if conn.status === "pending" && conn.receiver_user_id === data.user?.id}
+                                  <div class="flex gap-2 mt-2">
+                                    <Button
+                                      class="flex-1"
+                                      onclick={() =>
+                                        updateConnection(conn.id, "accepted")}
+                                      >Accept</Button
+                                    >
+                                    <Button
+                                      variant="destructive"
+                                      class="flex-1"
+                                      onclick={() =>
+                                        updateConnection(conn.id, "rejected")}
+                                      >Reject</Button
+                                    >
+                                  </div>
+                                {:else if conn.status === "pending" && conn.sender_user_id === data.user?.id}
+                                  <Button
+                                    variant="outline"
+                                    class="mt-2 w-full"
+                                    onclick={() =>
+                                      updateConnection(conn.id, "cancelled")}
+                                    >Cancel Request</Button
+                                  >
+                                {:else if conn.status === "accepted" && conn.met_at}
+                                  <span
+                                    class="mt-2 text-xs text-emerald-400 font-semibold"
+                                    >✓ Met</span
+                                  >
+                                {/if}
+                              </div>
+                            {/if}
                           </div>
                         {/each}
                       </div>

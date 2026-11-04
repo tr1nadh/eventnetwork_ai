@@ -2,6 +2,7 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import { Camera, Edit3, LoaderCircle, Save, Share2, X } from '@lucide/svelte';
   import QRCode from 'qrcode';
+  import jsQR from 'jsqr';
   import PageShell from '$lib/components/page-shell.svelte';
   import Sidebar from '$lib/components/sidebar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -32,6 +33,7 @@
   let scannerVideo;
   let scannerStream;
   let scanTimer;
+  let scannerCanvas;
 
   async function loadCard() {
     try {
@@ -97,6 +99,7 @@
     scanTimer = undefined;
     scannerStream?.getTracks().forEach((track) => track.stop());
     scannerStream = undefined;
+    scannerCanvas = undefined;
     scannerOpen = false;
   }
 
@@ -105,23 +108,40 @@
     scannerOpen = true;
     scannerStarting = true;
     try {
-      if (!('BarcodeDetector' in window)) {
-        throw new Error('QR scanning is not supported in this browser. Open this page in Chrome or Edge to use the camera.');
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera access is not supported in this browser. Open the site in a current browser over HTTPS.');
       }
       await tick();
       scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
       scannerVideo.srcObject = scannerStream;
       await scannerVideo.play();
-      const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      const detector = 'BarcodeDetector' in window
+        ? new window.BarcodeDetector({ formats: ['qr_code'] })
+        : null;
+      scannerCanvas = document.createElement('canvas');
       scannerStarting = false;
 
       const scanFrame = async () => {
         if (!scannerOpen || !scannerVideo) return;
         try {
-          const codes = await detector.detect(scannerVideo);
-          const rawValue = codes[0]?.rawValue;
+          let rawValue;
+          if (detector) {
+            const codes = await detector.detect(scannerVideo);
+            rawValue = codes[0]?.rawValue;
+          }
+
+          // BarcodeDetector is unavailable in Safari and some mobile/in-app browsers.
+          // Decode the current video frame in JavaScript as a compatible fallback.
+          if (!rawValue && scannerVideo.videoWidth && scannerCanvas) {
+            scannerCanvas.width = scannerVideo.videoWidth;
+            scannerCanvas.height = scannerVideo.videoHeight;
+            const context = scannerCanvas.getContext('2d', { willReadFrequently: true });
+            context?.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
+            const image = context?.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
+            rawValue = image ? jsQR(image.data, image.width, image.height, { inversionAttempts: 'dontInvert' })?.data : undefined;
+          }
           if (rawValue) {
-            const url = new URL(rawValue);
+            const url = new URL(rawValue, window.location.origin);
             const token = url.searchParams.get('token');
             if (url.pathname === '/network-card/scan' && token) {
               stopScanner();

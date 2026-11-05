@@ -3987,7 +3987,7 @@
             {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
-                <div class="flex flex-wrap items-center justify-center gap-2">
+                <div class="relative z-30 flex flex-wrap items-center justify-center gap-2">
                   {#if data.isOrganizer}
                     <DropdownMenu.Root>
                       <DropdownMenu.Trigger
@@ -4004,7 +4004,7 @@
                       </DropdownMenu.Trigger>
 
                       <DropdownMenu.Content
-                        class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-50"
+                        class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-[100] bg-slate-950/95 backdrop-blur-xl"
                       >
                         <DropdownMenu.Label
                           class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5"

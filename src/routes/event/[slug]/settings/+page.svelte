@@ -1,4 +1,5 @@
 <script>
+  import { endTimeOnSameDay, oneHourAfter } from "$lib/event-datetime";
   import { onMount, onDestroy } from 'svelte';
   import { goto, beforeNavigate } from '$app/navigation';
   import { page } from '$app/stores';
@@ -143,9 +144,10 @@
 
   function setEndDateQuick(type) {
     if (!startDate) setStartDateQuick('today');
-    const d = new Date(startDate ? new Date(startDate) : new Date());
+    const d = new Date(startDate ? new Date(startDate + "T00:00:00") : new Date());
     if (type === 'sameday') {
       endDate = startDate;
+      endTimeVal = endTimeOnSameDay(startTimeVal, endTimeVal);
     } else if (type === 'nextday') {
       d.setDate(d.getDate() + 1);
       endDate = getFormattedDateStr(d);
@@ -269,8 +271,9 @@
     if (activeTimePicker === 'start') {
       startTimeVal = newTimeVal;
       if (startDate === endDate && endTimeVal <= startTimeVal) {
-        const nextH24 = (h24 + 1) % 24;
-        endTimeVal = `${String(nextH24).padStart(2, '0')}:${mStr}`;
+        const next = oneHourAfter(startDate, startTimeVal);
+        endDate = next.date;
+        endTimeVal = next.time;
       }
     } else if (activeTimePicker === 'end') {
       endTimeVal = newTimeVal;

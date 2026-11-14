@@ -1596,8 +1596,9 @@
         timelineStartDate === timelineEndDate &&
         timelineEndTimeVal <= timelineStartTimeVal
       ) {
-        const nextH24 = (h24 + 1) % 24;
-        timelineEndTimeVal = `${String(nextH24).padStart(2, "0")}:${mStr}`;
+        const next = oneHourAfter(timelineStartDate, timelineStartTimeVal);
+        timelineEndDate = next.date;
+        timelineEndTimeVal = next.time;
       }
     } else if (activeTimelineTimePicker === "end") {
       timelineEndTimeVal = newTimeVal;

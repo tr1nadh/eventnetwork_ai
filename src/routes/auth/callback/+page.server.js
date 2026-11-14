@@ -1,11 +1,6 @@
+import { sanitizeNext } from '$lib/safe-next';
 import { syncUserRecord } from '$lib/supabase/sync-user';
 
-function sanitizeNext(value) {
-  if (!value || !value.startsWith('/')) {
-    return '/events';
-  }
-  return value;
-}
 
 export async function load(event) {
   const { url, locals: { supabase } } = event;

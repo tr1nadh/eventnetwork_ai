@@ -52,7 +52,7 @@
 
 <svelte:head><title>Network Card Scan | Evenai</title></svelte:head>
 
-<PageShell user={data.user}>
+<PageShell hasSidebar={Boolean(data.user)}>
   {#if data.user}<Sidebar user={data.user} />{/if}
   <main class="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-10">
     <section class="w-full max-w-md rounded-3xl border border-white/10 bg-[#12131a] p-8 text-center shadow-2xl">

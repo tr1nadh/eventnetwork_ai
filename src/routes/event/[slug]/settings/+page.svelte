@@ -42,7 +42,7 @@
     signingOut = true;
     try {
       await supabase.auth.signOut();
-      await goto('/auth/login');
+      await goto('/');
     } catch (e) {
       toast.error('Failed to sign out');
     } finally {

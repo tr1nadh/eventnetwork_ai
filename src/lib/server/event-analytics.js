@@ -65,43 +65,34 @@ function percent(part, total) {
   return Math.round((part / total) * 100);
 }
 
-export async function loadOrganizerAnalytics(admin, eventId) {
-  const [participantsResult, profilesResult, matchesResult, connectionsResult] = await Promise.all([
-    admin
-      .from('event_participants')
-      .select('user_id, status')
-      .eq('event_id', eventId)
-      .eq('status', 'joined'),
-    admin
-      .from('network_profiles')
-      .select('display_name, what_i_do, looking_for, about_me')
-      .eq('event_id', eventId),
-    admin
-      .from('matches')
-      .select('id, user_id, matched_user_id')
-      .eq('event_id', eventId),
-    admin
-      .from('connections')
-      .select('id, status, met_at')
-      .eq('event_id', eventId)
-  ]);
+async function exactCount(query) {
+  const { count, error: failure } = await query;
+  if (failure) throw error(500, failure.message);
+  return count ?? 0;
+}
 
-  const queryError =
-    participantsResult.error ||
-    profilesResult.error ||
-    matchesResult.error ||
-    connectionsResult.error;
-
-  if (queryError) {
-    throw error(500, queryError.message);
+async function loadProfiles(admin, eventId) {
+  const profiles = [];
+  for (;;) {
+    const { data, count, error: failure } = await admin.from('network_profiles')
+      .select('display_name, what_i_do, looking_for, about_me', { count: 'exact' })
+      .eq('event_id', eventId).order('user_id').range(profiles.length, profiles.length + 499);
+    if (failure) throw error(500, failure.message);
+    profiles.push(...data);
+    if (!data.length || profiles.length >= count) return profiles;
   }
+}
 
-  const participants = participantsResult.data ?? [];
-  const profiles = profilesResult.data ?? [];
-  const matches = matchesResult.data ?? [];
-  const connections = connectionsResult.data ?? [];
-  const acceptedConnections = connections.filter((connection) => connection.status === 'accepted');
-  const metConnections = acceptedConnections.filter((connection) => connection.met_at);
+export async function loadOrganizerAnalytics(admin, eventId) {
+  const countRows = table => admin.from(table).select('*', { count: 'exact', head: true }).eq('event_id', eventId);
+  const [totalParticipants, profiles, aiMatchesGenerated, connectionRequests, acceptedConnectionCount, peopleMet] = await Promise.all([
+    exactCount(countRows('event_participants').eq('status', 'joined')),
+    loadProfiles(admin, eventId),
+    exactCount(countRows('matches')),
+    exactCount(countRows('connections')),
+    exactCount(countRows('connections').eq('status', 'accepted')),
+    exactCount(countRows('connections').eq('status', 'accepted').not('met_at', 'is', null)),
+  ]);
 
   const skillCounts = new Map();
   for (const profile of profiles) {
@@ -125,11 +116,6 @@ export async function loadOrganizerAnalytics(admin, eventId) {
     }
   }
 
-  const totalParticipants = participants.length;
-  const aiMatchesGenerated = matches.length;
-  const connectionRequests = connections.length;
-  const acceptedConnectionCount = acceptedConnections.length;
-  const peopleMet = metConnections.length;
   const profilesCompleted = profiles.length;
   const connectionAcceptanceRate = percent(acceptedConnectionCount, connectionRequests);
   const qrMeetCompletionRate = percent(peopleMet, acceptedConnectionCount);

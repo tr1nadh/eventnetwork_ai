@@ -59,14 +59,15 @@ export const load = async ({ params, locals }) => {
   // Determine auth state early so we can enforce is_public
   const isOrganizer = !!locals.user && data.created_by === locals.user.id;
 
-  // Non-public events are only accessible to the organizer (and later participants).
-  // Non-authenticated visitors or non-organizer users cannot view private events.
+  let privateViewer;
   if (!data.is_public && !isOrganizer) {
-    throw error(404, 'Event not found.');
+    if (!locals.user) throw error(404, 'Event not found.');
+    privateViewer = await loadViewerData(admin, data.id, locals.user.id, false);
+    if (privateViewer.status !== 'joined') throw error(404, 'Event not found.');
   }
 
   const [viewer, timelineRes, announcementsRes] = await Promise.all([
-    loadViewerData(admin, data.id, locals.user?.id, isOrganizer),
+    privateViewer ?? loadViewerData(admin, data.id, locals.user?.id, isOrganizer),
     admin.from('event_timeline').select('*').eq('event_id', data.id)
       .order('start_time', { ascending: true }).order('sort_order', { ascending: true }),
     admin.from('event_announcements').select('*').eq('event_id', data.id)

@@ -15,31 +15,16 @@ export async function POST({ request, locals }) {
 
   const admin = createSupabaseAdminClient();
 
-  const { data: event, error: eventError } = await admin
-    .from('events')
-    .select('id, start_time, allow_join_after_start')
-    .eq('id', event_id)
-    .maybeSingle();
-
-  if (eventError) {
-    throw error(500, eventError.message);
-  }
-  if (!event) {
-    throw error(404, 'Event not found.');
-  }
-
-  const hasStarted = event.start_time && new Date(event.start_time) <= new Date();
-  if (hasStarted && event.allow_join_after_start === false) {
-    throw error(403, 'Registration is closed because this event has already started.');
-  }
-
   const { data: joinResult, error: joinError } = await admin.rpc(
-    'join_event_with_attendee_limit',
+    'register_event_participant',
     { p_event_id: event_id, p_user_id: locals.user.id }
   );
 
   if (joinError) {
     console.error('[join] Supabase registration error:', joinError);
+    if (joinError.code === 'PGRST202') {
+      throw error(503, 'Event registration is temporarily unavailable. Please try again later.');
+    }
     throw error(500, joinError.message);
   }
 
@@ -47,8 +32,10 @@ export async function POST({ request, locals }) {
     if (joinResult?.reason === 'capacity_reached') {
       throw error(409, 'Registration is closed because the maximum attendee limit has been reached.');
     }
+    if (joinResult?.reason === 'event_not_found') throw error(404, 'Event not found.');
+    if (joinResult?.reason === 'registration_closed') throw error(403, 'Registration is closed.');
     throw error(400, 'Could not register for this event.');
   }
 
-  return json({ success: true, status: 'joined', attendees_count: joinResult.attendees_count });
+  return json({ success: true, status: joinResult.status, attendees_count: joinResult.attendees_count });
 }

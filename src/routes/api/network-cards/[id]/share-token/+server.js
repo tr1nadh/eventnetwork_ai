@@ -1,12 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { createNetworkCardQrToken } from '$lib/server/network-card-qr';
 
-export async function POST({ params, cookies }) {
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return json({ error: 'Unauthenticated.' }, { status: 401 });
+export async function POST({ params, locals }) {
+
+  const user = locals.user;
+  if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
 
   const { data: card, error: cardError } = await createSupabaseAdminClient()
     .from('network_cards')

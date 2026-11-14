@@ -1,30 +1,11 @@
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { error, json, redirect } from '@sveltejs/kit';
+import { BUCKET, getStoragePath, isEventImagePath } from '$lib/server/event-images';
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
-const BUCKET = 'Event_images';
 
-function getStoragePath(value) {
-  if (!value) return null;
-
-  try {
-    const url = new URL(value);
-    const marker = `/storage/v1/object/public/${BUCKET}/`;
-    const index = url.pathname.indexOf(marker);
-    if (index !== -1) return decodeURIComponent(url.pathname.slice(index + marker.length));
-  } catch {
-    // Newly uploaded images store their bucket-relative path directly.
-  }
-
-  return value;
-}
-
-function isEventImagePath(path) {
-  return /^events\/[0-9a-f-]+\/[a-z0-9-]+\/(logo|banner)-\d+\.(jpg|jpeg|png|webp)$/i.test(path);
-}
-
-export async function GET({ url }) {
+export async function GET({ url, setHeaders }) {
   const path = getStoragePath(url.searchParams.get('path'));
   if (!path || !isEventImagePath(path)) throw error(400, 'Invalid event image.');
 
@@ -32,6 +13,7 @@ export async function GET({ url }) {
   const { data, error: signedUrlError } = await admin.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
   if (signedUrlError || !data?.signedUrl) throw error(404, 'Event image not found.');
 
+  setHeaders({ 'cache-control': 'private, max-age=300' });
   throw redirect(302, data.signedUrl);
 }
 

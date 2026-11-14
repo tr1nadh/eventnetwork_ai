@@ -1,15 +1,14 @@
 import { json, error } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 
-export async function GET({ url, cookies }) {
+export async function GET({ url, locals }) {
   const eventId = url.searchParams.get('event_id');
   if (!eventId) {
     throw error(400, 'Missing event_id');
   }
 
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const supabase = locals.supabase;
+  const user = locals.user;
+  if (!user) {
     throw error(401, 'Unauthenticated');
   }
 

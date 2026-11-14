@@ -144,7 +144,7 @@
 
           {#if user}
             <div class="px-3 py-2">
-              <AICredits />
+              <AICredits loadStatus={false} />
             </div>
           {/if}
 

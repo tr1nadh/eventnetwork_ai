@@ -2,26 +2,27 @@ import { json } from '@sveltejs/kit';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { createChatCompletion } from '$lib/llm/fireworks';
 import { FIREWORKS_MODEL } from '$env/static/private';
-import { generateEmbedding } from '$lib/embeddings';
+import { generateEmbedding, generateEmbeddings } from '$lib/embeddings';
 import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
-/**
- * POST /api/dummy_users
- * Creates 5 dummy participants for the given event with realistic, diverse
- * networking profiles that are intentionally relevant to the current user's
- * profile so meaningful AI matches can be produced.
- *
- * Flow:
- *  1. Clean up any previous dummy users for this event.
- *  2. Fetch the current user's network profile for context.
- *  3. For each of 5 dummy users:
- *     a. Create auth account via admin API.
- *     b. Create a `users` row.
- *     c. Join the event (insert into `participants`).
- *     d. Generate a realistic profile using Fireworks LLM.
- *     e. Generate embeddings for `about_user` and `looking_for`.
- *     f. Insert `network_profiles` row.
- *  4. Return the created profiles.
- */
+// A rejected multi-row INSERT rolls back as a unit. Retry rows separately on
+// database errors so one invalid dummy still allows the others to succeed.
+async function insertSimulationRows(client, table, rows) {
+  const errors = new Map();
+  if (!rows.length) return errors;
+  const { error } = await client.from(table).insert(rows);
+  if (!error) return errors;
+
+  for (const row of rows) {
+    if (rows.length === 1 || !/^[0-9A-Z]{5}$/.test(error.code ?? '')) {
+      errors.set(row.user_id, error);
+      continue;
+    }
+    const result = await client.from(table).insert(row);
+    if (result.error) errors.set(row.user_id, result.error);
+  }
+  return errors;
+}
+
 export async function POST({ request, locals }) {
   if (!locals.user) {
     return json({ error: 'Unauthenticated' }, { status: 401 });
@@ -256,68 +257,72 @@ Respond ONLY with a valid JSON object containing a single key "profiles" which i
     return json({ error: 'Failed to generate profiles: ' + err.message }, { status: 502 });
   }
 
-  // ── 3. Create each dummy user ────────────────────────────────────────
+  const accounts = [];
   const createdProfiles = [];
   const errors = [];
 
-  for (let i = 0; i < Math.min(profiles.length, 5); i++) {
-    const profile = profiles[i];
-    const email = `dummy${i + 1}+${event_id}@Evenai.ai`;
-
+  for (const [index, profile] of profiles.entries()) {
     try {
-      // 3a. Create auth account
-      const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
-        email,
+      const { data, error } = await supabase.auth.admin.createUser({
+        email: `dummy${index + 1}+${event_id}@Evenai.ai`,
         password: crypto.randomUUID(),
         email_confirm: true,
         user_metadata: { display_name: profile.display_name },
       });
+      if (error) throw new Error(`Auth: ${error.message}`);
+      accounts.push({ index, profile, userId: data.user.id });
+    } catch (err) {
+      errors.push(`Dummy ${index + 1}: ${err.message}`);
+    }
+  }
 
-      if (authErr) throw new Error(`Auth: ${authErr.message}`);
-      const userId = authData.user.id;
+  const participantRows = accounts.map(({ userId }) => ({
+    event_id, user_id: userId, status: 'joined', joined_at: new Date().toISOString(),
+  }));
+  const participantErrors = await insertSimulationRows(supabase, 'event_participants', participantRows);
+  for (const [userId, error] of participantErrors) {
+    console.warn('Participant insert warning for dummy', userId, error);
+  }
 
-      // 3b. Join event
-      const { error: partErr } = await supabase.from('event_participants').insert({
-        event_id: event_id,
-        user_id: userId,
-        status: 'joined',
-        joined_at: new Date().toISOString(),
-      });
-      if (partErr) {
-        console.warn(`Participant insert warning for dummy ${i + 1}:`, partErr);
-      }
+  const texts = accounts.flatMap(({ profile }) => [
+    `What I do: ${profile.what_i_do}\n\nAbout me: ${profile.about_me}`,
+    `Looking for: ${profile.looking_for}`,
+  ]);
+  let vectors;
+  try {
+    vectors = await generateEmbeddings(texts);
+  } catch (err) {
+    console.warn('Batch embedding failed, retrying profiles individually:', err.message);
+  }
 
-      // 3c. Generate embeddings (parallel)
-      const aboutUserText = `What I do: ${profile.what_i_do}\n\nAbout me: ${profile.about_me}`;
-      const lookingForText = `Looking for: ${profile.looking_for}`;
-
-      const [aboutUserEmbed, lookingForEmbed] = await Promise.all([
-        generateEmbedding(aboutUserText),
-        generateEmbedding(lookingForText),
-      ]);
-
-      // 3d. Insert network profile
-      const { error: profileErr } = await supabase.from('network_profiles').insert({
-        user_id: userId,
-        event_id,
-        display_name: profile.display_name,
-        what_i_do: profile.what_i_do,
-        looking_for: profile.looking_for,
-        about_me: profile.about_me,
-        about_user_embed: aboutUserEmbed,
-        looking_for_embed: lookingForEmbed,
-      });
-      if (profileErr) throw new Error(`Profile insert: ${profileErr.message}`);
-
-      createdProfiles.push({
-        displayName: profile.display_name,
-        whatTheyDo: profile.what_i_do,
-        lookingFor: profile.looking_for,
-        aboutMe: profile.about_me,
+  const profileRows = [];
+  for (const [position, { index, profile, userId }] of accounts.entries()) {
+    const offset = position * 2;
+    try {
+      const [about, lookingFor] = vectors
+        ? vectors.slice(offset, offset + 2)
+        : await Promise.all(texts.slice(offset, offset + 2).map(generateEmbedding));
+      profileRows.push({
+        user_id: userId, event_id, is_dummy: true, display_name: profile.display_name,
+        what_i_do: profile.what_i_do, looking_for: profile.looking_for, about_me: profile.about_me,
+        about_user_embed: about, looking_for_embed: lookingFor,
       });
     } catch (err) {
-      console.error(`Error creating dummy user ${i + 1}:`, err);
-      errors.push(`Dummy ${i + 1}: ${err.message}`);
+      errors.push(`Dummy ${index + 1}: ${err.message}`);
+    }
+  }
+
+  const profileErrors = await insertSimulationRows(supabase, 'network_profiles', profileRows);
+  const indexById = new Map(accounts.map(({ userId, index }) => [userId, index]));
+  for (const row of profileRows) {
+    const error = profileErrors.get(row.user_id);
+    if (error) {
+      errors.push(`Dummy ${indexById.get(row.user_id) + 1}: Profile insert: ${error.message}`);
+    } else {
+      createdProfiles.push({
+        displayName: row.display_name, whatTheyDo: row.what_i_do,
+        lookingFor: row.looking_for, aboutMe: row.about_me,
+      });
     }
   }
 

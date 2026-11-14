@@ -1,18 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 
 function clean(value) { return typeof value === 'string' ? value.trim() : ''; }
 
-async function getUser(cookies) {
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return null;
-  return user;
-}
-
-export async function PATCH({ params, request, cookies }) {
-  const user = await getUser(cookies);
+export async function PATCH({ params, request, locals }) {
+  const user = locals.user;
   if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
   const body = await request.json().catch(() => null);
   const update = {};
@@ -27,8 +19,8 @@ export async function PATCH({ params, request, cookies }) {
   return json({ card: data });
 }
 
-export async function DELETE({ params, cookies }) {
-  const user = await getUser(cookies);
+export async function DELETE({ params, locals }) {
+  const user = locals.user;
   if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
   const { error: deleteError } = await createSupabaseAdminClient().from('network_cards').delete().eq('id', params.id).eq('user_id', user.id);
   if (deleteError) return json({ error: deleteError.message }, { status: 500 });

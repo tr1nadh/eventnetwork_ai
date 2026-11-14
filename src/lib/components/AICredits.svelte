@@ -3,8 +3,9 @@
   import { aiCreditsStore } from '$lib/stores/ai-credits';
   import { Cpu } from '@lucide/svelte';
   
+  export let loadStatus = true;
   onMount(() => {
-    aiCreditsStore.fetchStatus();
+    if (loadStatus) aiCreditsStore.fetchStatus();
   });
   
   $: ({ remaining, limit, resetAt, loading } = $aiCreditsStore);

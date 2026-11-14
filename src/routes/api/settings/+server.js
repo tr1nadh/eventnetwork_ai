@@ -1,16 +1,15 @@
 import { json } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 
 function cleanName(value) {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
 }
 
-export async function POST({ request, cookies }) {
+export async function POST({ request, locals }) {
   try {
-    const supabase = createSupabaseServerClient(cookies);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return json({ error: 'Unauthenticated.' }, { status: 401 });
+
+    const user = locals.user;
+    if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
 
     const name = cleanName((await request.json().catch(() => ({}))).name);
     if (name.length < 2 || name.length > 80) {

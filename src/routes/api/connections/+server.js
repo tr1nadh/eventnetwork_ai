@@ -1,16 +1,15 @@
 import { json, error } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 
-export async function GET({ url, cookies }) {
+export async function GET({ url, locals }) {
   const eventId = url.searchParams.get('event_id');
   const filter = url.searchParams.get('filter');
   if (!filter) throw error(400, 'Missing filter');
 
-  const supabase = createSupabaseServerClient(cookies);
+  const supabase = locals.supabase;
   const admin = createSupabaseAdminClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw error(401, 'Unauthenticated');
+  const user = locals.user;
+  if (!user) throw error(401, 'Unauthenticated');
 
   const page = parseInt(url.searchParams.get('page') || '1');
   const limit = parseInt(url.searchParams.get('limit') || '50');

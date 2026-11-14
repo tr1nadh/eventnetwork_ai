@@ -3,6 +3,8 @@
   import { sidebarCollapsed } from '$lib/stores/sidebar';
   import { browser } from '$app/environment';
 
+  export let hasSidebar = true;
+
   // On mobile there's no sidebar — no padding needed.
   // We apply padding-left via inline style so the transition is smooth.
   $: paddingLeft = browser
@@ -32,7 +34,8 @@
   <!-- Page content — shifts right to accommodate the sidebar on desktop -->
   <div
     class="relative z-10 page-content"
-    style="padding-left: {paddingLeft}; padding-top: 2rem; transition: padding-left 300ms cubic-bezier(0.4, 0, 0.2, 1);"
+    class:with-sidebar={hasSidebar}
+    style="padding-left: {hasSidebar ? paddingLeft : '0'}; padding-top: 2rem; transition: padding-left 300ms cubic-bezier(0.4, 0, 0.2, 1);"
   >
     <slot />
   </div>
@@ -41,7 +44,7 @@
 <style>
   /* On mobile the sidebar is replaced by a bottom bar — remove left padding */
   @media (max-width: 767px) {
-    .page-content {
+    .page-content.with-sidebar {
       padding-left: 0 !important;
       /* Add bottom padding so content isn't hidden behind the mobile bottom bar */
       padding-bottom: 4.5rem;

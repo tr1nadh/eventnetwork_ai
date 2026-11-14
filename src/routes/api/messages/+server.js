@@ -1,20 +1,16 @@
 import { error, json } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { getAcceptedConnectionForUser } from '$lib/server/connections';
 
-export async function GET({ url, cookies }) {
+export async function GET({ url, locals }) {
   const connectionId = url.searchParams.get('connection_id');
   if (!connectionId) {
     throw error(400, 'Missing connection_id');
   }
 
-  const supabase = createSupabaseServerClient(cookies);
-  const {
-    data: { user },
-    error: authError
-  } = await supabase.auth.getUser();
+  const supabase = locals.supabase;
+  const user = locals.user;
 
-  if (authError || !user) {
+  if (!user) {
     throw error(401, 'Unauthenticated');
   }
 
@@ -39,7 +35,7 @@ export async function GET({ url, cookies }) {
   return json({ messages: messages ?? [] });
 }
 
-export async function POST({ request, cookies }) {
+export async function POST({ request, locals }) {
   const { connection_id: connectionId, message } = await request.json();
   if (!connectionId) {
     throw error(400, 'Missing connection_id');
@@ -50,13 +46,10 @@ export async function POST({ request, cookies }) {
     throw error(400, 'Message is required');
   }
 
-  const supabase = createSupabaseServerClient(cookies);
-  const {
-    data: { user },
-    error: authError
-  } = await supabase.auth.getUser();
+  const supabase = locals.supabase;
+  const user = locals.user;
 
-  if (authError || !user) {
+  if (!user) {
     throw error(401, 'Unauthenticated');
   }
 

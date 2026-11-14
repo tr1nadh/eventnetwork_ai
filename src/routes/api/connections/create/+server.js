@@ -1,5 +1,4 @@
 import { json, error } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 
 /**
@@ -8,14 +7,14 @@ import { createSupabaseAdminClient } from '$lib/supabase/admin';
  * If the receiver is a dummy user, the connection is automatically accepted.
  * Body JSON: { event_id: string, receiver_user_id: string }
  */
-export async function POST({ request, cookies }) {
+export async function POST({ request, locals }) {
   const { event_id, receiver_user_id } = await request.json();
   if (!event_id) throw error(400, 'Missing event_id');
   if (!receiver_user_id) throw error(400, 'Missing receiver_user_id');
 
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw error(401, 'Unauthenticated');
+  const supabase = locals.supabase;
+  const user = locals.user;
+  if (!user) throw error(401, 'Unauthenticated');
 
   // Prevent self‑connection
   if (user.id === receiver_user_id) {

@@ -1,16 +1,15 @@
 import { json } from '@sveltejs/kit';
 import { FIREWORKS_API_KEY } from '$env/static/private';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 
 import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
 
 // ------------------------------------------------------------
 // POST – generate an embedding for a given text
 // ------------------------------------------------------------
-export async function POST({ request, cookies }) {
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+export async function POST({ request, locals }) {
+
+  const user = locals.user;
+  if (!user) {
     return json({ error: 'Unauthenticated' }, { status: 401 });
   }
 

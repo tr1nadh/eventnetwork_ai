@@ -1,5 +1,4 @@
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { json, error } from '@sveltejs/kit';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -9,13 +8,8 @@ const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
  * Body: { event_id: string, user_id: string, action: 'approve' | 'reject' }
  * Only the event organizer can call this endpoint.
  */
-export async function POST({ request, locals, cookies }) {
-  let currentUser = locals?.user;
-  if (!currentUser) {
-    const supabase = createSupabaseServerClient(cookies);
-    const { data: { user } } = await supabase.auth.getUser();
-    currentUser = user;
-  }
+export async function POST({ request, locals }) {
+  const currentUser = locals.user;
 
   if (!currentUser) {
     throw error(401, 'Unauthorized.');
@@ -73,24 +67,22 @@ export async function POST({ request, locals, cookies }) {
   const realEventId = eventRow.id;
 
   if (action === 'approve') {
-    const { error: updateError } = await admin
-      .from('event_participants')
-      .update({ status: 'joined' })
-      .eq('event_id', realEventId)
-      .eq('user_id', user_id)
-      .in('status', ['waitlisted', 'requested']);
-
-    if (updateError) {
-      console.error('[approve] update error:', updateError);
-      throw error(500, updateError.message);
+    const { data: result, error: approvalError } = await admin.rpc('register_event_participant', {
+      p_event_id: realEventId,
+      p_user_id: user_id,
+      p_approver_id: currentUser.id,
+    });
+    if (approvalError?.code === 'PGRST202') {
+      console.error('[approve] Registration function unavailable:', approvalError.message);
+      throw error(503, 'Attendance approvals are temporarily unavailable. Please try again later.');
     }
-
-    // Increment attendees_count
-    await admin
-      .from('events')
-      .update({ attendees_count: (eventRow.attendees_count || 0) + 1 })
-      .eq('id', realEventId);
-
+    if (approvalError) throw error(500, approvalError.message);
+    if (!result?.success) {
+      if (result?.reason === 'capacity_reached') throw error(409, 'Registration is full.');
+      if (result?.reason === 'request_not_found') throw error(404, 'Request not found.');
+      if (result?.reason === 'forbidden') throw error(403, 'Only the organizer can approve requests.');
+      throw error(409, 'Registration is closed.');
+    }
     return json({ success: true, action: 'approved' });
   } else {
     // reject: remove the participant row
@@ -98,7 +90,8 @@ export async function POST({ request, locals, cookies }) {
       .from('event_participants')
       .delete()
       .eq('event_id', realEventId)
-      .eq('user_id', user_id);
+      .eq('user_id', user_id)
+      .in('status', ['waitlisted', 'requested']);
 
     if (deleteError) {
       console.error('[approve] delete error:', deleteError);

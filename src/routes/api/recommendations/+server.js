@@ -1,8 +1,6 @@
 import { json, error } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createChatCompletion } from '$lib/llm/fireworks';
 import { FIREWORKS_MODEL } from '$env/static/private';
-import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
 
 function cosineSimilarity(a, b) {
@@ -35,15 +33,15 @@ function fallbackExplanation(currentProfile, match) {
   return `Their experience in ${whatTheyDo} aligns with what you are looking for. Your interest in ${lookingFor} gives you a concrete reason to connect.`;
 }
 
-export async function GET({ url, cookies }) {
+export async function GET({ url, locals }) {
   const eventId = url.searchParams.get('event_id');
   if (!eventId) {
     throw error(400, 'Missing event_id');
   }
 
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const supabase = locals.supabase;
+  const user = locals.user;
+  if (!user) {
     throw error(401, 'Unauthenticated');
   }
 
@@ -67,7 +65,7 @@ export async function GET({ url, cookies }) {
   // Fetch other participants in the same event
   const { data: participants, error: partErr } = await supabase
     .from('network_profiles')
-    .select('user_id, display_name, what_i_do, looking_for, about_me, about_user_embed, looking_for_embed')
+    .select('user_id, display_name, what_i_do, looking_for, about_me, about_user_embed, looking_for_embed, is_dummy')
     .eq('event_id', eventId)
     .neq('user_id', user.id)
     .not('about_user_embed', 'is', null);
@@ -99,7 +97,7 @@ export async function GET({ url, cookies }) {
       looking_for: p.looking_for,
       about: p.about_me,
       matchPercentage: Math.round(p.similarity * 100),
-      is_dummy: false // will be updated below
+      is_dummy: Boolean(p.is_dummy)
     }));
 
   if (scored.length === 0) {
@@ -109,21 +107,6 @@ export async function GET({ url, cookies }) {
   const quota = await checkAiQuota(user.id);
   if (!quota.allowed) {
     return json(quota.errorData, { status: 429 });
-  }
-
-  // Detect dummy users by checking email pattern via admin client
-  try {
-    const admin = createSupabaseAdminClient();
-    await Promise.all(
-      scored.map(async (match) => {
-        const { data: authUser } = await admin.auth.admin.getUserById(match.user_id);
-        if (/^dummy\d+\+.+@Evenai\.ai$/.test(authUser?.user?.email ?? '')) {
-          match.is_dummy = true;
-        }
-      })
-    );
-  } catch (e) {
-    console.error('Failed to check dummy status for matches:', e);
   }
 
   const stream = new ReadableStream({

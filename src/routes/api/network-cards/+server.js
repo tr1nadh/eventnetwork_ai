@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 
 function clean(value) {
@@ -22,16 +21,9 @@ function cardPayload(body, user) {
   return { title: 'My network card', display_name, what_i_do, about_me, looking_for: '' };
 }
 
-async function getUser(cookies) {
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return null;
-  return user;
-}
-
-export async function GET({ cookies }) {
+export async function GET({ locals }) {
   try {
-    const user = await getUser(cookies);
+    const user = locals.user;
     if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
     const { data, error: queryError } = await createSupabaseAdminClient()
       .from('network_cards')
@@ -47,8 +39,8 @@ export async function GET({ cookies }) {
   }
 }
 
-export async function POST({ request, cookies }) {
-  const user = await getUser(cookies);
+export async function POST({ request, locals }) {
+  const user = locals.user;
   if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
   const payload = cardPayload(await request.json().catch(() => null), user);
   if (!payload) return json({ error: 'Name, what you do, and about you are required.' }, { status: 400 });

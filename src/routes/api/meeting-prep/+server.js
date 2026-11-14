@@ -1,5 +1,4 @@
 import { json, error } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createChatCompletion } from '$lib/llm/fireworks';
 import { FIREWORKS_MODEL } from '$env/static/private';
 import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
@@ -7,13 +6,13 @@ import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
 /**
  * GET /api/meeting-prep?connection_id=...&regenerate=true
  */
-export async function GET({ url, cookies }) {
+export async function GET({ url, locals }) {
   const connectionId = url.searchParams.get('connection_id');
   if (!connectionId) throw error(400, 'Missing connection_id');
 
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw error(401, 'Unauthenticated');
+  const supabase = locals.supabase;
+  const user = locals.user;
+  if (!user) throw error(401, 'Unauthenticated');
 
   // Fetch connection
   const { data: connection, error: connErr } = await supabase

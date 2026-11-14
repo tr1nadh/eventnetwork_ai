@@ -56,6 +56,11 @@
 
   let statusFilter = "all";
 
+  function retryEventImage(image, path) {
+    const fallback = eventImageSrc(path);
+    if (image.getAttribute("src") !== fallback) image.src = fallback;
+  }
+
   function eventImageSrc(path) {
     return path ? `/api/events/images?path=${encodeURIComponent(path)}` : "";
   }
@@ -337,7 +342,7 @@
               <!-- Card top accent bar + status -->
               <div class="card-accent" class:accent-live={status === 'live'} class:accent-upcoming={status === 'upcoming'} class:accent-archived={status === 'archived'}></div>
               {#if event.event_banner_url}
-                <img src={eventImageSrc(event.event_banner_url)} alt="" class="h-28 w-full object-cover" />
+                <img src={event.banner_src || eventImageSrc(event.event_banner_url)} onerror={(e) => retryEventImage(e.currentTarget, event.event_banner_url)} alt="" class="h-28 w-full object-cover" />
               {:else}
                 <div class="h-28 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950" aria-hidden="true"></div>
               {/if}
@@ -398,7 +403,7 @@
                 <!-- Title -->
                 <div class="mb-2 flex items-center gap-2">
                   {#if event.event_logo_url}
-                    <img src={eventImageSrc(event.event_logo_url)} alt="" class="h-8 w-8 rounded-lg object-cover" />
+                    <img src={event.logo_src || eventImageSrc(event.event_logo_url)} onerror={(e) => retryEventImage(e.currentTarget, event.event_logo_url)} alt="" class="h-8 w-8 rounded-lg object-cover" />
                   {:else}
                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20 text-sm font-black text-indigo-100">{eventInitial(event.name)}</div>
                   {/if}

@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createChatCompletion } from '$lib/llm/fireworks';
 import { FIREWORKS_MODEL } from '$env/static/private';
 import { checkAiQuota, refundAiCredit } from '$lib/server/ai-credits';
@@ -22,13 +21,13 @@ function parseQuestions(content) {
   return questions.slice(0, 4);
 }
 
-export async function POST({ request, cookies }) {
+export async function POST({ request, locals }) {
   const { connection_id: connectionId } = await request.json().catch(() => ({}));
   if (!connectionId) return json({ error: 'Missing connection ID' }, { status: 400 });
 
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return json({ error: 'Unauthenticated' }, { status: 401 });
+  const supabase = locals.supabase;
+  const user = locals.user;
+  if (!user) return json({ error: 'Unauthenticated' }, { status: 401 });
 
   const { data: connection, error: connectionError } = await supabase
     .from('connections')

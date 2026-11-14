@@ -64,24 +64,28 @@
       icon: Calendar,
       href: "/events",
       active: () => isEvents,
+      disabled: false,
     },
     {
       label: "Discover",
       icon: Compass,
       href: "/discover",
       active: () => isDiscover,
+      disabled: true,
     },
     {
       label: "Connections",
       icon: UserCircle2,
       href: "/connections",
       active: () => isConnections,
+      disabled: false,
     },
     {
       label: "Network Card",
       icon: ContactRound,
       href: "/network-card",
       active: () => isNetworkCards,
+      disabled: false,
     },
   ];
   $: mobileNavItems = [navItems[0], navItems[1], navItems[3], navItems[2]];
@@ -125,9 +129,19 @@
       <button
         class="nav-item"
         class:active={item.active()}
-        onclick={() => goto(item.href)}
-        title={collapsed ? item.label : undefined}
-        aria-label={item.label}
+        class:disabled={item.disabled}
+        disabled={item.disabled}
+        aria-disabled={item.disabled ? "true" : undefined}
+        tabindex={item.disabled ? -1 : 0}
+        onclick={(e) => {
+          if (item.disabled) {
+            e.preventDefault();
+            return;
+          }
+          goto(item.href);
+        }}
+        title={item.disabled ? `${item.label} (Disabled)` : (collapsed ? item.label : undefined)}
+        aria-label={item.disabled ? `${item.label} (Disabled)` : item.label}
         aria-current={item.active() ? "page" : undefined}
       >
         <span class="nav-icon"
@@ -135,6 +149,9 @@
         >
         {#if !collapsed}
           <span class="nav-label">{item.label}</span>
+          {#if item.disabled}
+            <span class="nav-disabled-badge">Disabled</span>
+          {/if}
         {/if}
       </button>
     {/each}
@@ -223,9 +240,20 @@
     <button
       class="mobile-item"
       class:active={item.active()}
+      class:disabled={item.disabled}
       class:mobile-network-card={item.href === "/network-card"}
-      onclick={() => goto(item.href)}
-      aria-label={item.label}
+      disabled={item.disabled}
+      aria-disabled={item.disabled ? "true" : undefined}
+      tabindex={item.disabled ? -1 : 0}
+      onclick={(e) => {
+        if (item.disabled) {
+          e.preventDefault();
+          return;
+        }
+        goto(item.href);
+      }}
+      title={item.disabled ? `${item.label} (Disabled)` : undefined}
+      aria-label={item.disabled ? `${item.label} (Disabled)` : item.label}
     >
       <svelte:component this={item.icon} size={20} />
       <span>{item.label}</span>
@@ -271,7 +299,7 @@
         </DropdownMenu.Label>
 
         <div class="px-1 py-1.5">
-          <AICredits />
+          <AICredits loadStatus={false} />
         </div>
 
         <DropdownMenu.Item class="gap-2.5 cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10" onSelect={(event) => { event.preventDefault(); goto('/settings'); }}>
@@ -483,6 +511,29 @@
     color: #f1f5f9;
   }
 
+  .nav-item:disabled,
+  .nav-item.disabled {
+    opacity: 0.35;
+    cursor: not-allowed !important;
+    color: rgba(148, 163, 184, 0.45) !important;
+    background: transparent !important;
+    border-color: transparent !important;
+  }
+
+  .nav-disabled-badge {
+    margin-left: auto;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.375rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(148, 163, 184, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    line-height: 1;
+  }
+
   .nav-item.active {
     background: rgba(250, 204, 21, 0.1);
     color: #fde68a;
@@ -640,6 +691,12 @@
       text-decoration: none;
       font-family: inherit;
       line-height: 1.2;
+    }
+    :global(.mobile-item:disabled),
+    :global(.mobile-item.disabled) {
+      opacity: 0.35;
+      cursor: not-allowed !important;
+      color: rgba(148, 163, 184, 0.45) !important;
     }
     :global(.mobile-item.mobile-network-card) {
       position: relative;

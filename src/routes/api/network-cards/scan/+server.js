@@ -1,16 +1,14 @@
 import { json } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { verifyNetworkCardQrToken } from '$lib/server/network-card-qr';
 
-export async function POST({ request, cookies }) {
+export async function POST({ request, locals }) {
   const { token } = await request.json().catch(() => ({}));
   const qrData = verifyNetworkCardQrToken(token);
   if (!qrData) return json({ error: 'This Network Card QR code has expired or is invalid.' }, { status: 400 });
 
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return json({ error: 'Unauthenticated.' }, { status: 401 });
+  const user = locals.user;
+  if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
   const admin = createSupabaseAdminClient();
   const { data: scannedCard, error: scannedCardError } = await admin
     .from('network_cards')

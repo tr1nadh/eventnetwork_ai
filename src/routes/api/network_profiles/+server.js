@@ -1,18 +1,17 @@
 import { json } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 
 // ------------------------------------------------------------
 // GET – retrieve the current user's networking profile for an event
 // ------------------------------------------------------------
-export async function GET({ url, cookies }) {
+export async function GET({ url, locals }) {
   // Accept event_id as query param e.g. /api/network_profiles?event_id=xxxx
   const eventId = url.searchParams.get('event_id');
   if (!eventId) {
     return json({ error: 'Missing event_id' }, { status: 400 });
   }
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const supabase = locals.supabase;
+  const user = locals.user;
+  if (!user) {
     return json({ error: 'Unauthenticated' }, { status: 401 });
   }
 
@@ -59,14 +58,13 @@ export async function GET({ url, cookies }) {
 // ------------------------------------------------------------
 // POST – create or update the networking profile for an event
 // ------------------------------------------------------------
-export async function POST({ request, cookies }) {
+export async function POST({ request, locals }) {
   const payload = await request.json().catch(() => ({}));
   const { profile, event_id } = payload;
   console.log('POST /api/network_profiles payload', { profile, event_id });
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    console.error('Auth error in POST network_profiles', authError);
+  const supabase = locals.supabase;
+  const user = locals.user;
+  if (!user) {
     return json({ error: 'Unauthenticated' }, { status: 401 });
   }
 

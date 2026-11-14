@@ -1,11 +1,10 @@
 import { json, error } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { demoEvent, demoAttendees } from '$lib/demo';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-export async function GET({ url, cookies }) {
+export async function GET({ url, locals }) {
   try {
   const eventParam = url.searchParams.get('event_id') || '';
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
@@ -41,8 +40,7 @@ export async function GET({ url, cookies }) {
     });
   }
 
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = locals.user;
   const admin = createSupabaseAdminClient();
 
 
@@ -75,7 +73,7 @@ export async function GET({ url, cookies }) {
 
     // 1. Fetch participants from event_participants schema table
     // Support ?status=joined|requested|all filter (default: joined)
-    const statusFilter = url.searchParams.get('status') || 'joined';
+    const statusFilter = isOrganizer ? url.searchParams.get('status') || 'joined' : 'joined';
 
     let participantsQuery = admin
       .from('event_participants')
@@ -94,7 +92,8 @@ export async function GET({ url, cookies }) {
       return json({ attendees: [] });
     }
 
-    const participantUserIds = (participants || []).map((p) => p.user_id);
+    const participantsByUser = new Map((participants || []).map((p) => [p.user_id, p]));
+    const participantUserIds = [...participantsByUser.keys()];
 
     // Include host if not in participants list (skip for waitlisted filter — host is always allowed)
     if (hostUserId && !participantUserIds.includes(hostUserId) && statusFilter !== 'waitlisted') {
@@ -106,7 +105,7 @@ export async function GET({ url, cookies }) {
     }
 
     // 2. Parallel fetch network_profiles, users info, and active user connections
-    const [profilesRes, usersRes, connectionsRes, attendeeEmailResults] = await Promise.all([
+    const [profilesRes, usersRes, connectionsRes, emailResult] = await Promise.all([
       admin
         .from('network_profiles')
         .select('user_id, display_name, what_i_do, looking_for, about_me, is_dummy, created_at')
@@ -124,11 +123,8 @@ export async function GET({ url, cookies }) {
             .or(`sender_user_id.eq.${user.id},receiver_user_id.eq.${user.id}`)
         : Promise.resolve({ data: [] }),
       isOrganizer
-        ? Promise.all(participantUserIds.map(async (userId) => {
-            const { data } = await admin.auth.admin.getUserById(userId);
-            return [userId, data?.user?.email ?? null];
-          }))
-        : Promise.resolve([])
+        ? admin.rpc('attendee_auth_emails', { user_ids: participantUserIds })
+        : Promise.resolve({ data: {} })
     ]);
 
     const profilesMap = {};
@@ -142,7 +138,8 @@ export async function GET({ url, cookies }) {
     }
 
     const connections = connectionsRes.data || [];
-    const attendeeEmails = Object.fromEntries(attendeeEmailResults);
+    if (emailResult.error) console.error('Failed to load attendee emails:', emailResult.error);
+    const attendeeEmails = emailResult.data ?? {};
 
     // 3. Map EVERY participant from event_participants (and host) into attendee items
     let attendees = participantUserIds.map((userId) => {
@@ -188,6 +185,7 @@ export async function GET({ url, cookies }) {
 
       return {
         user_id: userId,
+        registrationStatus: participantsByUser.get(userId)?.status ?? 'joined',
         name,
         role,
         about,

@@ -1,6 +1,7 @@
-import { error, redirect } from '@sveltejs/kit';
+import { listEvents } from '$lib/server/event-list';
+import { redirect } from '@sveltejs/kit';
 
-export const load = async ({ locals, url, fetch }) => {
+export const load = async ({ locals, url }) => {
   if (!locals.user) {
     throw redirect(303, '/');
   }
@@ -14,24 +15,9 @@ export const load = async ({ locals, url, fetch }) => {
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
   const limit = Math.max(1, parseInt(url.searchParams.get('limit') || '9', 10));
 
-  const params = new URLSearchParams({ filter: 'discover' });
-  if (q) params.set('q', q);
-  if (format) params.set('format', format);
-  if (date) params.set('date', date);
-  if (dateStart) params.set('date_start', dateStart);
-  if (dateEnd) params.set('date_end', dateEnd);
-  if (status) params.set('status', status);
-  params.set('page', String(page));
-  params.set('limit', String(limit));
-
-  const res = await fetch(`/api/events?${params.toString()}`);
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => null);
-    throw error(res.status, data?.error || 'Failed to fetch discover events');
-  }
-
-  const result = await res.json();
+  const params = new URLSearchParams(url.searchParams);
+  params.set('filter', 'discover');
+  const result = await listEvents(locals.user, params);
 
   return {
     user: locals.user,

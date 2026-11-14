@@ -11,9 +11,6 @@
   let tick = 0; // 0-3, drives the animated trailing dots
 
   onMount(async () => {
-    const startTime = Date.now();
-    const MIN_DISPLAY_MS = 3000;
-
     // Animate trailing dots on the heading
     const tickTimer = setInterval(() => {
       tick = (tick + 1) % 4;
@@ -52,17 +49,8 @@
         );
       }
 
-      // Honour the 3-second minimum so the screen does not flash past too quickly
-      const elapsed = Date.now() - startTime;
-      if (elapsed < MIN_DISPLAY_MS) {
-        await new Promise((r) => setTimeout(r, MIN_DISPLAY_MS - elapsed));
-      }
-
       clearInterval(tickTimer);
       phase = "success";
-
-      // Let the success checkmark render for a brief moment
-      await new Promise((r) => setTimeout(r, 400));
 
       goto(data.next ?? "/events", { replaceState: true });
     } catch (err) {

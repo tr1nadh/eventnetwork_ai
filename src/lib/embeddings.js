@@ -7,6 +7,12 @@ import { FIREWORKS_API_KEY } from '$env/static/private';
  * @returns {Promise<number[]>} 1024-dimension embedding vector
  */
 export async function generateEmbedding(text) {
+  const [embedding] = await generateEmbeddings([text]);
+  return embedding;
+}
+
+export async function generateEmbeddings(texts) {
+  if (!texts.length) return [];
   if (!FIREWORKS_API_KEY) {
     throw new Error('Missing FIREWORKS_API_KEY');
   }
@@ -23,7 +29,7 @@ export async function generateEmbedding(text) {
       },
       body: JSON.stringify({
         model: 'accounts/fireworks/models/qwen3-embedding-8b',
-        input: text,
+        input: texts.length === 1 ? texts[0] : texts,
         dimensions: 1024,
       }),
       signal: controller.signal,
@@ -35,13 +41,17 @@ export async function generateEmbedding(text) {
     }
 
     const data = await res.json();
-    const embedding = data?.data?.[0]?.embedding ?? [];
-
-    if (!Array.isArray(embedding) || embedding.length !== 1024) {
-      throw new Error(`Embedding dimension mismatch: expected 1024, got ${embedding.length}`);
+    const vectors = new Map();
+    for (const item of data.data ?? []) {
+      const index = item.index ?? (texts.length === 1 ? 0 : undefined);
+      if (!Number.isInteger(index) || index < 0 || index >= texts.length ||
+          !Array.isArray(item.embedding) || item.embedding.length !== 1024) {
+        throw new Error('Invalid embedding index or dimension');
+      }
+      vectors.set(index, item.embedding);
     }
-
-    return embedding;
+    if (vectors.size !== texts.length) throw new Error('Incomplete embedding response');
+    return texts.map((_, index) => vectors.get(index));
   } catch (err) {
     if (err.name === 'AbortError') {
       throw new Error('Embedding request timed out after 30 seconds');

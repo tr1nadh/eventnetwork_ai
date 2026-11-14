@@ -58,10 +58,8 @@
   } from "@lucide/svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
   import PageShell from "$lib/components/page-shell.svelte";
-  import ConnectionChatModal from "$lib/components/connection-chat-modal.svelte";
   import AmdAiLoading from "$lib/components/amd-ai-loading.svelte";
   import ConnectionToast from "$lib/components/connection-toast.svelte";
-  import VenueMap from "$lib/components/venue-map.svelte";
   import AICreditsExhausted from "$lib/components/AICreditsExhausted.svelte";
   import PillScroller from "$lib/components/pill-scroller.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -73,9 +71,9 @@
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import {
-    activeTab,
-    matchesStore,
-    connectionsStore,
+    activeTab as persistedTab,
+    matchesStore as persistedMatches,
+    connectionsStore as persistedConnections,
     clearAllEventStores,
   } from "$lib/stores/eventStore";
   import { clearAllChatStores } from "$lib/stores/chatStore";
@@ -98,13 +96,26 @@
   }
   import { createSupabaseBrowserClient } from "$lib/supabase/client";
   import { onMount, onDestroy, tick } from "svelte";
+  import EventAnalytics from "$lib/components/event-analytics.svelte";
 
   const supabase = createSupabaseBrowserClient();
 
+  import { browser } from "$app/environment";
+  import { writable } from "svelte/store";
   export let data;
 
-  function eventImageSrc(path) {
-    return path ? `/api/events/images?path=${encodeURIComponent(path)}` : "";
+  // Keep server-rendered state scoped to this page request.
+  const activeTab = browser ? persistedTab : writable("details");
+  const matchesStore = browser ? persistedMatches : writable([]);
+  const connectionsStore = browser ? persistedConnections : writable([]);
+
+  function eventImageSrc(path, urls = data.imageUrls) {
+    return urls?.[path] || (path ? `/api/events/images?path=${encodeURIComponent(path)}` : "");
+  }
+
+  function retryEventImage(image, path) {
+    const fallback = eventImageSrc(path, {});
+    if (image.getAttribute("src") !== fallback) image.src = fallback;
   }
 
   function eventInitial(name) {
@@ -425,8 +436,6 @@
         }
       }
     } catch (_) {}
-    // Hide page loading indicator once mounted
-    pageLoading = false;
 
     timeInterval = setInterval(() => {
       currentTime = new Date();
@@ -438,8 +447,7 @@
     if (!data.user?.id) return;
 
     if (data.isParticipant) {
-      fetchAllConnections();
-      fetchAttendees();
+      if (!loadingConnections) fetchAllConnections();
 
       // Setup a single channel for connections realtime updates
       realtimeChannel = supabase
@@ -597,42 +605,60 @@
   });
 
   let signingOut = false;
+  let signingIn = false;
   let joining = false;
 
   let savingProfile = false;
-  let pageLoading = true; // Start true so skeleton UI shows until mounted
   let refreshingMatches = false;
   let aiProfileText = "";
   let aiGenerating = false;
   let aiGenerationError = "";
 
-  function formatEventDateRange(start, end) {
+  let copiedPublicUrl = false;
+  function copyPublicEventUrl() {
+    if (typeof window === "undefined") return;
+    const fullUrl = `${window.location.origin}/event/${currentEvent.slug}`;
+    navigator.clipboard.writeText(fullUrl);
+    copiedPublicUrl = true;
+    toast.success("Event link copied to clipboard!");
+    setTimeout(() => (copiedPublicUrl = false), 2200);
+  }
+
+  function formatEventDateRange(start, end, includeZone = false) {
     if (!start) return "";
     const startDate = new Date(start);
-    const startDateStr = startDate.toLocaleDateString("en-US", {
+    if (isNaN(startDate.getTime())) return "";
+    const startDateStr = startDate.toLocaleDateString(undefined, {
+      weekday: "short",
       month: "short",
       day: "numeric",
+      year: "numeric",
     });
-    const startTimeStr = startDate.toLocaleTimeString("en-US", {
+    const startTimeStr = startDate.toLocaleTimeString(undefined, {
       hour: "numeric",
       minute: "2-digit",
+      timeZoneName: includeZone ? "short" : undefined,
     });
-    if (!end) return `${startDateStr}, ${startTimeStr}`;
+    if (!end) return `${startDateStr} • ${startTimeStr}`;
     const endDate = new Date(end);
-    const endDateStr = endDate.toLocaleDateString("en-US", {
+    if (isNaN(endDate.getTime())) return `${startDateStr} • ${startTimeStr}`;
+    const endDateStr = endDate.toLocaleDateString(undefined, {
+      weekday: "short",
       month: "short",
       day: "numeric",
+      year: "numeric",
     });
-    const endTimeStr = endDate.toLocaleTimeString("en-US", {
+    const endTimeStr = endDate.toLocaleTimeString(undefined, {
       hour: "numeric",
       minute: "2-digit",
+      timeZoneName: includeZone ? "short" : undefined,
     });
     const sameDay =
       startDate.getFullYear() === endDate.getFullYear() &&
       startDate.getMonth() === endDate.getMonth() &&
       startDate.getDate() === endDate.getDate();
     if (sameDay) {
-      return `${startDateStr} • ${startTimeStr} - ${endTimeStr}`;
+      return `${startDateStr} • ${startTimeStr} – ${endTimeStr}`;
     }
     return `${startDateStr}, ${startTimeStr} – ${endDateStr}, ${endTimeStr}`;
   }
@@ -2157,33 +2183,6 @@
   // Initialize matches store with server data
   matchesStore.set(data.suggestedMatches ?? []);
 
-  $: analytics = data.analytics;
-  $: analyticsMetricCards = analytics
-    ? [
-        { label: "Total Participants", value: analytics.totalParticipants },
-        { label: "AI Matches Generated", value: analytics.aiMatchesGenerated },
-        { label: "Connection Requests", value: analytics.connectionRequests },
-        { label: "Accepted Connections", value: analytics.acceptedConnections },
-        { label: "People Met", value: analytics.peopleMet },
-        {
-          label: "Connection Acceptance Rate",
-          value: `${analytics.connectionAcceptanceRate}%`,
-        },
-        {
-          label: "QR Meet Completion Rate",
-          value: `${analytics.qrMeetCompletionRate}%`,
-        },
-      ]
-    : [];
-  $: maxFunnelValue = Math.max(
-    ...(analytics?.networkingFunnel ?? []).map((item) => item.value),
-    1,
-  );
-
-  function goToCreateEvent() {
-    goto("/events/create");
-  }
-
   async function fetchMatches() {
     refreshingMatches = true;
     try {
@@ -2369,6 +2368,8 @@
 
   // Attendees state & handlers
   let attendeesList = [];
+  let attendanceRequests = [];
+  let reviewingRequest = null;
   let loadingAttendees = false;
   let attendeeSearchQuery = "";
   let attendeeSearchTimeout = null;
@@ -2380,18 +2381,37 @@
     try {
       const q = encodeURIComponent(query.trim());
       const res = await fetch(
-        `/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}`,
+        `/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}&status=${data.isOrganizer ? "all" : "joined"}`,
         {
           credentials: "include",
         },
       );
       if (!res.ok) throw new Error("Failed to fetch attendees");
       const { attendees } = await res.json();
-      attendeesList = attendees || [];
+      attendeesList = attendees.filter((person) => person.registrationStatus === "joined" || !person.registrationStatus);
+      attendanceRequests = attendees.filter((person) => ["waitlisted", "requested"].includes(person.registrationStatus));
     } catch (e) {
       toast.error("Could not load attendees");
     } finally {
       loadingAttendees = false;
+    }
+  }
+
+  async function reviewAttendanceRequest(userId, action) {
+    if (reviewingRequest) return;
+    reviewingRequest = userId;
+    try {
+      const res = await fetch("/api/events/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event_id: data.event.id, user_id: userId, action }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || "Could not update the request.");
+      await Promise.all([fetchAttendees(), invalidateAll()]);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      reviewingRequest = null;
     }
   }
 
@@ -2654,14 +2674,21 @@
   }
 
   async function signInWithGoogle() {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(window.location.pathname + window.location.search)}`,
-      },
-    });
-    if (error)
+    if (signingIn) return;
+    signingIn = true;
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(window.location.pathname + window.location.search + "#registration")}`,
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
       toast.error("Google sign-in failed", { description: error.message });
+    } finally {
+      signingIn = false;
+    }
   }
 
   async function joinEvent() {
@@ -2708,15 +2735,16 @@
         );
       }
 
-      // Immediately switch reactive state so the member workspace shows without requiring refresh
-      data.isParticipant = true;
-      data = { ...data, isParticipant: true };
-      if (currentEvent) {
-        currentEvent = {
-          ...currentEvent,
-          attendees_count: responseBody.attendees_count ?? (currentEvent.attendees_count || 0) + 1,
-        };
+      if (responseBody.status === "waitlisted" || responseBody.status === "requested") {
+        data = { ...data, registrationPending: true };
+        return;
       }
+      data = {
+        ...data,
+        isParticipant: true,
+        registrationPending: false,
+        event: { ...data.event, attendees_count: responseBody.attendees_count },
+      };
       activeTab.set("details");
       stage = "workspace";
       editProfileOpen = false;
@@ -2989,25 +3017,33 @@
   />
 </svelte:head>
 
-<PageShell>
-  <Sidebar
-    user={data.user}
-    {signingOut}
-    onSignOut={signOut}
-    onSignIn={joinEvent}
-  />
+<PageShell hasSidebar={Boolean(data.user)}>
+  {#if data.user}
+    <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
+  {:else}
+    <header class="mx-auto mb-6 flex max-w-4xl items-center justify-between gap-4 pl-4 pr-16 sm:pl-6 lg:px-0">
+      <a href="/" class="inline-flex items-center gap-2 font-bold text-white" aria-label="Evenai home">
+        <Sparkles size={18} class="text-amber-400" /> Evenai
+      </a>
+      <Button variant="outline" onclick={signInWithGoogle} disabled={signingIn}>
+        {signingIn ? "Opening Google…" : "Sign in with Google"}
+      </Button>
+    </header>
+  {/if}
 
   <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
-    <div class="mb-6 animate-slide-up">
-      <button
-        id="back-navigation-btn"
-        onclick={handleBack}
-        class="inline-flex items-center gap-2 text-sm font-semibold text-ink-500 transition hover:text-white cursor-pointer"
-      >
-        <ArrowLeft size={16} />
-        {backLabel}
-      </button>
-    </div>
+    {#if data.user}
+      <div class="mb-6 animate-slide-up">
+        <button
+          id="back-navigation-btn"
+          onclick={handleBack}
+          class="inline-flex items-center gap-2 text-sm font-semibold text-ink-500 transition hover:text-white cursor-pointer"
+        >
+          <ArrowLeft size={16} />
+          {backLabel}
+        </button>
+      </div>
+    {/if}
 
     <!-- ─── PREVIEW STAGE ─── -->
     {#if stage === "preview"}
@@ -3021,7 +3057,7 @@
           ></div>
           {#if currentEvent.event_banner_url}
             <img
-              src={eventImageSrc(currentEvent.event_banner_url)}
+              src={eventImageSrc(currentEvent.event_banner_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_banner_url)}
               alt=""
               class="h-48 w-full object-cover sm:h-64"
             />
@@ -3039,7 +3075,7 @@
               <div class="mb-4 flex items-center gap-4">
                 {#if currentEvent.event_logo_url}
                   <img
-                    src={eventImageSrc(currentEvent.event_logo_url)}
+                    src={eventImageSrc(currentEvent.event_logo_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_logo_url)}
                     alt=""
                     class="h-16 w-16 rounded-2xl object-cover sm:h-20 sm:w-20"
                   />
@@ -3306,670 +3342,270 @@
       </div>
     {:else}
       <div class="space-y-8 animate-fade-in min-h-[800px]">
-        {#if pageLoading}
-          <div
-            class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10"
-          >
-            <div class="flex flex-col items-center gap-6 animate-pulse">
-              <div class="h-8 w-48 bg-ink-400 rounded"></div>
-              <div class="h-4 w-96 bg-ink-400 rounded"></div>
-            </div>
-          </div>
-        {:else if !data.isParticipant && !data.isOrganizer}
+        {#if !data.isParticipant && !data.isOrganizer}
           <!-- ═══════════════════════════════════════════════════════════════════ -->
-          <!-- ══ PUBLIC EVENT LANDING PAGE (VISITING USERS)                     ══ -->
+          <!-- ══ PUBLIC EVENT OVERVIEW (NON-AUTHENTICATED / VISITING USERS)     ══ -->
           <!-- ═══════════════════════════════════════════════════════════════════ -->
-          <div class="space-y-6 sm:space-y-8 animate-fade-in">
-            <!-- ── Event Hero Banner ── -->
-            <div
-              class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent backdrop-blur-xl shadow-2xl"
-            >
-              <!-- Top accent bar matching status -->
-              <div
-                class="h-1 w-full {isEventLive
-                  ? 'bg-gradient-to-r from-emerald-400 via-emerald-300 to-teal-400'
-                  : isEventEnded
-                    ? 'bg-gradient-to-r from-slate-500 via-slate-400/50 to-transparent'
-                    : 'bg-gradient-to-r from-amber-400 via-amber-300 to-orange-400'}"
-              ></div>
-
-              {#if currentEvent.event_banner_url}
-                <img
-                  src={eventImageSrc(currentEvent.event_banner_url)}
-                  alt=""
-                  class="h-44 w-full object-cover sm:h-60"
-                />
+          <div class="mx-auto max-w-4xl space-y-6 sm:space-y-8 animate-fade-in text-ink-50">
+            {#if currentEvent.event_banner_url}
+              <img src={eventImageSrc(currentEvent.event_banner_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_banner_url)} alt="" class="h-28 w-full rounded-2xl object-cover sm:h-56" />
+            {/if}
+            <section class="space-y-4">
+              <div class="flex items-start justify-between gap-3">
+                {#if currentEvent.event_logo_url}
+                  <img src={eventImageSrc(currentEvent.event_logo_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_logo_url)} alt="" class="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                {/if}
+                <h1 class="min-w-0 flex-1 break-words text-3xl font-bold tracking-tight text-white sm:text-5xl">{currentEvent.name}</h1>
+                <button type="button" onclick={copyPublicEventUrl} aria-label="Copy event link" title="Copy event link" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 hover:bg-white/10">
+                  {#if copiedPublicUrl}<Check size={17} />{:else}<Copy size={17} />{/if}
+                </button>
+              </div>
+              {#if currentEvent.description}
+                {#if currentEvent.description.length > 260}
+                  <details class="group text-ink-200">
+                    <summary class="cursor-pointer">
+                      <span class="group-open:hidden">{currentEvent.description.slice(0, 260).replace(/\s+\S*$/, "")}… </span>
+                      <span class="text-amber-300 group-open:hidden">Read more</span>
+                      <span class="hidden text-amber-300 group-open:inline">Show less</span>
+                    </summary>
+                    <p class="mt-2 whitespace-pre-line">{currentEvent.description}</p>
+                  </details>
+                {:else}
+                  <p class="whitespace-pre-line leading-relaxed text-ink-200">{currentEvent.description}</p>
+                {/if}
               {/if}
-
-              <div class="p-6 sm:p-10 lg:p-12 space-y-6">
-                <!-- Badges Row -->
-                <div class="flex flex-wrap items-center gap-2.5">
-                  {#if isEventLive}
-                    <span
-                      class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.25)]"
-                    >
-                      <span class="relative flex h-2 w-2">
-                        <span
-                          class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
-                        ></span>
-                        <span
-                          class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"
-                        ></span>
-                      </span>
-                      Live Now
-                    </span>
-                  {:else if isEventEnded}
-                    <span
-                      class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ink-400"
-                    >
-                      <CheckCheck size={13} />
-                      Event Ended
-                    </span>
+              <div class="space-y-2 text-sm text-ink-200">
+                <p class="flex items-start gap-2"><CalendarClock size={17} class="mt-0.5 shrink-0 text-amber-300" />
+                  {formatEventDateRange(currentEvent.start_time, currentEvent.end_time, true) || currentEvent.date || "Date to be announced"}
+                </p>
+                <p class="flex items-start gap-2"><MapPin size={17} class="mt-0.5 shrink-0 text-amber-300" />
+                  {#if currentEvent.event_format === "online"}
+                    Online event
                   {:else}
-                    <span
-                      class="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-300"
-                    >
-                      <CalendarClock size={13} />
-                      Upcoming
-                    </span>
-                  {/if}
-
-                  {#if currentEvent.event_format}
-                    <span
-                      class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold capitalize text-ink-300"
-                    >
-                      {#if currentEvent.event_format === "online"}
-                        <Globe size={13} class="text-cyan-400" /> Online Event
-                      {:else if currentEvent.event_format === "hybrid"}
-                        <Globe size={13} class="text-amber-400" /> Hybrid Event
-                      {:else}
-                        <MapPin size={13} class="text-amber-400" /> In-Person Event
-                      {/if}
-                    </span>
-                  {/if}
-
-                  {#if currentEvent.attendees_count > 0}
-                    <span
-                      class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-ink-300"
-                    >
-                      <Users size={13} class="text-cyan-400" />
-                      {currentEvent.attendees_count}
-                      {currentEvent.attendees_count === 1
-                        ? "attendee"
-                        : "attendees"}
-                    </span>
-                  {/if}
-                </div>
-
-                <!-- Event Title -->
-                <div class="flex items-center gap-4">
-                  {#if currentEvent.event_logo_url}
-                    <img
-                      src={eventImageSrc(currentEvent.event_logo_url)}
-                      alt=""
-                      class="h-16 w-16 shrink-0 rounded-2xl object-cover sm:h-20 sm:w-20"
-                    />
-                  {:else}
-                    <div
-                      class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-2xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20 sm:text-3xl"
-                    >
-                      {eventInitial(currentEvent.name)}
-                    </div>
-                  {/if}
-                  <h1
-                    class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]"
-                  >
-                    {currentEvent.name}
-                  </h1>
-                </div>
-
-                <!-- Live or Next Session Ticker -->
-                {#if liveSessions.length > 0}
-                  <div
-                    class="inline-flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 backdrop-blur-md"
-                  >
-                    <span class="relative flex h-2.5 w-2.5">
-                      <span
-                        class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
-                      ></span>
-                      <span
-                        class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400"
-                      ></span>
-                    </span>
-                    <span
-                      class="text-xs font-bold uppercase tracking-wider text-emerald-400"
-                      >Live Now:</span
-                    >
-                    <span
-                      class="text-sm font-semibold text-white truncate max-w-xs sm:max-w-md"
-                      >{liveSessions[0].title}</span
-                    >
-                    {#if liveSessions[0].location}
-                      <span
-                        class="text-xs text-emerald-300/80 hidden sm:inline-flex items-center gap-1"
-                      >
-                        • <MapPin size={11} />
-                        {liveSessions[0].location}
-                      </span>
+                    {#if currentEvent.event_format === "hybrid"}Hybrid · {/if}
+                    {#if currentEvent.google_map_url && currentEvent.location}
+                      <a href={currentEvent.google_map_url} target="_blank" rel="noopener noreferrer" class="underline">{currentEvent.location}</a>
+                    {:else}
+                      {currentEvent.location || currentEvent.city || "Venue to be announced"}
                     {/if}
-                  </div>
-                {:else if nextSession}
-                  <div
-                    class="inline-flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/8 px-4 py-2.5 backdrop-blur-md"
-                  >
-                    <Clock size={14} class="text-amber-400" />
-                    <span
-                      class="text-xs font-bold uppercase tracking-wider text-amber-400"
-                      >Next Up:</span
-                    >
-                    <span
-                      class="text-sm font-semibold text-white truncate max-w-xs sm:max-w-md"
-                      >{nextSession.title}</span
-                    >
-                    <span class="text-xs text-amber-300/70 hidden sm:inline">
-                      • {new Date(nextSession.start_time).toLocaleTimeString(
-                        "en-US",
-                        { hour: "numeric", minute: "2-digit" },
-                      )}
-                    </span>
-                  </div>
+                  {/if}
+                </p>
+              </div>
+              <div id="registration" tabindex="-1" class="scroll-mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
+                {#if data.registrationPending}
+                  <p role="status" class="font-semibold text-amber-200">Spot requested · Awaiting host approval</p>
+                {:else if isEventEnded || isAttendeeRegistrationFull || isJoinAfterStartClosed}
+                  <p class="font-semibold text-ink-200">{isEventEnded ? "Event ended · Registration closed" : isAttendeeRegistrationFull ? "Registration full" : "Registration closed · Event already started"}</p>
+                {:else}
+                  {#if data.user && $page.url.hash === "#registration"}
+                    <p class="mb-2 text-sm text-ink-200">You are signed in. {currentEvent.is_approval_required ? "Submit your request below." : "Confirm your registration below."}</p>
+                  {/if}
+                  <Button id="join-event-btn" onclick={joinEvent} disabled={joining || signingIn} class="h-12 w-full bg-amber-400 px-6 font-bold text-slate-950 hover:bg-amber-300 sm:w-auto">
+                    {#if joining || signingIn}
+                      <LoaderCircle size={16} class="animate-spin" /> {data.user ? "Submitting…" : "Opening Google…"}
+                    {:else if currentEvent.is_approval_required}
+                      {data.user ? "Request a spot" : "Sign in to request a spot"}
+                    {:else}
+                      {data.user ? "Confirm registration" : "Sign in to register"}
+                    {/if}
+                  </Button>
+                  {#if currentEvent.is_approval_required}
+                    <p class="mt-2 text-sm text-ink-300">The host reviews each request.</p>
+                  {/if}
+                  {#if currentEvent.is_attendees_register_limited && currentEvent.max_attendees}
+                    <p class="mt-2 text-sm text-ink-300">{Math.max(0, currentEvent.max_attendees - (currentEvent.attendees_count || 0))} spots available</p>
+                  {/if}
                 {/if}
               </div>
-            </div>
+            </section>
+            <!-- ── B. Schedule & Agenda Section ── -->
+            <div class="space-y-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+                    <span class="h-5 w-1 rounded-full bg-amber-400"></span>
+                    Schedule & Agenda
+                  </h2>
+                  <p class="text-xs sm:text-sm text-ink-400 mt-1">
+                    {timelineItems.length} {timelineItems.length === 1 ? "session" : "sessions"} planned
+                  </p>
+                </div>
+              </div>
 
-            <!-- ── 2-Column Responsive Layout (Main Details + Sticky RSVP Card) ── -->
-            <div
-              class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start"
-            >
-              <!-- Left 2 Columns: About + Schedule -->
-              <div class="lg:col-span-2 space-y-6 sm:space-y-8">
-                <!-- About Card -->
-                {#if currentEvent.description}
+              {#if timelineItems.length === 0}
+                <p class="text-sm text-ink-400">The schedule has not been announced yet.</p>
+              {:else}
+                <!-- Timeline Rail -->
+                <div class="relative pt-2">
                   <div
-                    class="glass rounded-3xl border border-white/8 p-6 sm:p-8 space-y-4"
-                  >
-                    <div
-                      class="flex items-center gap-2.5 pb-2 border-b border-white/6"
-                    >
-                      <div
-                        class="h-4 w-1 rounded-full bg-gradient-to-b from-amber-400 to-amber-600"
-                      ></div>
-                      <h2
-                        class="text-base sm:text-lg font-bold text-white tracking-tight"
-                      >
-                        About this Event
-                      </h2>
-                    </div>
-                    <div
-                      class="text-sm sm:text-base leading-relaxed text-ink-200 whitespace-pre-line font-normal"
-                    >
-                      {currentEvent.description}
-                    </div>
-                  </div>
-                {/if}
+                    class="absolute left-[27px] top-4 bottom-4 w-px bg-gradient-to-b from-white/15 via-white/8 to-transparent pointer-events-none"
+                  ></div>
 
-                <!-- Event Schedule & Agenda -->
-                <div
-                  class="glass rounded-3xl border border-white/8 p-6 sm:p-8 space-y-5"
-                >
-                  <div
-                    class="flex items-center justify-between pb-2 border-b border-white/6"
-                  >
-                    <div class="flex items-center gap-2.5">
-                      <div
-                        class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-400"
-                      >
-                        <CalendarClock size={16} />
-                      </div>
-                      <div>
-                        <h2
-                          class="text-base sm:text-lg font-bold text-white tracking-tight"
+                  <div class="space-y-4">
+                    {#each timelineItems as item, idx (item.id)}
+                      {@const style = getCategoryColor(item.category)}
+                      {@const isLiveNow =
+                        item.start_time &&
+                        item.end_time &&
+                        new Date(item.start_time) <= currentTime &&
+                        new Date(item.end_time) >= currentTime}
+                      {@const isPast =
+                        item.end_time &&
+                        new Date(item.end_time) < currentTime}
+
+                      <div class="relative flex gap-4 group">
+                        <!-- Timeline node -->
+                        <div
+                          class="relative flex-shrink-0 flex flex-col items-center"
+                          style="width: 56px;"
                         >
-                          Schedule & Agenda
-                        </h2>
-                        <p class="text-xs text-ink-500">
-                          {timelineItems.length}
-                          {timelineItems.length === 1 ? "session" : "sessions"} planned
-                        </p>
-                      </div>
-                    </div>
-                    {#if timelineItems.length > 0}
-                      <span
-                        class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-amber-400/25 bg-amber-400/8 text-amber-300"
-                      >
-                        Agenda
-                      </span>
-                    {/if}
-                  </div>
-
-                  {#if timelineItems.length === 0}
-                    <div class="py-12 text-center space-y-3">
-                      <div
-                        class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-ink-500"
-                      >
-                        <CalendarClock size={24} />
-                      </div>
-                      <p class="text-sm font-semibold text-ink-300">
-                        No schedule announced yet
-                      </p>
-                      <p class="text-xs text-ink-500 max-w-xs mx-auto">
-                        The host hasn't published the agenda sessions yet. Check
-                        back soon for the timeline.
-                      </p>
-                    </div>
-                  {:else}
-                    <!-- Timeline Rail -->
-                    <div class="relative pt-2">
-                      <div
-                        class="absolute left-[27px] top-4 bottom-4 w-px bg-gradient-to-b from-white/15 via-white/8 to-transparent pointer-events-none"
-                      ></div>
-
-                      <div class="space-y-4">
-                        {#each timelineItems as item, idx (item.id)}
-                          {@const style = getCategoryColor(item.category)}
-                          {@const isLiveNow =
-                            item.start_time &&
-                            item.end_time &&
-                            new Date(item.start_time) <= currentTime &&
-                            new Date(item.end_time) >= currentTime}
-                          {@const isPast =
-                            item.end_time &&
-                            new Date(item.end_time) < currentTime}
-
-                          <div class="relative flex gap-4 group">
-                            <!-- Timeline node -->
+                          <div
+                            class="relative flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-300
+                            {isLiveNow
+                              ? 'bg-emerald-400/15 border-emerald-400/40 shadow-[0_0_16px_rgba(52,211,153,0.25)]'
+                              : isPast
+                                ? 'bg-white/3 border-white/6'
+                                : 'bg-white/5 border-white/10 group-hover:border-white/20'}"
+                          >
+                            {#if isLiveNow}
+                              <span
+                                class="absolute inset-0 rounded-2xl animate-ping border border-emerald-400/40 opacity-50"
+                              ></span>
+                            {/if}
                             <div
-                              class="relative flex-shrink-0 flex flex-col items-center"
-                              style="width: 56px;"
+                              class="h-2.5 w-2.5 rounded-full {style.dot} {isLiveNow
+                                ? 'shadow-[0_0_8px_currentColor]'
+                                : ''} {isPast ? 'opacity-30' : ''}"
+                            ></div>
+                          </div>
+                        </div>
+
+                        <!-- Session Card -->
+                        <div class="flex-1 min-w-0 pb-1">
+                          <div
+                            class="rounded-2xl border p-4 sm:p-5 transition-all duration-200
+                            {isLiveNow
+                              ? 'border-emerald-400/30 bg-emerald-400/5 shadow-[0_4px_20px_rgba(16,185,129,0.08)]'
+                              : isPast
+                                ? 'border-white/6 bg-white/[0.02] opacity-70'
+                                : 'glass border-white/8 hover:border-white/15 hover:shadow-lg'}"
+                          >
+                            <!-- Top Row: Time + Live + Category -->
+                            <div
+                              class="flex flex-wrap items-center gap-2 mb-2"
                             >
-                              <div
-                                class="relative flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-300
-                                {isLiveNow
-                                  ? 'bg-emerald-400/15 border-emerald-400/40 shadow-[0_0_16px_rgba(52,211,153,0.25)]'
-                                  : isPast
-                                    ? 'bg-white/3 border-white/6'
-                                    : 'bg-white/5 border-white/10 group-hover:border-white/20'}"
+                              <span
+                                class="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg"
                               >
-                                {#if isLiveNow}
+                                <Clock size={11} />
+                                {formatTimelineTimeRange(
+                                  item.start_time,
+                                  item.end_time,
+                                )}
+                              </span>
+
+                              {#if isLiveNow}
+                                <span
+                                  class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-400/15 border border-emerald-400/30 px-2 py-0.5 rounded-full"
+                                >
                                   <span
-                                    class="absolute inset-0 rounded-2xl animate-ping border border-emerald-400/40 opacity-50"
+                                    class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"
                                   ></span>
-                                {/if}
-                                <div
-                                  class="h-2.5 w-2.5 rounded-full {style.dot} {isLiveNow
-                                    ? 'shadow-[0_0_8px_currentColor]'
-                                    : ''} {isPast ? 'opacity-30' : ''}"
-                                ></div>
-                              </div>
+                                  Live Now
+                                </span>
+                              {:else if isPast}
+                                <span
+                                  class="inline-flex items-center gap-1 text-[10px] font-medium text-ink-500 px-2 py-0.5 rounded-full border border-white/5 bg-white/3"
+                                >
+                                  <CheckCheck size={10} /> Completed
+                                </span>
+                              {/if}
+
+                              <span
+                                class="ml-auto text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border {style.bg} {style.text} {style.border}"
+                              >
+                                {item.category || "General"}
+                              </span>
                             </div>
 
-                            <!-- Session Card -->
-                            <div class="flex-1 min-w-0 pb-1">
-                              <div
-                                class="rounded-2xl border p-4 sm:p-5 transition-all duration-200
-                                {isLiveNow
-                                  ? 'border-emerald-400/30 bg-emerald-400/5 shadow-[0_4px_20px_rgba(16,185,129,0.08)]'
-                                  : isPast
-                                    ? 'border-white/6 bg-white/[0.02] opacity-70'
-                                    : 'glass border-white/8 hover:border-white/15 hover:shadow-lg'}"
+                            <!-- Title -->
+                            <h3
+                              class="text-sm sm:text-base font-bold text-white leading-snug mb-1 {isPast
+                                ? 'text-ink-300'
+                                : ''}"
+                            >
+                              {item.title}
+                            </h3>
+
+                            <!-- Description -->
+                            {#if item.description}
+                              <p
+                                class="text-xs sm:text-sm leading-relaxed text-ink-300/80 mb-3"
                               >
-                                <!-- Top Row: Time + Live + Category -->
-                                <div
-                                  class="flex flex-wrap items-center gap-2 mb-2"
-                                >
-                                  <span
-                                    class="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg"
-                                  >
-                                    <Clock size={11} />
-                                    {formatTimelineTimeRange(
-                                      item.start_time,
-                                      item.end_time,
-                                    )}
-                                  </span>
+                                {item.description}
+                              </p>
+                            {/if}
 
-                                  {#if isLiveNow}
-                                    <span
-                                      class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-400/15 border border-emerald-400/30 px-2 py-0.5 rounded-full"
-                                    >
-                                      <span
-                                        class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"
-                                      ></span>
-                                      Live Now
-                                    </span>
-                                  {:else if isPast}
-                                    <span
-                                      class="inline-flex items-center gap-1 text-[10px] font-medium text-ink-500 px-2 py-0.5 rounded-full border border-white/5 bg-white/3"
-                                    >
-                                      <CheckCheck size={10} /> Completed
-                                    </span>
-                                  {/if}
-
-                                  <span
-                                    class="ml-auto text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border {style.bg} {style.text} {style.border}"
-                                  >
-                                    {item.category || "General"}
-                                  </span>
-                                </div>
-
-                                <!-- Title -->
-                                <h3
-                                  class="text-sm sm:text-base font-bold text-white leading-snug mb-1 {isPast
-                                    ? 'text-ink-300'
-                                    : ''}"
-                                >
-                                  {item.title}
-                                </h3>
-
-                                <!-- Description -->
-                                {#if item.description}
-                                  <p
-                                    class="text-xs sm:text-sm leading-relaxed text-ink-300/80 mb-3"
-                                  >
-                                    {item.description}
-                                  </p>
-                                {/if}
-
-                                <!-- Speaker + Location footer -->
-                                {#if item.speaker_name || item.location}
-                                  <div
-                                    class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/6 mt-2"
-                                  >
-                                    {#if item.speaker_name}
-                                      <div class="flex items-center gap-2.5">
-                                        {#if item.speaker_avatar_url}
-                                          <img
-                                            src={item.speaker_avatar_url}
-                                            alt={item.speaker_name}
-                                            class="h-7 w-7 rounded-full object-cover border border-white/20"
-                                          />
-                                        {:else}
-                                          <div
-                                            class="h-7 w-7 rounded-full {style.bg} border {style.border} flex items-center justify-center text-[10px] font-black {style.text}"
-                                          >
-                                            {item.speaker_name
-                                              .charAt(0)
-                                              .toUpperCase()}
-                                          </div>
-                                        {/if}
-                                        <div class="leading-tight">
-                                          <p
-                                            class="text-xs font-bold text-white"
-                                          >
-                                            {item.speaker_name}
-                                          </p>
-                                          {#if item.speaker_role}
-                                            <p class="text-[10px] text-ink-400">
-                                              {item.speaker_role}
-                                            </p>
-                                          {/if}
-                                        </div>
+                            <!-- Speaker + Location footer -->
+                            {#if item.speaker_name || item.location}
+                              <div
+                                class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/6 mt-2"
+                              >
+                                {#if item.speaker_name}
+                                  <div class="flex items-center gap-2.5">
+                                    {#if item.speaker_avatar_url}
+                                      <img
+                                        src={item.speaker_avatar_url}
+                                        alt={item.speaker_name}
+                                        class="h-7 w-7 rounded-full object-cover border border-white/20"
+                                      />
+                                    {:else}
+                                      <div
+                                        class="h-7 w-7 rounded-full {style.bg} border {style.border} flex items-center justify-center text-[10px] font-black {style.text}"
+                                      >
+                                        {item.speaker_name
+                                          .charAt(0)
+                                          .toUpperCase()}
                                       </div>
                                     {/if}
-
-                                    {#if item.location}
-                                      <button
-                                        type="button"
-                                        onclick={() =>
-                                          jumpToVenueLocation(item.location)}
-                                        class="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink-300 hover:text-amber-300 bg-white/4 hover:bg-white/8 transition-colors px-2.5 py-1 rounded-lg border border-white/8"
-                                        title={item.location}
+                                    <div class="leading-tight">
+                                      <p
+                                        class="text-xs font-bold text-white"
                                       >
-                                        <MapPin
-                                          size={11}
-                                          class="text-amber-400"
-                                        />
-                                        {item.location}
-                                      </button>
-                                    {/if}
+                                        {item.speaker_name}
+                                      </p>
+                                      {#if item.speaker_role}
+                                        <p class="text-[10px] text-ink-400">
+                                          {item.speaker_role}
+                                        </p>
+                                      {/if}
+                                    </div>
                                   </div>
                                 {/if}
+
+                                {#if item.location}
+                                  <span class="inline-flex items-center gap-1.5 text-xs text-ink-300">
+                                    <MapPin size={11} class="text-amber-400" />
+                                    {item.location}
+                                  </span>
+                                {/if}
                               </div>
-                            </div>
+                            {/if}
                           </div>
-                        {/each}
-                      </div>
-                    </div>
-                  {/if}
-                </div>
-              </div>
-
-              <!-- Right 1 Column: Sticky RSVP & Registration Card -->
-              <div class="lg:col-span-1">
-                <div
-                  class="sticky top-6 rounded-3xl border border-amber-400/20 bg-gradient-to-b from-amber-400/[0.08] via-white/[0.03] to-white/[0.01] p-6 sm:p-7 backdrop-blur-2xl shadow-2xl space-y-6"
-                >
-                  <!-- Header & Register Action -->
-                  <div class="space-y-4">
-                    <div class="space-y-1">
-                      <span
-                        class="text-[10px] font-black uppercase tracking-widest text-amber-400"
-                        >RSVP & Access</span
-                      >
-                      <h3 class="text-xl font-black text-white tracking-tight">
-                        Join this Event
-                      </h3>
-                      <p class="text-xs text-ink-400">
-                        Get access to live networking, sessions, and real-time
-                        updates.
-                      </p>
-                    </div>
-
-                    <p class="text-xs leading-5 text-ink-400">
-                      Your name and email will be shared with the event host for
-                      event communication.
-                    </p>
-
-                    <Button
-                      id="join-event-btn"
-                      onclick={joinEvent}
-                      disabled={joining || isJoinAfterStartClosed || isAttendeeRegistrationFull}
-                      class="w-full h-12 gap-2 text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_24px_rgba(251,191,36,0.3)] hover:shadow-[0_0_32px_rgba(251,191,36,0.5)] transition-all hover:-translate-y-0.5 active:translate-y-0"
-                    >
-                      {#if joining}
-                        <LoaderCircle size={18} class="animate-spin" />
-                        Joining…
-                      {:else}
-                        <LogIn size={18} />
-                        {#if data.user}
-                          Register for Event
-                        {:else}
-                          Sign in to Register
-                        {/if}
-                      {/if}
-                    </Button>
-
-                    {#if isJoinAfterStartClosed}
-                      <p class="text-xs text-center text-amber-300">
-                        Registration is closed because this event has already
-                        started.
-                      </p>
-                    {/if}
-                    {#if isAttendeeRegistrationFull}
-                      <p class="flex items-center justify-center gap-1 text-xs text-center text-red-400">
-                        <AlertTriangle size={13} /> Registration is closed because the maximum attendee limit has been reached.
-                      </p>
-                    {/if}
-                    <p class="text-[11px] text-center text-ink-500">
-                      Free registration · Instant confirmation
-                    </p>
-                  </div>
-
-                  <div class="h-px w-full bg-white/8"></div>
-
-                  <!-- Key Event Details List -->
-                  <div class="space-y-4">
-                    <h4
-                      class="text-[11px] font-bold uppercase tracking-wider text-ink-400"
-                    >
-                      Event Details
-                    </h4>
-
-                    <!-- Date & Time -->
-                    {#if currentEvent.start_time}
-                      <div class="flex items-start gap-3">
-                        <div
-                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-amber-400"
-                        >
-                          <CalendarClock size={16} />
-                        </div>
-                        <div class="min-w-0">
-                          <p class="text-xs font-semibold text-white">
-                            Date & Time
-                          </p>
-                          <p
-                            class="text-xs text-ink-300 mt-0.5 leading-relaxed"
-                          >
-                            {formatEventDateRange(
-                              currentEvent.start_time,
-                              currentEvent.end_time,
-                            )}
-                          </p>
                         </div>
                       </div>
-                    {/if}
-
-                    <!-- Location / Venue -->
-                    <div class="flex items-start gap-3">
-                      <div
-                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-amber-400"
-                      >
-                        <MapPin size={16} />
-                      </div>
-                      <div class="min-w-0">
-                        <p class="text-xs font-semibold text-white">Location</p>
-                        {#if currentEvent.event_format === "online"}
-                          {#if currentEvent.event_meeting_url}
-                            <p class="text-xs text-ink-300 mt-0.5">
-                              Online Event
-                            </p>
-                            <a
-                              href={currentEvent.event_meeting_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              class="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-400 hover:text-cyan-300 hover:underline mt-1 transition-colors break-all"
-                            >
-                              <Video size={11} />
-                              Join Meeting
-                              <ArrowRight size={10} />
-                            </a>
-                          {:else}
-                            <p class="text-xs text-ink-300 mt-0.5">
-                              Online Event (Virtual link visible upon joining)
-                            </p>
-                          {/if}
-                        {:else if currentEvent.location}
-                          <p
-                            class="text-xs text-ink-300 mt-0.5 leading-relaxed"
-                          >
-                            {currentEvent.location}
-                          </p>
-                          {#if currentEvent.google_map_url}
-                            <a
-                              href={currentEvent.google_map_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              class="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-400/15 hover:text-amber-200 mt-2 transition-colors w-fit"
-                            >
-                              <MapPin size={12} class="text-amber-400" />
-                              Open in Google Maps
-                              <ArrowRight size={10} />
-                            </a>
-                          {/if}
-                        {:else if currentEvent.google_map_url}
-                          <a
-                            href={currentEvent.google_map_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-400/15 hover:text-amber-200 mt-1 transition-colors w-fit"
-                          >
-                            <MapPin size={12} class="text-amber-400" />
-                            Open in Google Maps
-                            <ArrowRight size={10} />
-                          </a>
-                        {:else}
-                          <p class="text-xs text-ink-400 mt-0.5">
-                            Location details to be announced
-                          </p>
-                        {/if}
-                      </div>
-                    </div>
-
-                    <!-- Online Meet link for Hybrid events -->
-                    {#if currentEvent.event_format === "hybrid" && currentEvent.event_meeting_url}
-                      <div class="flex items-start gap-3">
-                        <div
-                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-cyan-400"
-                        >
-                          <Video size={16} />
-                        </div>
-                        <div class="min-w-0">
-                          <p class="text-xs font-semibold text-white">Virtual Stream / Meeting</p>
-                          <a
-                            href={currentEvent.event_meeting_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-400 hover:text-cyan-300 hover:underline mt-1 transition-colors break-all"
-                          >
-                            Join Meeting
-                            <ArrowRight size={10} />
-                          </a>
-                        </div>
-                      </div>
-                    {/if}
-
-                    <!-- Attendees Count -->
-                    <div class="flex items-start gap-3">
-                      <div
-                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/8 text-cyan-400"
-                      >
-                        <Users size={16} />
-                      </div>
-                      <div class="min-w-0">
-                        <p class="text-xs font-semibold text-white">
-                          Community
-                        </p>
-                        <p class="text-xs text-ink-300 mt-0.5">
-                          {currentEvent.attendees_count > 0
-                            ? `${currentEvent.attendees_count} people registered`
-                            : "Be one of the first to join"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="h-px w-full bg-white/8"></div>
-
-                  <!-- Included Highlights -->
-                  <div class="space-y-3">
-                    <h4
-                      class="text-[11px] font-bold uppercase tracking-wider text-ink-400"
-                    >
-                      Included with Your Pass
-                    </h4>
-                    <div class="space-y-2 text-xs text-ink-300">
-                      <div class="flex items-center gap-2">
-                        <Check size={14} class="text-amber-400 shrink-0" />
-                        <span>1-on-1 AI-Powered Networking Matches</span>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <Check size={14} class="text-amber-400 shrink-0" />
-                        <span>Full Interactive Schedule & Live Ticker</span>
-                      </div>
-                      {#if currentEvent.is_venue_enabled}
-                        <div class="flex items-center gap-2">
-                          <Check size={14} class="text-amber-400 shrink-0" />
-                          <span>Venue Map & Navigation</span>
-                        </div>
-                      {/if}
-                      <div class="flex items-center gap-2">
-                        <Check size={14} class="text-amber-400 shrink-0" />
-                        <span>Direct Event Announcements & Alerts</span>
-                      </div>
-                    </div>
+                    {/each}
                   </div>
                 </div>
-              </div>
+              {/if}
             </div>
+
+            {#if currentEvent.is_venue_enabled && currentEvent.venue_map}
+              <details class="rounded-xl border border-white/10 p-4">
+                <summary class="cursor-pointer font-semibold text-white">View venue map</summary>
+                <div class="mt-4">{#await import("$lib/components/venue-map.svelte") then module}<svelte:component this={module.default} isOrganizer={false} initialZones={currentEvent.venue_map} schedule={timelineItems} />{/await}</div>
+              </details>
+            {/if}
           </div>
         {:else}
           <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -3980,14 +3616,14 @@
           >
             {#if currentEvent.event_banner_url}
               <img
-                src={eventImageSrc(currentEvent.event_banner_url)}
+                src={eventImageSrc(currentEvent.event_banner_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_banner_url)}
                 alt=""
                 class="mb-6 h-36 w-full rounded-2xl object-cover sm:h-48"
               />
             {/if}
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
-                <div class="relative z-30 flex flex-wrap items-center justify-center gap-2">
+                <div class="flex flex-wrap items-center justify-center gap-2">
                   {#if data.isOrganizer}
                     <DropdownMenu.Root>
                       <DropdownMenu.Trigger
@@ -4004,7 +3640,7 @@
                       </DropdownMenu.Trigger>
 
                       <DropdownMenu.Content
-                        class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-[100] bg-slate-950/95 backdrop-blur-xl"
+                        class="w-40 mt-2 glass border border-white/10 shadow-2xl p-1 z-50"
                       >
                         <DropdownMenu.Label
                           class="text-[10px] uppercase font-bold tracking-widest text-ink-400 px-3 py-1.5"
@@ -4047,7 +3683,7 @@
                       class="gap-1.5 border-emerald-400/20 bg-emerald-400/8 text-emerald-200 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5"
                     >
                       <CheckCheck size={14} class="text-emerald-400" />
-                      Joined
+                      Registered
                     </Badge>
                   {:else}
                     <!-- Join button moved below date & time block -->
@@ -4072,7 +3708,7 @@
                 <div class="flex items-center justify-center gap-4">
                   {#if currentEvent.event_logo_url}
                     <img
-                      src={eventImageSrc(currentEvent.event_logo_url)}
+                      src={eventImageSrc(currentEvent.event_logo_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_logo_url)}
                       alt=""
                       class="h-14 w-14 shrink-0 rounded-2xl object-cover sm:h-16 sm:w-16"
                     />
@@ -4893,6 +4529,18 @@
             <!-- Attendees Tab -->
             <Tabs.Content value="attendees" class="mt-4">
               <div class="space-y-6">
+                {#if data.isOrganizer && attendanceRequests.length}
+                  <section class="glass space-y-3 rounded-2xl p-5">
+                    <h2 class="font-semibold text-white">Attendance requests ({attendanceRequests.length})</h2>
+                    {#each attendanceRequests as person (person.user_id)}
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="mr-auto">{person.name}</span>
+                        <Button disabled={Boolean(reviewingRequest)} onclick={() => reviewAttendanceRequest(person.user_id, "approve")}>Approve</Button>
+                        <Button variant="outline" disabled={Boolean(reviewingRequest)} onclick={() => reviewAttendanceRequest(person.user_id, "reject")}>Decline</Button>
+                      </div>
+                    {/each}
+                  </section>
+                {/if}
                 <!-- Attendees Header with Search and Refresh -->
                 <div
                   class="glass rounded-2xl border border-white/8 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -5138,242 +4786,10 @@
 
             <!-- Analytics tab -->
             <Tabs.Content value="analytics" class="mt-4">
-              {#if data.isOrganizer && analytics}
-                <div class="space-y-5">
-                  <div class="glass rounded-2xl border border-white/8 p-6">
-                    <div
-                      class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
-                    >
-                      <div>
-                        <div class="flex items-center gap-2 mb-2">
-                          <BarChart3 size={18} class="text-cyan-300" />
-                          <p
-                            class="text-xs font-bold uppercase tracking-widest text-cyan-300"
-                          >
-                            Organizer Analytics
-                          </p>
-                        </div>
-                        <h2 class="text-2xl font-black text-white">
-                          Event performance dashboard
-                        </h2>
-                        <p
-                          class="mt-2 max-w-2xl text-sm leading-6 text-ink-400"
-                        >
-                          Monitor participant engagement, AI match activity,
-                          connection momentum, and QR meet completion for this
-                          event.
-                        </p>
-                      </div>
-                      <div
-                        class="rounded-xl border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-right"
-                      >
-                        <p
-                          class="text-[10px] font-bold uppercase tracking-widest text-amber-300"
-                        >
-                          Live insight
-                        </p>
-                        <p class="mt-1 text-2xl font-black text-white">
-                          {analytics.connectionAcceptanceRate}%
-                        </p>
-                        <p class="text-xs text-ink-400">acceptance rate</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {#each analyticsMetricCards as metric}
-                      <div
-                        class="glass card-hover rounded-2xl border border-white/8 p-5"
-                      >
-                        <p
-                          class="text-[10px] font-bold uppercase tracking-widest text-ink-500"
-                        >
-                          {metric.label}
-                        </p>
-                        <p class="mt-3 text-3xl font-black text-white">
-                          {metric.value}
-                        </p>
-                      </div>
-                    {/each}
-                  </div>
-
-                  <div class="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-                    <div class="glass rounded-2xl border border-white/8 p-6">
-                      <div class="mb-5 flex items-center gap-2">
-                        <Network size={17} class="text-amber-300" />
-                        <h3 class="text-lg font-bold text-white">
-                          Networking Funnel
-                        </h3>
-                      </div>
-                      <div class="space-y-4">
-                        {#each analytics.networkingFunnel as step}
-                          <div>
-                            <div
-                              class="mb-1.5 flex items-center justify-between gap-3"
-                            >
-                              <p class="text-sm font-semibold text-ink-200">
-                                {step.label}
-                              </p>
-                              <p class="text-sm font-bold text-white">
-                                {step.value}
-                              </p>
-                            </div>
-                            <div
-                              class="h-2 overflow-hidden rounded-full bg-white/8"
-                            >
-                              <div
-                                class="h-full rounded-full bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400"
-                                style="width: {Math.max(
-                                  (step.value / maxFunnelValue) * 100,
-                                  step.value ? 8 : 2,
-                                )}%"
-                              ></div>
-                            </div>
-                          </div>
-                        {/each}
-                      </div>
-                    </div>
-
-                    <div class="glass rounded-2xl border border-white/8 p-6">
-                      <div class="mb-5 flex items-center gap-2">
-                        <TrendingUp size={17} class="text-emerald-300" />
-                        <h3 class="text-lg font-bold text-white">
-                          AI Organizer Summary
-                        </h3>
-                      </div>
-                      <p class="text-sm leading-6 text-ink-300">
-                        {analytics.organizerSummary}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div class="grid gap-5 lg:grid-cols-2">
-                    <div class="glass rounded-2xl border border-white/8 p-6">
-                      <div class="mb-5 flex items-center gap-2">
-                        <PieChart size={17} class="text-purple-300" />
-                        <h3 class="text-lg font-bold text-white">Top Skills</h3>
-                      </div>
-                      <div class="space-y-3">
-                        {#each analytics.topSkills as skill}
-                          <div
-                            class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3"
-                          >
-                            <p class="text-sm font-semibold text-white">
-                              {skill.label}
-                            </p>
-                            <span
-                              class="rounded-full bg-purple-400/15 px-2.5 py-1 text-[11px] font-bold text-purple-200"
-                            >
-                              {skill.count
-                                ? `${skill.count} profile${skill.count === 1 ? "" : "s"}`
-                                : "Waiting"}
-                            </span>
-                          </div>
-                        {/each}
-                      </div>
-                    </div>
-
-                    <div class="glass rounded-2xl border border-white/8 p-6">
-                      <div class="mb-5 flex items-center gap-2">
-                        <Target size={17} class="text-cyan-300" />
-                        <h3 class="text-lg font-bold text-white">
-                          Most Requested Networking Goals
-                        </h3>
-                      </div>
-                      <div class="space-y-3">
-                        {#each analytics.topGoals as goal}
-                          <div
-                            class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3"
-                          >
-                            <p class="text-sm font-semibold text-white">
-                              {goal.label}
-                            </p>
-                            <span
-                              class="rounded-full bg-cyan-400/15 px-2.5 py-1 text-[11px] font-bold text-cyan-200"
-                            >
-                              {goal.count
-                                ? `${goal.count} mention${goal.count === 1 ? "" : "s"}`
-                                : "Waiting"}
-                            </span>
-                          </div>
-                        {/each}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              {:else}
-                <div
-                  class="glass rounded-2xl border border-white/8 p-8 sm:p-10"
-                >
-                  <div
-                    class="mx-auto grid max-w-4xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center"
-                  >
-                    <div class="relative mx-auto h-56 w-full max-w-xs">
-                      <div
-                        class="absolute inset-0 rounded-2xl border border-cyan-400/20 bg-cyan-400/8"
-                      ></div>
-                      <div
-                        class="absolute left-6 right-6 top-8 rounded-xl border border-white/10 bg-ink-950/70 p-4 shadow-glow-cyan"
-                      >
-                        <div class="mb-4 flex items-center justify-between">
-                          <div class="flex items-center gap-2">
-                            <BarChart3 size={17} class="text-cyan-300" />
-                            <span
-                              class="text-xs font-bold uppercase tracking-widest text-cyan-200"
-                              >Analytics</span
-                            >
-                          </div>
-                          <span class="h-2 w-2 rounded-full bg-emerald-300"
-                          ></span>
-                        </div>
-                        <div class="space-y-3">
-                          <div
-                            class="h-2 w-3/4 rounded-full bg-amber-300/80"
-                          ></div>
-                          <div
-                            class="h-2 w-full rounded-full bg-cyan-300/70"
-                          ></div>
-                          <div
-                            class="h-2 w-1/2 rounded-full bg-emerald-300/70"
-                          ></div>
-                        </div>
-                      </div>
-                      <div
-                        class="absolute bottom-7 left-10 flex h-20 w-20 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10"
-                      >
-                        <LineChart size={34} class="text-amber-300" />
-                      </div>
-                      <div
-                        class="absolute bottom-8 right-8 flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-400/20 bg-purple-400/10"
-                      >
-                        <PieChart size={28} class="text-purple-300" />
-                      </div>
-                    </div>
-
-                    <div class="text-center lg:text-left">
-                      <p
-                        class="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-300"
-                      >
-                        Event insights
-                      </p>
-                      <h2 class="text-2xl font-black text-white">
-                        Organizer Analytics
-                      </h2>
-                      <p
-                        class="mx-auto mt-4 max-w-xl whitespace-pre-line text-sm leading-6 text-ink-300 lg:mx-0"
-                      >
-                        Detailed event analytics are only available to the event
-                        organizer. Create your own event to unlock organizer
-                        analytics and monitor participant engagement, AI
-                        matches, networking activity, and event insights.
-                      </p>
-                      <Button onclick={goToCreateEvent} class="mt-6 gap-2">
-                        <Plus size={16} />
-                        Create Event
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+              {#if $activeTab === "analytics"}
+                {#key data.event.id}
+                  <EventAnalytics eventId={data.event.id} isOrganizer={data.isOrganizer} />
+                {/key}
               {/if}
             </Tabs.Content>
 
@@ -6855,11 +6271,11 @@
                   {/if}
 
                   <!-- Chat modal -->
-                  <ConnectionChatModal
+                  {#if chatOpen}{#await import("$lib/components/connection-chat-modal.svelte") then module}<svelte:component this={module.default}
                     bind:open={chatOpen}
                     connection={activeChatConnection}
                     currentUserId={data.user?.id}
-                  />
+                  />{/await}{/if}
 
                   <!-- Create Dummy Users confirmation modal -->
                   <Dialog.Root bind:open={dummyModalOpen}>
@@ -7693,7 +7109,7 @@
                   currentEvent?.end_time &&
                     new Date(currentEvent.end_time) < new Date(),
                 )}
-                <VenueMap
+                {#await import("$lib/components/venue-map.svelte") then module}<svelte:component this={module.default}
                   isOrganizer={data.isOrganizer && !isEventEnded}
                   initialZones={currentEvent.venue_map}
                   currentLocation={venueLocation}
@@ -7702,7 +7118,7 @@
                     venueLocation = e.detail;
                   }}
                   on:saveMap={handleSaveMap}
-                />
+                />{/await}
               {:else}
                 <div
                   class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"

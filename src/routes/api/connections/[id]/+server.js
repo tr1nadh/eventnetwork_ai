@@ -1,12 +1,11 @@
 import { json, error } from '@sveltejs/kit';
-import { createSupabaseServerClient } from '$lib/supabase/server';
 
 /**
  * PATCH /api/connections/:id
  * Updates a connection's status (accepted, rejected, cancelled, met).
  * For 'met' status, also records met_at timestamp.
  */
-export async function PATCH({ params, request, cookies }) {
+export async function PATCH({ params, request, locals }) {
   const { id } = params;
   if (!id) throw error(400, 'Missing connection id');
 
@@ -14,9 +13,9 @@ export async function PATCH({ params, request, cookies }) {
   const allowed = ['accepted', 'rejected', 'cancelled', 'met'];
   if (!allowed.includes(status)) throw error(400, 'Invalid status');
 
-  const supabase = createSupabaseServerClient(cookies);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw error(401, 'Unauthenticated');
+  const supabase = locals.supabase;
+  const user = locals.user;
+  if (!user) throw error(401, 'Unauthenticated');
 
   // Fetch current connection
   const { data: currentConn, error: connErr } = await supabase

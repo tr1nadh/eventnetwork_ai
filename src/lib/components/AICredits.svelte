@@ -1,11 +1,12 @@
 <script>
+  import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { aiCreditsStore } from '$lib/stores/ai-credits';
   import { Cpu } from '@lucide/svelte';
   
   export let loadStatus = true;
   onMount(() => {
-    if (loadStatus) aiCreditsStore.fetchStatus();
+    if (loadStatus) aiCreditsStore.fetchStatus($page.data.user?.id);
   });
   
   $: ({ remaining, limit, resetAt, loading } = $aiCreditsStore);

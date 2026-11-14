@@ -11,32 +11,45 @@ function createAiCreditsStore() {
     creditsExhausted: false
   });
 
+  let inFlight;
+  let activeUserId;
+  let generation = 0;
+
   return {
     subscribe,
     /**
      * Fetch the current credit status from the server
      */
-    fetchStatus: async () => {
-      update(s => ({ ...s, loading: true, error: null }));
-      try {
-        const res = await fetch('/api/ai/credits');
-        if (!res.ok) {
-          throw new Error('Failed to fetch AI credits');
+    fetchStatus: (userId) => {
+      if (inFlight && activeUserId === userId) return inFlight;
+      activeUserId = userId;
+      const requestGeneration = ++generation;
+      inFlight = (async () => {
+        update(s => ({ ...s, loading: true, error: null }));
+        try {
+          const res = await fetch('/api/ai/credits');
+          if (!res.ok) {
+            throw new Error('Failed to fetch AI credits');
+          }
+          const data = await res.json();
+          if (requestGeneration !== generation) return;
+          set({
+            limit: data.limit,
+            used: data.used,
+            remaining: data.remaining,
+            resetAt: data.resetAt,
+            loading: false,
+            error: null,
+            creditsExhausted: false
+          });
+        } catch (err) {
+          console.error(err);
+          if (requestGeneration === generation) update(s => ({ ...s, loading: false, error: err.message }));
+        } finally {
+          if (requestGeneration === generation) inFlight = undefined;
         }
-        const data = await res.json();
-        set({
-          limit: data.limit,
-          used: data.used,
-          remaining: data.remaining,
-          resetAt: data.resetAt,
-          loading: false,
-          error: null,
-          creditsExhausted: false
-        });
-      } catch (err) {
-        console.error(err);
-        update(s => ({ ...s, loading: false, error: err.message }));
-      }
+      })();
+      return inFlight;
     },
     
     /**

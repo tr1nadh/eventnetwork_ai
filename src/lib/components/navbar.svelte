@@ -31,7 +31,7 @@
 
   onMount(() => {
     if (user) {
-      aiCreditsStore.fetchStatus();
+      aiCreditsStore.fetchStatus(user.id);
     }
   });
 </script>

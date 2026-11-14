@@ -1,3 +1,4 @@
+import { loadNetworkCards } from '$lib/server/load-network-cards';
 import { json } from '@sveltejs/kit';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 
@@ -25,13 +26,7 @@ export async function GET({ locals }) {
   try {
     const user = locals.user;
     if (!user) return json({ error: 'Unauthenticated.' }, { status: 401 });
-    const { data, error: queryError } = await createSupabaseAdminClient()
-      .from('network_cards')
-      .select('id, title, display_name, what_i_do, about_me, is_archived, created_at, updated_at')
-      .eq('user_id', user.id)
-      .eq('is_archived', false)
-      .order('updated_at', { ascending: false });
-    if (queryError) throw queryError;
+    const data = await loadNetworkCards(user.id);
     return json({ cards: data ?? [] });
   } catch (error) {
     console.error('Failed to load Network Card:', error);

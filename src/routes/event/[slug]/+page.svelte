@@ -3003,20 +3003,8 @@
   />
 </svelte:head>
 
-<PageShell hasSidebar={Boolean(data.user)}>
-  {#if data.user}
-    <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
-  {:else}
-    <header class="mx-auto mb-6 flex max-w-4xl items-center justify-between gap-4 pl-4 pr-16 sm:pl-6 lg:px-0">
-      <a href="/" class="inline-flex items-center gap-2 font-bold text-white" aria-label="Evenai home">
-        <Sparkles size={18} class="text-amber-400" /> Evenai
-      </a>
-      <Button variant="outline" onclick={signInWithGoogle} disabled={signingIn}>
-        {signingIn ? "Opening Google…" : "Sign in with Google"}
-      </Button>
-    </header>
-  {/if}
-
+<PageShell>
+  <Sidebar user={data.user} {signingOut} {signingIn} onSignOut={signOut} onSignIn={signInWithGoogle} />
   <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
     {#if data.user}
       <div class="mb-6 animate-slide-up">

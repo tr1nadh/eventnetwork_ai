@@ -17,6 +17,8 @@
   } from "@lucide/svelte";
   import * as Avatar from "$lib/components/ui/avatar/index.js";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+  import * as Dialog from "$lib/components/ui/dialog/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
   import AICredits from "$lib/components/AICredits.svelte";
   import { aiCreditsStore } from "$lib/stores/ai-credits";
   import { sidebarCollapsed } from "$lib/stores/sidebar";
@@ -50,9 +52,21 @@
 
   onMount(() => {
     if (user) {
-      aiCreditsStore.fetchStatus();
+      aiCreditsStore.fetchStatus(user.id);
     }
   });
+
+  let networkCardSignInOpen = false;
+  function requiresSignIn(item) {
+    return !user && item.href === "/network-card";
+  }
+  function navigateToItem(item) {
+    if (requiresSignIn(item)) {
+      networkCardSignInOpen = true;
+      return;
+    }
+    goto(item.href);
+  }
 
   function toggle() {
     sidebarCollapsed.update((v) => !v);
@@ -138,7 +152,7 @@
             e.preventDefault();
             return;
           }
-          goto(item.href);
+          navigateToItem(item);
         }}
         title={item.disabled ? `${item.label} (Disabled)` : (collapsed ? item.label : undefined)}
         aria-label={item.disabled ? `${item.label} (Disabled)` : item.label}
@@ -250,7 +264,7 @@
           e.preventDefault();
           return;
         }
-        goto(item.href);
+        navigateToItem(item);
       }}
       title={item.disabled ? `${item.label} (Disabled)` : undefined}
       aria-label={item.disabled ? `${item.label} (Disabled)` : item.label}
@@ -328,6 +342,19 @@
     </button>
   {/if}
 </nav>
+
+<Dialog.Root bind:open={networkCardSignInOpen}>
+  <Dialog.Content showCloseButton={false} class="sm:max-w-md bg-ink-950 text-white border-white/10">
+    <Dialog.Header>
+      <Dialog.Title>Sign in to view your Network Card</Dialog.Title>
+      <Dialog.Description>Your Network Card is available after you sign in.</Dialog.Description>
+    </Dialog.Header>
+    <Button disabled={signingIn} onclick={() => onSignIn?.()}>
+      {signingIn ? "Opening Google…" : "Sign in with Google"}
+    </Button>
+    <Button variant="ghost" onclick={() => (networkCardSignInOpen = false)}>Later</Button>
+  </Dialog.Content>
+</Dialog.Root>
 
 <style>
   /* ── Root ── */

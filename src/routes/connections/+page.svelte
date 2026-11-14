@@ -1,9 +1,9 @@
 <script>
-  import { onMount } from "svelte";
+
   import { ArrowLeft, CalendarHeart, Check, ChevronRight, LoaderCircle, Lock, MessageCircle, X } from "@lucide/svelte";
   import PageShell from "$lib/components/page-shell.svelte";
   import Sidebar from "$lib/components/sidebar.svelte";
-  import ConnectionChatWindow from "$lib/components/connection-chat-window.svelte";
+
   import { createSupabaseBrowserClient } from "$lib/supabase/client";
   import { goto } from "$app/navigation";
   import { clearAllEventStores } from "$lib/stores/eventStore";
@@ -14,11 +14,11 @@
 
   export let data;
 
-  let connections = [];
-  let loadingConnections = true;
+  let connections = data.connections ?? [];
+  let loadingConnections = false;
   let loadingMoreConnections = false;
   let connectionsPage = 1;
-  let connectionsHasMore = false;
+  let connectionsHasMore = Boolean(data.hasMore);
   let signingOut = false;
   let selectedConnection = null;
   let selectedHistory = [];
@@ -126,7 +126,7 @@
     }
   }
 
-  onMount(fetchAllConnections);
+
 </script>
 
 <svelte:head><title>Connections | Evenai</title></svelte:head>
@@ -173,7 +173,7 @@
           <ArrowLeft size={16} /> People
         </button>
         {#if selectedConnection}
-          <ConnectionChatWindow connection={selectedConnection} currentUserId={data.user?.id} history={selectedHistory} />
+          {#await import("$lib/components/connection-chat-window.svelte")}<p role="status">Loading chat…</p>{:then module}<svelte:component this={module.default} connection={selectedConnection} currentUserId={data.user?.id} history={selectedHistory} />{:catch}<p role="alert">Could not load chat. Please reload and retry.</p>{/await}
         {:else if selectedRequest}
           <div class="flex h-full min-h-[580px] flex-col items-center justify-center rounded-2xl border border-white/8 bg-white/[0.02] px-6 text-center">
             <Avatar class="mb-4 size-16 border border-white/10"><AvatarImage src={selectedRequest.profile?.avatar_url ?? undefined} /><AvatarFallback>{getInitials(selectedRequest.profile?.display_name)}</AvatarFallback></Avatar><h2 class="text-xl font-semibold text-white">{selectedRequest.profile?.display_name ?? "Connection request"}</h2><p class="mt-2 max-w-sm text-sm leading-6 text-ink-400">{selectedRequest.type === "received" ? `Wants to connect with you from ${selectedRequest.event_name}.` : `Your request from ${selectedRequest.event_name} is awaiting acceptance. Chat will unlock once they accept.`}</p>

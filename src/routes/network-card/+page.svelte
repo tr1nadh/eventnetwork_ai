@@ -1,7 +1,7 @@
 <script>
   import { onDestroy, onMount, tick } from 'svelte';
   import { Camera, Edit3, LoaderCircle, Save, Share2, X } from '@lucide/svelte';
-  import QRCode from 'qrcode';
+
   import PageShell from '$lib/components/page-shell.svelte';
   import Sidebar from '$lib/components/sidebar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -17,10 +17,10 @@
     what_i_do: 'Building an AI workflow startup for growing teams.',
     about_me: 'I enjoy turning messy problems into simple tools and meeting people who are curious about what comes next.'
   };
-  let card = { ...exampleCard };
+  let card = { ...(data.cards?.[0] ?? exampleCard) };
   let editing = false;
   let sharing = false;
-  let loading = true;
+  let loading = Boolean(data.cardsError);
   let saving = false;
   let signingOut = false;
   let qrDataUrl = '';
@@ -137,6 +137,7 @@
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || 'Could not create a temporary QR code.');
       const url = `${window.location.origin}/network-card/scan?token=${encodeURIComponent(body.token)}`;
+      const { default: QRCode } = await import("qrcode");
       qrDataUrl = await QRCode.toDataURL(url, { width: 512, margin: 2, errorCorrectionLevel: 'H', color: { dark: '#000000', light: '#ffffff' } });
       qrExpiresAt = body.expiresAt;
       sharing = true;
@@ -240,7 +241,7 @@
     }
   }
 
-  onMount(loadCard);
+  onMount(() => { if (data.cardsError) loadCard(); });
   onDestroy(stopLiveScanner);
 </script>
 

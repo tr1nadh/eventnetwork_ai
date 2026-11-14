@@ -1,4 +1,3 @@
-import { signEventImages } from '$lib/server/event-images';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { demoEvent } from '$lib/demo';
 import { error } from '@sveltejs/kit';
@@ -66,13 +65,13 @@ export const load = async ({ params, locals }) => {
     throw error(404, 'Event not found.');
   }
 
-  const [viewer, timelineRes, announcementsRes, imageUrls] = await Promise.all([
+  const [viewer, timelineRes, announcementsRes] = await Promise.all([
     loadViewerData(admin, data.id, locals.user?.id, isOrganizer),
     admin.from('event_timeline').select('*').eq('event_id', data.id)
       .order('start_time', { ascending: true }).order('sort_order', { ascending: true }),
     admin.from('event_announcements').select('*').eq('event_id', data.id)
       .order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
-    signEventImages(admin, [data]),
+
   ]);
   const participantStatus = viewer.status;
   const isParticipant = participantStatus === 'joined';
@@ -132,6 +131,6 @@ export const load = async ({ params, locals }) => {
     isParticipant,
     registrationPending: participantStatus === 'waitlisted' || participantStatus === 'requested',
     networkProfile,
-    imageUrls
+    imageUrls: {}
   };
 };

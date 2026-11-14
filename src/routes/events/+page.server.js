@@ -12,7 +12,7 @@ export const load = async ({ locals, url }) => {
   const limit = 12;
 
   const params = new URLSearchParams({ filter, q, page: String(page), limit: String(limit) });
-  const { events, pagination } = await listEvents(locals.user, params);
+  const { events, pagination } = await listEvents(locals.user, params, { includeImages: false });
 
   return {
     user: locals.user,

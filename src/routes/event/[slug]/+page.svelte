@@ -113,20 +113,6 @@
     return urls?.[path] || (path ? `/api/events/images?path=${encodeURIComponent(path)}` : "");
   }
 
-  function retryEventImage(image, path) {
-    const fallback = eventImageSrc(path, {});
-    if (image.getAttribute("src") !== fallback) image.src = fallback;
-  }
-
-  function eventInitial(name) {
-    return (
-      String(name || "E")
-        .trim()
-        .charAt(0)
-        .toUpperCase() || "E"
-    );
-  }
-
   let realtimeChannel;
 
   // Announcements State & Reactive Handlers
@@ -3055,13 +3041,7 @@
           <div
             class="h-1 bg-gradient-to-r from-amber-400 via-amber-300/50 to-transparent"
           ></div>
-          {#if currentEvent.event_banner_url}
-            <img
-              src={eventImageSrc(currentEvent.event_banner_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_banner_url)}
-              alt=""
-              class="h-48 w-full object-cover sm:h-64"
-            />
-          {/if}
+
           <div class="p-8 sm:p-10 space-y-8">
             <Badge
               variant="secondary"
@@ -3073,19 +3053,7 @@
 
             <div>
               <div class="mb-4 flex items-center gap-4">
-                {#if currentEvent.event_logo_url}
-                  <img
-                    src={eventImageSrc(currentEvent.event_logo_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_logo_url)}
-                    alt=""
-                    class="h-16 w-16 rounded-2xl object-cover sm:h-20 sm:w-20"
-                  />
-                {:else}
-                  <div
-                    class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-2xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-20 sm:w-20 sm:text-3xl"
-                  >
-                    {eventInitial(currentEvent.name)}
-                  </div>
-                {/if}
+
                 <h1
                   class="text-4xl font-black tracking-tight text-white sm:text-6xl"
                 >
@@ -3347,14 +3315,10 @@
           <!-- ══ PUBLIC EVENT OVERVIEW (NON-AUTHENTICATED / VISITING USERS)     ══ -->
           <!-- ═══════════════════════════════════════════════════════════════════ -->
           <div class="mx-auto max-w-4xl space-y-6 sm:space-y-8 animate-fade-in text-ink-50">
-            {#if currentEvent.event_banner_url}
-              <img src={eventImageSrc(currentEvent.event_banner_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_banner_url)} alt="" class="h-28 w-full rounded-2xl object-cover sm:h-56" />
-            {/if}
+
             <section class="space-y-4">
               <div class="flex items-start justify-between gap-3">
-                {#if currentEvent.event_logo_url}
-                  <img src={eventImageSrc(currentEvent.event_logo_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_logo_url)} alt="" class="h-12 w-12 shrink-0 rounded-xl object-cover" />
-                {/if}
+
                 <h1 class="min-w-0 flex-1 break-words text-3xl font-bold tracking-tight text-white sm:text-5xl">{currentEvent.name}</h1>
                 <button type="button" onclick={copyPublicEventUrl} aria-label="Copy event link" title="Copy event link" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 hover:bg-white/10">
                   {#if copiedPublicUrl}<Check size={17} />{:else}<Copy size={17} />{/if}
@@ -3614,13 +3578,7 @@
           <div
             class="glass rounded-3xl border border-emerald-400/15 bg-emerald-400/4 p-8 sm:p-10 relative"
           >
-            {#if currentEvent.event_banner_url}
-              <img
-                src={eventImageSrc(currentEvent.event_banner_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_banner_url)}
-                alt=""
-                class="mb-6 h-36 w-full rounded-2xl object-cover sm:h-48"
-              />
-            {/if}
+
             <div class="flex flex-col items-center gap-6">
               <div class="space-y-3 text-center">
                 <div class="flex flex-wrap items-center justify-center gap-2">
@@ -3706,19 +3664,7 @@
                 </div>
 
                 <div class="flex items-center justify-center gap-4">
-                  {#if currentEvent.event_logo_url}
-                    <img
-                      src={eventImageSrc(currentEvent.event_logo_url, data.imageUrls)} onerror={(e) => retryEventImage(e.currentTarget, currentEvent.event_logo_url)}
-                      alt=""
-                      class="h-14 w-14 shrink-0 rounded-2xl object-cover sm:h-16 sm:w-16"
-                    />
-                  {:else}
-                    <div
-                      class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-xl font-black text-indigo-100 ring-1 ring-indigo-300/25 sm:h-16 sm:w-16 sm:text-2xl"
-                    >
-                      {eventInitial(currentEvent.name)}
-                    </div>
-                  {/if}
+
                   <h1
                     class="text-4xl sm:text-5xl font-black tracking-tight text-white"
                   >
@@ -7256,7 +7202,8 @@
                     </p>
                   </div>
 
-                  <div class="space-y-4 border-t border-white/6 pt-5">
+                  {#if false}
+<div class="space-y-4 border-t border-white/6 pt-5">
                     <div>
                       <h3 class="text-sm font-bold text-white">Event images</h3>
                       <p class="text-xs text-ink-500 mt-0.5">
@@ -7356,7 +7303,8 @@
                     </div>
                   </div>
 
-                  <!-- Format -->
+                  {/if}
+<!-- Format -->
                   <div class="space-y-2">
                     <Label
                       class="text-xs font-semibold uppercase tracking-widest text-ink-400"

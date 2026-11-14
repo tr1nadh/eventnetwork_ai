@@ -20,7 +20,7 @@ function positiveInteger(value, fallback) {
   return Number.isSafeInteger(number) && number > 0 && number <= 2147483647 ? number : fallback;
 }
 
-export async function listEvents(user, params, { includeVenueMap = false } = {}) {
+export async function listEvents(user, params, { includeVenueMap = false, includeImages = true } = {}) {
   if (!user) throw error(401, 'Unauthorized.');
   const filter = params.get('filter') || 'all';
   const discover = filter === 'discover';
@@ -37,7 +37,7 @@ export async function listEvents(user, params, { includeVenueMap = false } = {})
     period_end: discover && end ? end + 'T23:59:59.999Z' : null,
     page_number: page, page_size: limit, include_venue_map: includeVenueMap,
   });
-  const urls = await signEventImages(admin, events);
+  const urls = includeImages ? await signEventImages(admin, events) : {};
   return {
     ...metadata,
     events: events.map(event => ({

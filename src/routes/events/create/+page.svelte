@@ -305,10 +305,6 @@
       createError = 'Event name is required.';
       return false;
     }
-    if (!logoFile) {
-      createError = 'Please add a square event logo.';
-      return false;
-    }
     if (isTimeInvalid) return false;
     if (!isMaxAttendeesValid) {
       createError = 'Max attendees must be a whole number of at least 4.';
@@ -320,7 +316,7 @@
 
     try {
       const [eventLogoUrl, eventBannerUrl] = await Promise.all([
-        uploadEventImage(logoFile, 'logo'),
+        logoFile ? uploadEventImage(logoFile, 'logo') : Promise.resolve(null),
         bannerFile ? uploadEventImage(bannerFile, 'banner') : Promise.resolve(null)
       ]);
       const response = await fetch('/api/events', {
@@ -469,7 +465,8 @@
       </div>
 
       <!-- Event images -->
-      <div class="space-y-4 border-t border-white/6 pt-5">
+      {#if false}
+<div class="space-y-4 border-t border-white/6 pt-5">
         <div><h3 class="text-sm font-bold text-white">Event images</h3><p class="text-xs text-ink-500 mt-0.5">Logo is required. Banner is optional.</p></div>
         <div class="grid gap-4 sm:grid-cols-[160px_1fr]">
           <label class="cursor-pointer rounded-xl border border-dashed border-indigo-400/30 bg-white/3 p-3 text-center hover:bg-white/5">
@@ -484,7 +481,8 @@
         <p class="text-[11px] text-ink-500">JPG, PNG, or WebP · maximum 2 MB · logo 512 × 512 · banner 1600 × 900.</p>
       </div>
 
-      <!-- Format -->
+      {/if}
+<!-- Format -->
       <div class="space-y-2">
         <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event Format</Label>
         <div class="grid grid-cols-3 gap-2">

@@ -17,7 +17,7 @@ export const load = async ({ locals, url }) => {
 
   const params = new URLSearchParams(url.searchParams);
   params.set('filter', 'discover');
-  const result = await listEvents(locals.user, params);
+  const result = await listEvents(locals.user, params, { includeImages: false });
 
   return {
     user: locals.user,

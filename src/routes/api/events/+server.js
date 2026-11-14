@@ -38,7 +38,7 @@ export async function POST({ request, locals }) {
 
   const event_logo_url = body?.event_logo_url?.trim() || null;
   const event_banner_url = body?.event_banner_url?.trim() || null;
-  if (!event_logo_url) throw error(400, 'An event logo is required.');
+
 
   const now = new Date();
   const startTimeDate = body?.start_time ? new Date(body.start_time) : now;
@@ -134,5 +134,6 @@ export async function POST({ request, locals }) {
 export async function GET({ url, locals }) {
   return json(await listEvents(locals.user, url.searchParams, {
     includeVenueMap: url.searchParams.get('view') !== 'cards',
+    includeImages: url.searchParams.get('view') !== 'cards',
   }));
 }

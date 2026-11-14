@@ -44,19 +44,6 @@
   let signingOut = false;
   let copiedSlug = null;
 
-  function retryEventImage(image, path) {
-    const fallback = eventImageSrc(path);
-    if (image.getAttribute("src") !== fallback) image.src = fallback;
-  }
-
-  function eventImageSrc(path) {
-    return path ? `/api/events/images?path=${encodeURIComponent(path)}` : "";
-  }
-
-  function eventInitial(name) {
-    return String(name || "E").trim().charAt(0).toUpperCase() || "E";
-  }
-
   // Filter states — initialised from URL (returned by server)
   let filterOnline = data.format === 'online';
   let filterOffline = data.format === 'offline';
@@ -1205,11 +1192,6 @@
                 : status === 'completed'
                 ? 'bg-slate-700/60'
                 : 'accent-discover'}"></div>
-              {#if event.event_banner_url}
-                <img src={event.banner_src || eventImageSrc(event.event_banner_url)} onerror={(e) => retryEventImage(e.currentTarget, event.event_banner_url)} alt="" class="h-28 w-full object-cover" />
-              {:else}
-                <div class="h-28 bg-gradient-to-br from-indigo-950 via-slate-900 to-cyan-950" aria-hidden="true"></div>
-              {/if}
 
               <!-- Card body -->
               <div class="card-body">
@@ -1273,11 +1255,6 @@
 
                 <!-- Title -->
                 <div class="mb-2 flex items-center gap-2">
-                  {#if event.event_logo_url}
-                    <img src={event.logo_src || eventImageSrc(event.event_logo_url)} onerror={(e) => retryEventImage(e.currentTarget, event.event_logo_url)} alt="" class="h-8 w-8 rounded-lg object-cover" />
-                  {:else}
-                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20 text-sm font-black text-indigo-100">{eventInitial(event.name)}</div>
-                  {/if}
                   <h2 class="card-title mb-0">{event.name}</h2>
                 </div>
 

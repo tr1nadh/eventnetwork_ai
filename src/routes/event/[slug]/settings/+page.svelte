@@ -676,7 +676,8 @@
         <p class="text-[11px] text-ink-500">Changing the slug will redirect to the new URL.</p>
       </div>
 
-      <div class="space-y-4 border-t border-white/6 pt-5">
+      {#if false}
+<div class="space-y-4 border-t border-white/6 pt-5">
         <div><h3 class="text-sm font-bold text-white">Event images</h3><p class="text-xs text-ink-500 mt-0.5">Square logo and optional 16:9 banner.</p></div>
         <div class="grid gap-4 sm:grid-cols-[160px_1fr]">
           <div class="space-y-2">
@@ -696,7 +697,8 @@
         </div>
       </div>
 
-      <!-- Format -->
+      {/if}
+<!-- Format -->
       <div class="space-y-2">
         <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event Format</Label>
         <div class="grid grid-cols-3 gap-2">

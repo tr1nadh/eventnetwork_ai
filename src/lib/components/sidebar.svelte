@@ -71,7 +71,7 @@
       icon: Compass,
       href: "/discover",
       active: () => isDiscover,
-      disabled: true,
+      disabled: false,
     },
     {
       label: "Connections",

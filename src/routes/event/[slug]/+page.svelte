@@ -1,4 +1,7 @@
 <script>
+  import EventOverviewSchedule from "$lib/components/event-overview-schedule.svelte";
+  import OnlineEventJoin from "$lib/components/online-event-join.svelte";
+  import EventDateTime from "$lib/components/event-date-time.svelte";
   import { endTimeOnSameDay, oneHourAfter } from "$lib/event-datetime";
   import { slide, fade, fly } from "svelte/transition";
   import { goto, invalidateAll, afterNavigate, beforeNavigate } from "$app/navigation";
@@ -610,45 +613,6 @@
     copiedPublicUrl = true;
     toast.success("Event link copied to clipboard!");
     setTimeout(() => (copiedPublicUrl = false), 2200);
-  }
-
-  function formatEventDateRange(start, end, includeZone = false) {
-    if (!start) return "";
-    const startDate = new Date(start);
-    if (isNaN(startDate.getTime())) return "";
-    const startDateStr = startDate.toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    const startTimeStr = startDate.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      timeZoneName: includeZone ? "short" : undefined,
-    });
-    if (!end) return `${startDateStr} • ${startTimeStr}`;
-    const endDate = new Date(end);
-    if (isNaN(endDate.getTime())) return `${startDateStr} • ${startTimeStr}`;
-    const endDateStr = endDate.toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    const endTimeStr = endDate.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      timeZoneName: includeZone ? "short" : undefined,
-    });
-    const sameDay =
-      startDate.getFullYear() === endDate.getFullYear() &&
-      startDate.getMonth() === endDate.getMonth() &&
-      startDate.getDate() === endDate.getDate();
-    if (sameDay) {
-      return `${startDateStr} • ${startTimeStr} – ${endTimeStr}`;
-    }
-    return `${startDateStr}, ${startTimeStr} – ${endDateStr}, ${endTimeStr}`;
   }
 
   function formatDatetimeLocal(date) {
@@ -3320,7 +3284,6 @@
             {copiedPublicUrl}
             {copyPublicEventUrl}
             {joinEvent}
-            {formatEventDateRange}
             {getCategoryColor}
             {formatTimelineTimeRange}
           />
@@ -3886,35 +3849,12 @@
                           Upcoming
                         </span>
                       {/if}
-
-                      {#if currentEvent.event_format}
-                        <span
-                          class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold capitalize text-ink-300"
-                        >
-                          {#if currentEvent.event_format === "online"}
-                            <Globe size={12} class="text-cyan-400" /> Online
-                          {:else if currentEvent.event_format === "hybrid"}
-                            <Globe size={12} class="text-amber-400" /> Hybrid
-                          {:else}
-                            <MapPin size={12} class="text-amber-400" /> In-Person
-                          {/if}
-                        </span>
-                      {/if}
                     </div>
 
                     <!-- About section -->
                     {#if currentEvent.description}
                       <div>
-                        <div class="flex items-center gap-2 mb-3">
-                          <div
-                            class="h-5 w-0.5 rounded-full bg-gradient-to-b from-indigo-400 to-violet-400"
-                          ></div>
-                          <p
-                            class="text-[10px] font-black uppercase tracking-[0.15em] text-indigo-400"
-                          >
-                            About this Event
-                          </p>
-                        </div>
+                        <h3 class="mb-3 text-xl font-semibold tracking-tight text-white">About this event</h3>
                         <p class="text-sm leading-7 text-ink-200 max-w-prose">
                           {currentEvent.description}
                         </p>
@@ -3923,29 +3863,11 @@
 
                     <!-- Date / Location / Attendees row -->
                     <div class="flex flex-wrap gap-2">
-                      {#if currentEvent.start_time}
-                        <span
-                          class="inline-flex items-center gap-1.5 text-xs text-ink-300 bg-white/4 border border-white/8 px-3 py-1.5 rounded-lg"
-                        >
-                          <CalendarClock size={13} class="text-amber-400" />
-                          {formatEventDateRange(
-                            currentEvent.start_time,
-                            currentEvent.end_time,
-                          )}
-                        </span>
+                      {#if currentEvent.start_time && currentEvent.event_format !== "online" && currentEvent.event_format !== "hybrid"}
+                        <EventDateTime start={currentEvent.start_time} end={currentEvent.end_time} />
                       {/if}
 
-                      {#if currentEvent.event_meeting_url && (currentEvent.event_format === "online" || currentEvent.event_format === "hybrid")}
-                        <a
-                          href={currentEvent.event_meeting_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="inline-flex items-center gap-1.5 text-xs text-cyan-300 hover:text-white bg-cyan-400/10 hover:bg-cyan-400/20 border border-cyan-400/20 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                          <Video size={13} class="text-cyan-400" />
-                          Join Meeting
-                        </a>
-                      {/if}
+
 
                       {#if currentEvent.location && currentEvent.event_format !== "online"}
                         <span
@@ -3983,245 +3905,11 @@
                   </div>
                 </div>
 
-                <!-- ── Event Schedule & Agenda (redesigned) ── -->
-                <div class="space-y-3 animate-slide-up-delay-1">
-                  <!-- Section Header -->
-                  <div class="flex items-center justify-between px-1">
-                    <div class="flex items-center gap-3">
-                      <div
-                        class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/12 border border-amber-400/20"
-                      >
-                        <CalendarClock size={15} class="text-amber-400" />
-                      </div>
-                      <div>
-                        <h3
-                          class="text-base font-black text-white tracking-tight"
-                        >
-                          Event Schedule
-                        </h3>
-                        <p class="text-[11px] text-ink-500">
-                          {timelineItems.length} session{timelineItems.length ===
-                          1
-                            ? ""
-                            : "s"} planned
-                        </p>
-                      </div>
-                    </div>
+                {#if currentEvent.event_format === "online" || currentEvent.event_format === "hybrid"}
+                  <OnlineEventJoin event={currentEvent} now={currentTime} />
+                {/if}
 
-                    {#if timelineItems.length > 0}
-                      <Badge
-                        variant="secondary"
-                        class="border-amber-400/20 bg-amber-400/8 text-amber-300 text-[10px] font-bold uppercase tracking-wider"
-                      >
-                        Agenda
-                      </Badge>
-                    {/if}
-                  </div>
-
-                  <!-- Timeline list or empty state -->
-                  {#if timelineItems.length === 0}
-                    <div
-                      class="glass rounded-2xl border border-white/6 p-10 text-center space-y-4"
-                    >
-                      <div
-                        class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/8 bg-white/4"
-                      >
-                        <CalendarClock size={28} class="text-ink-600" />
-                      </div>
-                      <div>
-                        <p class="text-sm font-bold text-ink-300">
-                          No schedule published yet
-                        </p>
-                        <p class="text-xs text-ink-500 mt-1 max-w-xs mx-auto">
-                          The organizer hasn't added agenda sessions yet. Check
-                          back soon for the full event schedule.
-                        </p>
-                      </div>
-                    </div>
-                  {:else}
-                    <!-- Timeline rail -->
-                    <div class="relative">
-                      <!-- Vertical rail line -->
-                      <div
-                        class="absolute left-[27px] top-6 bottom-6 w-px bg-gradient-to-b from-white/15 via-white/8 to-transparent pointer-events-none"
-                      ></div>
-
-                      <div class="space-y-3">
-                        {#each timelineItems as item, idx (item.id)}
-                          {@const style = getCategoryColor(item.category)}
-                          {@const isLiveNow =
-                            item.start_time &&
-                            item.end_time &&
-                            new Date(item.start_time) <= currentTime &&
-                            new Date(item.end_time) >= currentTime}
-                          {@const isPast =
-                            item.end_time &&
-                            new Date(item.end_time) < currentTime}
-
-                          <div
-                            class="relative flex gap-4 group animate-slide-up"
-                            style="animation-delay: {idx *
-                              60}ms; animation-fill-mode: both;"
-                          >
-                            <!-- Timeline node -->
-                            <div
-                              class="relative flex-shrink-0 flex flex-col items-center"
-                              style="width: 56px;"
-                            >
-                              <div
-                                class="relative flex h-14 w-14 items-center justify-center rounded-2xl border transition-all duration-300
-                              {isLiveNow
-                                  ? 'bg-emerald-400/12 border-emerald-400/35 shadow-[0_0_16px_rgba(52,211,153,0.2)]'
-                                  : isPast
-                                    ? 'bg-white/3 border-white/6'
-                                    : 'bg-white/5 border-white/10 group-hover:border-white/20'}"
-                              >
-                                {#if isLiveNow}
-                                  <!-- Pulsing ring for live sessions -->
-                                  <span
-                                    class="absolute inset-0 rounded-2xl animate-ping border border-emerald-400/40 opacity-50"
-                                  ></span>
-                                {/if}
-
-                                <!-- Category-colored dot -->
-                                <div
-                                  class="h-3 w-3 rounded-full {style.dot} {isLiveNow
-                                    ? 'shadow-[0_0_8px_currentColor]'
-                                    : ''} {isPast ? 'opacity-30' : ''}"
-                                ></div>
-                              </div>
-                            </div>
-
-                            <!-- Session card -->
-                            <div class="flex-1 min-w-0 pb-1">
-                              <div
-                                class="rounded-2xl border transition-all duration-200 p-4 sm:p-5
-                              {isLiveNow
-                                  ? 'border-emerald-400/25 bg-emerald-400/5 hover:border-emerald-400/40'
-                                  : isPast
-                                    ? 'border-white/5 bg-white/2 opacity-60 hover:opacity-80'
-                                    : 'glass border-white/8 hover:border-white/18 hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 transition-transform'}"
-                              >
-                                <!-- Top row: time + live badge + category -->
-                                <div
-                                  class="flex flex-wrap items-center gap-2 mb-2.5"
-                                >
-                                  <span
-                                    class="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg"
-                                  >
-                                    <Clock size={11} />
-                                    {formatTimelineTimeRange(
-                                      item.start_time,
-                                      item.end_time,
-                                    )}
-                                  </span>
-
-                                  {#if isLiveNow}
-                                    <span
-                                      class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-full"
-                                    >
-                                      <span
-                                        class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"
-                                      ></span>
-                                      Live
-                                    </span>
-                                  {:else if isPast}
-                                    <span
-                                      class="inline-flex items-center gap-1 text-[10px] font-semibold text-ink-600 px-2 py-0.5 rounded-full border border-white/5 bg-white/3"
-                                    >
-                                      <CheckCheck size={10} /> Done
-                                    </span>
-                                  {/if}
-
-                                  <span
-                                    class="ml-auto text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border {style.bg} {style.text} {style.border}"
-                                  >
-                                    {item.category || "General"}
-                                  </span>
-                                </div>
-
-                                <!-- Title -->
-                                <h4
-                                  class="text-sm font-bold text-white leading-snug mb-1.5 {isPast
-                                    ? 'text-ink-300'
-                                    : ''}"
-                                >
-                                  {item.title}
-                                </h4>
-
-                                <!-- Description -->
-                                {#if item.description}
-                                  <p
-                                    class="text-xs leading-relaxed text-ink-400 mb-3"
-                                  >
-                                    {item.description}
-                                  </p>
-                                {/if}
-
-                                <!-- Speaker + Location footer -->
-                                {#if item.speaker_name || item.location}
-                                  <div
-                                    class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/6"
-                                  >
-                                    {#if item.speaker_name}
-                                      <div class="flex items-center gap-2.5">
-                                        {#if item.speaker_avatar_url}
-                                          <img
-                                            src={item.speaker_avatar_url}
-                                            alt={item.speaker_name}
-                                            class="h-7 w-7 rounded-full object-cover border-2 border-white/15 shadow-md"
-                                          />
-                                        {:else}
-                                          <div
-                                            class="h-7 w-7 rounded-full {style.bg} border {style.border} flex items-center justify-center text-[11px] font-black {style.text}"
-                                          >
-                                            {item.speaker_name
-                                              .charAt(0)
-                                              .toUpperCase()}
-                                          </div>
-                                        {/if}
-                                        <div class="leading-tight">
-                                          <p
-                                            class="text-xs font-bold text-white"
-                                          >
-                                            {item.speaker_name}
-                                          </p>
-                                          {#if item.speaker_role}
-                                            <p class="text-[10px] text-ink-500">
-                                              {item.speaker_role}
-                                            </p>
-                                          {/if}
-                                        </div>
-                                      </div>
-                                    {/if}
-
-                                    {#if item.location}
-                                      <button
-                                        type="button"
-                                        onclick={() =>
-                                          jumpToVenueLocation(item.location)}
-                                        class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-300 bg-white/4 hover:bg-amber-400/12 hover:text-amber-300 hover:border-amber-400/25 transition-all px-2.5 py-1 rounded-lg border border-white/8 cursor-pointer"
-                                        title={currentEvent.is_venue_enabled
-                                          ? `View ${item.location} on Venue Map`
-                                          : item.location}
-                                      >
-                                        <MapPin
-                                          size={11}
-                                          class="text-amber-400"
-                                        />
-                                        {item.location}
-                                      </button>
-                                    {/if}
-                                  </div>
-                                {/if}
-                              </div>
-                            </div>
-                          </div>
-                        {/each}
-                      </div>
-                    </div>
-                  {/if}
-                </div>
+                <EventOverviewSchedule items={timelineItems} now={currentTime} formatTime={formatTimelineTimeRange} onLocation={jumpToVenueLocation} venueEnabled={currentEvent.is_venue_enabled} />
               </div>
             </Tabs.Content>
 

@@ -1,4 +1,5 @@
 <script>
+  import EventDateTime from "$lib/components/event-date-time.svelte";
   import { page } from '$app/stores';
   import { CalendarClock, MapPin, Check, Copy, LoaderCircle, Clock, CheckCheck } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -15,15 +16,15 @@
   export let copiedPublicUrl;
   export let copyPublicEventUrl;
   export let joinEvent;
-  export let formatEventDateRange;
+
   export let getCategoryColor;
   export let formatTimelineTimeRange;
 </script>
 
-<div class="mx-auto max-w-4xl space-y-10 sm:space-y-12 animate-fade-in text-ink-50">
+<div class="mx-auto max-w-4xl space-y-12 px-1 pt-2 sm:space-y-12 sm:px-0 sm:pt-0 animate-fade-in text-ink-50">
 
-  <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-8">
-  <section class="min-w-0 space-y-6">
+  <div class="space-y-10 sm:space-y-8">
+  <section class="min-w-0 space-y-7 sm:space-y-6">
     <p class="text-xs font-medium tracking-wide text-ink-400">
       {isEventEnded ? "Event ended" : currentEvent.start_time && new Date(currentEvent.start_time) <= currentTime ? "Happening now" : "Upcoming event"}
     </p>
@@ -34,11 +35,9 @@
         {#if copiedPublicUrl}<Check size={17} />{:else}<Copy size={17} />{/if}
       </button>
     </div>
-    <div class="space-y-3 border-y border-white/10 py-5 text-sm font-medium leading-6 text-ink-200">
-      <p class="flex items-start gap-2"><CalendarClock size={17} class="mt-0.5 shrink-0 text-ink-400" />
-        {formatEventDateRange(currentEvent.start_time, currentEvent.end_time, true) || currentEvent.date || "Date to be announced"}
-      </p>
-      <p class="flex items-start gap-2"><MapPin size={17} class="mt-0.5 shrink-0 text-ink-400" />
+    <div class="space-y-4 border-y border-white/10 py-6 sm:space-y-3 sm:py-5 text-sm font-medium leading-6 text-ink-200">
+      <EventDateTime start={currentEvent.start_time} end={currentEvent.end_time} fallback={currentEvent.date || "Date to be announced"} />
+      <p class="flex items-start gap-3 sm:gap-2"><MapPin size={17} class="mt-0.5 shrink-0 text-ink-400" />
         {#if currentEvent.event_format === "online"}
           Online event
         {:else}
@@ -52,7 +51,7 @@
       </p>
     </div>
     {#if currentEvent.description}
-      <div class="space-y-3 pt-2">
+      <div class="space-y-4 pt-3 sm:space-y-3 sm:pt-2">
       <h2 class="text-xl font-semibold tracking-tight text-white">About this event</h2>
       {#if currentEvent.description.length > 260}
         <details class="group text-[15px] leading-7 text-ink-300">
@@ -69,8 +68,7 @@
       </div>
     {/if}
   </section>
-    <div id="registration" tabindex="-1" class="scroll-mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 lg:sticky lg:top-8">
-      <h2 class="mb-5 text-xl font-semibold tracking-tight text-white">Registration</h2>
+    <div id="registration" tabindex="-1" class="scroll-mt-6 pb-2 sm:pb-0">
       {#if data.registrationPending}
         <p role="status" class="font-semibold text-amber-200">Spot requested · Awaiting host approval</p>
       {:else if isEventEnded || isAttendeeRegistrationFull || isJoinAfterStartClosed}
@@ -88,14 +86,11 @@
             {data.user ? "Register" : "Sign in to register"}
           {/if}
         </Button>
-        {#if !data.user}
-          <p class="mt-3 text-xs leading-5 text-ink-400">You’ll return here after signing in to {currentEvent.is_approval_required ? "submit your request" : "confirm your registration"}.</p>
-        {/if}
         {#if currentEvent.is_approval_required}
-          <p class="mt-2 text-sm text-ink-300">The host reviews each request.</p>
+          <p class="mt-3 text-sm leading-6 text-ink-300 sm:mt-2">The host reviews each request.</p>
         {/if}
         {#if currentEvent.is_attendees_register_limited && currentEvent.max_attendees}
-          <p class="mt-2 text-sm text-ink-300">{Math.max(0, currentEvent.max_attendees - (currentEvent.attendees_count || 0))} spots available</p>
+          <p class="mt-3 text-sm leading-6 text-ink-300 sm:mt-2">{Math.max(0, currentEvent.max_attendees - (currentEvent.attendees_count || 0))} spots available</p>
         {/if}
       {/if}
     </div>

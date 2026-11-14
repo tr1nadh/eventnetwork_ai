@@ -1,5 +1,5 @@
 -- Serialize registration and host approval against the same remaining seats.
-create function public.register_event_participant(
+create or replace function public.register_event_participant(
   p_event_id uuid, p_user_id uuid, p_approver_id uuid default null
 ) returns jsonb
 language plpgsql security definer set search_path = public
@@ -59,3 +59,6 @@ returns jsonb language sql security definer set search_path = public
 as $$ select public.register_event_participant(p_event_id, p_user_id); $$;
 revoke all on function public.join_event_with_attendee_limit(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.join_event_with_attendee_limit(uuid, uuid) to service_role;
+
+-- Make the new RPC signatures available to the API after this script commits.
+notify pgrst, 'reload schema';

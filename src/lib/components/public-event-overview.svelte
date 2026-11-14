@@ -69,7 +69,6 @@
       </div>
     {/if}
   </section>
-    <aside class="min-w-0 lg:sticky lg:top-8">
     <div id="registration" tabindex="-1" class="scroll-mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6 lg:sticky lg:top-8">
       <h2 class="mb-5 text-xl font-semibold tracking-tight text-white">Registration</h2>
       {#if data.registrationPending}
@@ -86,7 +85,7 @@
           {:else if currentEvent.is_approval_required}
             {data.user ? "Request a spot" : "Sign in to request a spot"}
           {:else}
-            {data.user ? "Confirm registration" : "Sign in to register"}
+            {data.user ? "Register" : "Sign in to register"}
           {/if}
         </Button>
         {#if !data.user}
@@ -100,7 +99,6 @@
         {/if}
       {/if}
     </div>
-    </aside>
   </div>
   <!-- ── B. Schedule & Agenda Section ── -->
   <div class="space-y-6">

@@ -5,7 +5,7 @@ import { syncUserRecord } from '$lib/supabase/sync-user';
 export async function load(event) {
   const { url, locals: { supabase } } = event;
   const code = url.searchParams.get('code');
-  const next = sanitizeNext(url.searchParams.get('next'));
+  const next = url.searchParams.has('next') ? sanitizeNext(url.searchParams.get('next')) : null;
 
   let exchangeOk = false;
 
@@ -17,7 +17,7 @@ export async function load(event) {
       console.error('[auth/callback] exchangeCodeForSession failed:', exchangeError.message, exchangeError);
     } else {
       exchangeOk = true;
-      console.log('[auth/callback] Session exchange OK. user:', data.user?.id, '→ next:', next);
+      console.log('[auth/callback] Session exchange OK. user:', data.user?.id);
 
       if (data.user) {
         try {

@@ -1,7 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { goto } from "$app/navigation";
-  import { createSupabaseBrowserClient } from "$lib/supabase/client";
+  import { createSupabaseBrowserClient, takeOAuthReturnPath } from "$lib/supabase/client";
 
   export let data;
 
@@ -11,6 +10,7 @@
   let tick = 0; // 0-3, drives the animated trailing dots
 
   onMount(async () => {
+    const next = takeOAuthReturnPath(data.next);
     // Animate trailing dots on the heading
     const tickTimer = setInterval(() => {
       tick = (tick + 1) % 4;
@@ -52,7 +52,7 @@
       clearInterval(tickTimer);
       phase = "success";
 
-      goto(data.next ?? "/events", { replaceState: true });
+      window.location.replace(next);
     } catch (err) {
       clearInterval(tickTimer);
       errorMessage = err?.message ?? "An unexpected error occurred.";

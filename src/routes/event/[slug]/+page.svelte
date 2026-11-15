@@ -99,7 +99,7 @@
     const { embedding } = await res.json();
     return embedding;
   }
-  import { createSupabaseBrowserClient } from "$lib/supabase/client";
+  import { createSupabaseBrowserClient, startGoogleSignIn } from "$lib/supabase/client";
   import { onMount, onDestroy, tick } from "svelte";
   import EventAnalytics from "$lib/components/event-analytics.svelte";
 
@@ -2632,12 +2632,7 @@
     if (signingIn) return;
     signingIn = true;
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(window.location.pathname + window.location.search + "#registration")}`,
-        },
-      });
+      const { error } = await startGoogleSignIn(window.location.pathname + window.location.search + "#registration");
       if (error) throw error;
     } catch (error) {
       toast.error("Google sign-in failed", { description: error.message });

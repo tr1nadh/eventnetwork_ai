@@ -5,7 +5,7 @@
   import Sidebar from '$lib/components/sidebar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
   import { goto } from '$app/navigation';
-  import { createSupabaseBrowserClient } from '$lib/supabase/client';
+  import { startGoogleSignIn } from '$lib/supabase/client';
 
   export let data;
   let state = data.user && data.token ? 'connecting' : (data.token ? 'sign-in' : 'error');
@@ -39,10 +39,7 @@
   async function signIn() {
     signingIn = true;
     const next = `/network-card/scan?token=${encodeURIComponent(data.token)}`;
-    const { error } = await createSupabaseBrowserClient().auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` }
-    });
+    const { error } = await startGoogleSignIn(next);
     if (error) {
       signingIn = false;
       message = error.message;

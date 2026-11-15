@@ -21,7 +21,7 @@
     UserRoundPlus,
     WandSparkles,
   } from "@lucide/svelte";
-  import { createSupabaseBrowserClient } from "$lib/supabase/client";
+  import { createSupabaseBrowserClient, startGoogleSignIn } from "$lib/supabase/client";
   import AmdAiBadge from "$lib/components/amd-ai-badge.svelte";
 
   export let data;
@@ -346,10 +346,7 @@
     signingIn = true;
     error = "";
 
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(data.next || "/events")}` },
-    });
+    const { error: authError } = await startGoogleSignIn(data.next);
 
     if (authError) {
       error = authError.message;

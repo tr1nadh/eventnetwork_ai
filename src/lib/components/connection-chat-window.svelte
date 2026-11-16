@@ -139,8 +139,8 @@
 </script>
 
 {#if connection}
-  <section class="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#101114] lg:h-full lg:flex-none">
-    <header class="border-b border-white/8 bg-gradient-to-r from-cyan-400/10 via-transparent px-5 py-4">
+  <section class="flex min-h-0 flex-1 flex-col overflow-hidden bg-background lg:h-full lg:flex-none">
+    <header class="border-b border-white/8 bg-card px-5 py-4">
       <div class="flex items-center gap-3">
         <Avatar class="size-11 border border-white/10 bg-white/5">
           <AvatarImage src={connection.profile?.avatar_url ?? undefined} alt={connection.profile?.display_name ?? 'Connection'} />
@@ -177,7 +177,7 @@
       {:else}
         {#each messages as message (message.id)}
           <div class={`flex ${message.sender_user_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
-            <div class={`max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${message.sender_user_id === currentUserId ? 'rounded-br-md bg-cyan-400 text-slate-950' : 'rounded-bl-md border border-white/10 bg-white/8 text-white'}`}>
+            <div class={`max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${message.sender_user_id === currentUserId ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md border border-white/10 bg-white/8 text-white'}`}>
               <p class="whitespace-pre-wrap leading-6">{message.message}</p>
               <p class={`mt-1 text-[10px] ${message.sender_user_id === currentUserId ? 'text-slate-950/60' : 'text-ink-400'}`}>{formatTime(message.created_at)}</p>
             </div>
@@ -186,7 +186,7 @@
       {/if}
     </div>
 
-    <form class="border-t border-white/8 bg-[#151619] p-4" onsubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
+    <form class="border-t border-white/8 bg-card p-4" onsubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
       <div class="flex gap-2">
         <Input bind:value={draftMessage} placeholder="Write a message..." disabled={loadingMessages || sendingMessage} onkeydown={handleKeydown} class="h-11 border-white/10 bg-white/5 text-white placeholder:text-ink-500" />
         <Button type="submit" disabled={loadingMessages || sendingMessage || !draftMessage.trim()} class="h-11 px-4">

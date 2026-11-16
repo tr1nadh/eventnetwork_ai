@@ -16,7 +16,6 @@
     Settings,
   } from "@lucide/svelte";
   import * as Avatar from "$lib/components/ui/avatar/index.js";
-  import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import AICredits from "$lib/components/AICredits.svelte";
@@ -50,10 +49,31 @@
   $: isConnections = currentPath.startsWith("/connections");
   $: isNetworkCards = currentPath.startsWith("/network-card");
 
+  let accountMenuOpen = false;
+  let accountArea;
+  let accountTrigger;
+
+  function dismissOutsideAccount(event) {
+    if (accountMenuOpen && !accountArea?.contains(event.target)) accountMenuOpen = false;
+  }
+
+  function closeAccountOnEscape(event) {
+    if (accountMenuOpen && event.key === "Escape") {
+      accountMenuOpen = false;
+      accountTrigger?.focus();
+    }
+  }
+
   onMount(() => {
     if (user) {
       aiCreditsStore.fetchStatus(user.id);
     }
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) accountMenuOpen = false;
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
   });
 
   let networkCardSignInOpen = false;
@@ -77,28 +97,28 @@
       label: "Events",
       icon: Calendar,
       href: "/events",
-      active: () => isEvents,
+      active: isEvents,
       disabled: false,
     },
     {
       label: "Discover",
       icon: Compass,
       href: "/discover",
-      active: () => isDiscover,
+      active: isDiscover,
       disabled: false,
     },
     {
       label: "Connections",
       icon: UserCircle2,
       href: "/connections",
-      active: () => isConnections,
+      active: isConnections,
       disabled: false,
     },
     {
       label: "Network Card",
       icon: ContactRound,
       href: "/network-card",
-      active: () => isNetworkCards,
+      active: isNetworkCards,
       disabled: false,
     },
   ];
@@ -107,8 +127,6 @@
 
 <!-- ── Desktop Sidebar (hidden on mobile) ── -->
 <aside class="sidebar-root" class:collapsed aria-label="Main navigation">
-  <!-- Glow accent line at the top -->
-  <div class="sidebar-top-accent"></div>
 
   <!-- ── Logo + Toggle row ── -->
   <div class="sidebar-logo" class:collapsed>
@@ -119,7 +137,6 @@
         </div>
         <div class="logo-text">
           <p class="logo-title">Evenai</p>
-          <p class="logo-sub">AI networking for events</p>
         </div>
       </a>
     {/if}
@@ -142,7 +159,7 @@
     {#each navItems as item}
       <button
         class="nav-item"
-        class:active={item.active()}
+        class:active={item.active}
         class:disabled={item.disabled}
         disabled={item.disabled}
         aria-disabled={item.disabled ? "true" : undefined}
@@ -156,7 +173,7 @@
         }}
         title={item.disabled ? `${item.label} (Disabled)` : (collapsed ? item.label : undefined)}
         aria-label={item.disabled ? `${item.label} (Disabled)` : item.label}
-        aria-current={item.active() ? "page" : undefined}
+        aria-current={item.active ? "page" : undefined}
       >
         <span class="nav-icon"
           ><svelte:component this={item.icon} size={18} /></span
@@ -249,13 +266,14 @@
 </aside>
 
 <!-- ── Mobile Bottom Bar ── -->
+<svelte:window onpointerdown={dismissOutsideAccount} onfocusin={dismissOutsideAccount} onkeydown={closeAccountOnEscape} />
 <nav class="mobile-bar" aria-label="Mobile navigation">
   {#each mobileNavItems as item}
     <button
       class="mobile-item"
-      class:active={item.active()}
+      class:active={item.active}
       class:disabled={item.disabled}
-      class:mobile-network-card={item.href === "/network-card"}
+      aria-current={item.active ? "page" : undefined}
       disabled={item.disabled}
       aria-disabled={item.disabled ? "true" : undefined}
       tabindex={item.disabled ? -1 : 0}
@@ -274,67 +292,39 @@
     </button>
   {/each}
   {#if user}
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger class="mobile-item" aria-label="Account">
+    <div bind:this={accountArea} class="account-area">
+      <button type="button" class="mobile-item" class:active={accountMenuOpen || currentPath === "/settings"}
+        bind:this={accountTrigger} aria-expanded={accountMenuOpen} aria-controls="mobile-account-panel"
+        aria-label="Account" onclick={() => (accountMenuOpen = !accountMenuOpen)}>
         <Avatar.Root class="h-5 w-5">
-          {#if avatar}
-            <Avatar.Image src={avatar} alt={name} />
-          {/if}
-          <Avatar.Fallback
-            class="text-[9px] font-bold bg-amber-400/20 text-amber-300"
-            >{initials}</Avatar.Fallback
-          >
+          {#if avatar}<Avatar.Image src={avatar} alt="" />{/if}
+          <Avatar.Fallback class="text-[9px] font-bold bg-primary/15 text-primary">{initials}</Avatar.Fallback>
         </Avatar.Root>
         <span>Account</span>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content
-        side="top"
-        align="end"
-        sideOffset={12}
-        class="w-72 bg-[#0c101d]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-2 z-[60] rounded-2xl"
-      >
-        <DropdownMenu.Label class="px-3 py-2">
-          <div class="flex items-center gap-2.5">
-            <Avatar.Root class="h-8 w-8">
-              {#if avatar}
-                <Avatar.Image src={avatar} alt={name} />
-              {/if}
-              <Avatar.Fallback
-                class="text-xs font-bold bg-amber-400/20 text-amber-300"
-              >
-                {initials}
-              </Avatar.Fallback>
-            </Avatar.Root>
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold text-white truncate">{name}</p>
-              <p class="text-xs text-slate-400 truncate">{user?.email ?? ""}</p>
-            </div>
+      </button>
+      <section id="mobile-account-panel" aria-label="Account options" hidden={!accountMenuOpen} class="account-panel">
+        <div class="flex items-center gap-3 px-2 py-2">
+          <Avatar.Root class="size-9 shrink-0">
+            {#if avatar}<Avatar.Image src={avatar} alt="" />{/if}
+            <Avatar.Fallback class="bg-primary/15 text-primary">{initials}</Avatar.Fallback>
+          </Avatar.Root>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-semibold text-foreground">{name}</p>
+            <p class="truncate text-xs text-muted-foreground">{user?.email ?? ""}</p>
           </div>
-        </DropdownMenu.Label>
-
-        <div class="px-1 py-1.5">
-          <AICredits loadStatus={false} />
         </div>
-
-        <DropdownMenu.Item class="gap-2.5 cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10" onSelect={(event) => { event.preventDefault(); goto('/settings'); }}>
-          <Settings size={15} />
-          <span>Settings</span>
-        </DropdownMenu.Item>
-
-        <DropdownMenu.Separator class="my-1.5 border-white/10" />
-
-        <DropdownMenu.Item
-          class="gap-2.5 text-rose-300 focus:bg-rose-400/10 hover:bg-rose-400/10 cursor-pointer rounded-lg px-3 py-2 text-xs font-medium"
-          onSelect={(event) => {
-            event.preventDefault();
-            onSignOut?.();
-          }}
-        >
-          <LogOut size={15} />
-          <span>{signingOut ? "Signing out…" : "Sign out"}</span>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+        <div class="my-2"><AICredits loadStatus={false} /></div>
+        <a href="/settings" class="account-action" onclick={() => (accountMenuOpen = false)}>
+          <Settings size={17} /> Settings
+        </a>
+        {#if onSignOut}
+          <button type="button" class="account-action text-rose-300" disabled={signingOut}
+            onclick={() => { accountMenuOpen = false; onSignOut(); }}>
+            <LogOut size={17} /> {signingOut ? "Signing out…" : "Sign out"}
+          </button>
+        {/if}
+      </section>
+    </div>
   {:else}
     <button class="mobile-item" onclick={() => onSignIn?.()}>
       <LogIn size={20} />
@@ -370,15 +360,8 @@
     padding: 1.25rem 0.75rem 1rem;
     gap: 0.25rem;
 
-    /* Glassmorphism matching existing design */
-    background: rgba(5, 8, 22, 0.82);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow:
-      4px 0 32px rgba(0, 0, 0, 0.4),
-      inset -1px 0 0 rgba(255, 255, 255, 0.04);
-
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
     transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
   }
@@ -392,21 +375,6 @@
     .sidebar-root {
       display: none;
     }
-  }
-
-  /* ── Top amber accent line ── */
-  .sidebar-top-accent {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(
-      90deg,
-      rgba(250, 204, 21, 0.8) 0%,
-      rgba(34, 211, 238, 0.4) 60%,
-      transparent 100%
-    );
   }
 
   /* ── Logo ── */
@@ -449,7 +417,7 @@
     width: 36px;
     height: 36px;
     border-radius: 10px;
-    background: #facc15;
+    background: var(--primary);
     color: #0a0a0a;
     box-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
     transition:
@@ -466,18 +434,10 @@
     overflow: hidden;
   }
   .logo-title {
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: #fde68a;
-    white-space: nowrap;
-  }
-  .logo-sub {
-    font-size: 0.65rem;
-    color: rgba(148, 163, 184, 0.7);
-    white-space: nowrap;
-    margin-top: 1px;
+    color: var(--foreground);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -.025em;
   }
 
   /* ── Toggle ── */
@@ -680,6 +640,34 @@
   }
 
   /* ── Mobile bottom bar ── */
+  .account-panel {
+    position: absolute;
+    right: max(.75rem, env(safe-area-inset-right));
+    bottom: calc(100% + .5rem);
+    width: min(18rem, calc(100% - 1.5rem));
+    max-height: calc(100dvh - 100% - 1.5rem - env(safe-area-inset-top));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: .5rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--popover);
+    box-shadow: 0 8px 28px rgb(0 0 0 / 35%);
+  }
+  .account-action {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: .75rem;
+    min-height: 44px;
+    padding-inline: .75rem;
+    border-radius: .5rem;
+    font-size: .875rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .account-action:hover, .account-action:focus-visible { background: var(--accent); }
+
   .mobile-bar {
     display: none;
   }
@@ -692,13 +680,13 @@
       left: 0;
       right: 0;
       z-index: 50;
-      background: rgba(5, 8, 22, 0.92);
+      background: var(--sidebar);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid rgba(255, 255, 255, 0.08);
       padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom));
-      justify-content: space-around;
-      align-items: flex-end;
+      justify-content: space-evenly;
+      align-items: center;
     }
 
     :global(.mobile-item) {
@@ -706,9 +694,12 @@
       flex-direction: column;
       align-items: center;
       gap: 0.2rem;
-      font-size: 0.6rem;
+      min-width: 44px;
+      min-height: 44px;
+      justify-content: center;
+      font-size: .68rem;
       font-weight: 500;
-      color: rgba(148, 163, 184, 0.7);
+      color: #a4afbd;
       background: none;
       border: none;
       cursor: pointer;
@@ -725,31 +716,8 @@
       cursor: not-allowed !important;
       color: rgba(148, 163, 184, 0.45) !important;
     }
-    :global(.mobile-item.mobile-network-card) {
-      position: relative;
-      z-index: 1;
-      min-width: 3.25rem;
-      margin-top: -1.15rem;
-      padding: 0;
-      color: #e9d5ff;
-    }
-    :global(.mobile-item.mobile-network-card svg) {
-      width: 20px;
-      height: 20px;
-      padding: 0.65rem;
-      box-sizing: content-box;
-      border: 1px solid rgba(196, 181, 253, 0.38);
-      border-radius: 9999px;
-      background: linear-gradient(145deg, #7c3aed, #4f46e5);
-      box-shadow: 0 7px 16px rgba(79, 70, 229, 0.34), 0 0 0 4px rgba(5, 8, 22, 0.95);
-    }
-    :global(.mobile-item.mobile-network-card span) {
-      margin-top: 0.2rem;
-      font-weight: 700;
-    }
-    :global(.mobile-item.mobile-network-card.active),
-    :global(.mobile-item.mobile-network-card:hover) {
-      color: white;
+    :global(.mobile-item.active) {
+      background: rgba(250, 204, 21, .09);
     }
     :global(.mobile-item.active),
     :global(.mobile-item:hover),

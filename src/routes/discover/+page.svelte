@@ -850,15 +850,14 @@
 <PageShell>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
 
-  <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
+  <main class="workspace-page event-collection">
     <!-- Page header -->
     <div
       class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-slide-up"
     >
       <div>
-        <h1 class="text-3xl font-black text-white flex items-center gap-2">
-          <Compass class="text-amber-400" size={28} />
-          Discover Events
+        <h1 class="workspace-title">
+          Discover events
         </h1>
         <p class="mt-1 text-sm text-ink-400">Explore public networking events hosted on the platform</p>
       </div>
@@ -873,7 +872,8 @@
           />
           <Input
             type="search"
-            placeholder="Search events by title, description or location..."
+            aria-label="Search events by title, description or location"
+            placeholder="Search events…"
             bind:value={searchQuery}
             oninput={handleInput}
             class="pl-9 bg-white/5 border-white/10 text-white h-10 w-full"
@@ -1019,7 +1019,7 @@
       <!-- Left Edge Indication & Quick-Scroll Arrow (Mobile only) -->
       {#if canScrollLeft}
         <div
-          class="absolute left-0 top-0 bottom-1 w-12 bg-gradient-to-r from-[#060c1a] via-[#060c1a]/85 to-transparent flex items-center justify-start sm:hidden pointer-events-none transition-opacity duration-200 z-10"
+          class="absolute left-0 top-0 bottom-1 w-12 bg-gradient-to-r from-background via-background/85 to-transparent flex items-center justify-start sm:hidden pointer-events-none transition-opacity duration-200 z-10"
         >
           <button
             type="button"
@@ -1035,7 +1035,7 @@
       <!-- Right Edge Indication & Quick-Scroll Arrow (Mobile only) -->
       {#if canScrollRight}
         <div
-          class="absolute right-0 top-0 bottom-1 w-12 bg-gradient-to-l from-[#060c1a] via-[#060c1a]/85 to-transparent flex items-center justify-end sm:hidden pointer-events-none transition-opacity duration-200 z-10"
+          class="absolute right-0 top-0 bottom-1 w-12 bg-gradient-to-l from-background via-background/85 to-transparent flex items-center justify-end sm:hidden pointer-events-none transition-opacity duration-200 z-10"
         >
           <button
             type="button"
@@ -1422,10 +1422,10 @@
 
     <!-- Off-Canvas Drawer (Slide-in from Right) -->
     <div
-      class="fixed inset-y-0 right-0 z-[101] w-[400px] max-w-[90vw] bg-[#0b0f19] border-l border-white/12 shadow-2xl flex flex-col overflow-hidden animate-drawer-right"
+      class="fixed inset-y-0 right-0 z-[101] w-[400px] max-w-[90vw] bg-card border-l border-white/12 shadow-2xl flex flex-col overflow-hidden animate-drawer-right"
     >
       <!-- Drawer Header -->
-      <div class="flex items-center justify-between px-6 py-4.5 border-b border-white/8 bg-[#070a12]/90 backdrop-blur-md">
+      <div class="flex items-center justify-between px-6 py-4.5 border-b border-white/8 bg-background/90 backdrop-blur-md">
         <div class="flex items-center gap-2.5">
           <SlidersHorizontal size={18} class="text-amber-400" />
           <h2 class="text-base font-bold text-white tracking-wide uppercase">Filters</h2>
@@ -1464,7 +1464,7 @@
       </div>
 
       <!-- Drawer Bottom Sticky Action Bar -->
-      <div class="p-5 bg-[#070a12] border-t border-white/10 flex items-center gap-3">
+      <div class="p-5 bg-background border-t border-white/10 flex items-center gap-3">
         {#if hasActiveFilters}
           <Button
             type="button"
@@ -1502,7 +1502,7 @@
 
     <!-- Swipe-up Card Canvas -->
     <div
-      class="relative z-10 w-full max-h-[88vh] rounded-t-3xl bg-[#0b0f19] border-t border-white/15 shadow-2xl flex flex-col overflow-hidden animate-sheet-up"
+      class="relative z-10 w-full max-h-[88vh] rounded-t-3xl bg-card border-t border-white/15 shadow-2xl flex flex-col overflow-hidden animate-sheet-up"
       style={sheetTransform ? `transform: translateY(${sheetTransform}px); transition: ${isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'};` : ''}
     >
       <!-- Swipe Handle Header Area -->
@@ -1560,7 +1560,7 @@
       </div>
 
       <!-- Bottom Sticky Action Bar -->
-      <div class="p-4 bg-[#070a12] border-t border-white/10 flex items-center gap-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div class="p-4 bg-background border-t border-white/10 flex items-center gap-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         {#if hasActiveFilters}
           <Button
             type="button"
@@ -1592,11 +1592,6 @@
     scrollbar-width: none;
   }
 
-  .events-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
-  }
   .event-card {
     display: flex;
     flex-direction: column;
@@ -1608,28 +1603,8 @@
     border-color: rgba(251, 191, 36, 0.35);
     box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px -3px rgba(251, 191, 36, 0.12);
   }
-  .card-accent {
-    height: 3px;
-    flex-shrink: 0;
-  }
   .accent-discover {
     background: linear-gradient(90deg, rgba(251, 191, 36, 0.8) 0%, rgba(251, 191, 36, 0.1) 100%);
-  }
-  .card-body {
-    flex: 1;
-    padding: 1.1rem 1.1rem 0.85rem;
-  }
-  .card-title {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #f1f5f9;
-    line-height: 1.35;
-    margin-bottom: 0.45rem;
-    display: -webkit-box;
-    line-clamp: 2;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
   .card-desc {
     font-size: 0.785rem;
@@ -1640,87 +1615,6 @@
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-  }
-  .card-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.75rem 1.1rem 0.95rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    margin-top: auto;
-  }
-  .card-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.28rem;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .meta-date {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.65rem;
-    color: rgba(100, 116, 139, 0.85);
-    white-space: nowrap;
-  }
-  .copy-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.625rem;
-    font-family: monospace;
-    color: rgba(148, 163, 184, 0.55);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 120px;
-    transition: color 150ms;
-  }
-  .copy-btn:hover {
-    color: rgba(251, 191, 36, 0.9);
-  }
-  .hosting-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.625rem;
-    font-weight: 700;
-    color: #fbbf24;
-    background: rgba(251, 191, 36, 0.12);
-    border: 1px solid rgba(251, 191, 36, 0.3);
-    padding: 0.18rem 0.48rem;
-    border-radius: 9999px;
-  }
-  .joined-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.625rem;
-    font-weight: 700;
-    color: #34d399;
-    background: rgba(52, 211, 153, 0.12);
-    border: 1px solid rgba(52, 211, 153, 0.3);
-    padding: 0.18rem 0.48rem;
-    border-radius: 9999px;
-  }
-  .format-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.625rem;
-    font-weight: 600;
-    color: #cbd5e1;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 0.18rem 0.48rem;
-    border-radius: 9999px;
-    text-transform: capitalize;
   }
   .approval-badge {
     display: inline-flex;

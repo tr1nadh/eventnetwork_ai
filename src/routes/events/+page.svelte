@@ -150,20 +150,21 @@
 
   function handleInput() {
     clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      const params = new URLSearchParams(window.location.search);
-      if (searchQuery) {
-        params.set("q", searchQuery);
-      } else {
-        params.delete("q");
-      }
-      params.delete("page");
-      goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
-    }, 300);
+    searchTimeout = setTimeout(updateSearch, 300);
   }
 
   function applySearch(e) {
     e.preventDefault();
+    updateSearch();
+  }
+
+  function clearFilters() {
+    statusFilter = "all";
+    searchQuery = "";
+    updateSearch();
+  }
+
+  function updateSearch() {
     clearTimeout(searchTimeout);
     const params = new URLSearchParams(window.location.search);
     if (searchQuery) {
@@ -194,13 +195,13 @@
 <PageShell>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
 
-  <main class="w-full px-4 pb-20 sm:px-6 lg:px-8">
+  <main class="workspace-page event-collection">
     <!-- Page header -->
     <div
       class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-slide-up"
     >
       <div>
-        <h1 class="text-3xl font-black text-white">Events</h1>
+        <h1 class="workspace-title">Events</h1>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <Button
@@ -240,6 +241,7 @@
           'all'
             ? 'bg-white/10 text-white'
             : 'text-ink-500 hover:text-white'}"
+          aria-pressed={data.filter === "all"}
           onclick={() => applyFilter("all")}
         >
           All
@@ -249,6 +251,7 @@
           'joined'
             ? 'bg-white/10 text-white'
             : 'text-ink-500 hover:text-white'}"
+          aria-pressed={data.filter === "joined"}
           onclick={() => applyFilter("joined")}
         >
           Joined
@@ -258,6 +261,7 @@
           'hosting'
             ? 'bg-white/10 text-white'
             : 'text-ink-500 hover:text-white'}"
+          aria-pressed={data.filter === "hosting"}
           onclick={() => applyFilter("hosting")}
         >
           Hosting
@@ -270,6 +274,7 @@
         />
         <Input
           type="search"
+          aria-label="Search your events"
           placeholder="Search events..."
           bind:value={searchQuery}
           oninput={handleInput}
@@ -282,14 +287,15 @@
     <div class="mb-6 flex flex-wrap gap-2 animate-slide-up">
       {#each [
         { value: 'all', label: 'All' },
-        { value: 'live', label: '🔴 Live' },
-        { value: 'upcoming', label: '📅 Upcoming' },
-        { value: 'archived', label: '📁 Archived' }
+        { value: 'live', label: 'Live' },
+        { value: 'upcoming', label: 'Upcoming' },
+        { value: 'archived', label: 'Archived' }
       ] as statusOpt}
         <button
           class="rounded-lg px-3.5 py-1.5 text-xs font-semibold border transition duration-200 {statusFilter === statusOpt.value
             ? 'bg-amber-400/20 text-amber-300 border-amber-400/35 shadow-sm shadow-amber-400/10'
             : 'border-white/8 text-ink-400 hover:text-white hover:border-white/15 hover:bg-white/4'}"
+          aria-pressed={statusFilter === statusOpt.value}
           onclick={() => statusFilter = statusOpt.value}
         >
           {statusOpt.label}
@@ -340,7 +346,7 @@
                     </span>
                   {:else if status === 'upcoming'}
                     <span class="status-badge status-upcoming">
-                      <span class="status-dot bg-cyan-400"></span>
+                      <span class="status-dot bg-primary"></span>
                       Upcoming
                     </span>
                   {:else}
@@ -442,13 +448,19 @@
           </div>
           <h2 class="text-xl font-bold text-white mb-2">No events found</h2>
           <p class="text-sm text-ink-400 max-w-xs mx-auto mb-6">
-            {#if statusFilter !== 'all'}
-              There are no {statusFilter} events matching this filter.
+            {#if data.q || statusFilter !== 'all'}
+              Try a different search or clear your filters.
+            {:else if data.filter === 'joined'}
+              Events you join will appear here.
             {:else}
-              Create your first event and share the link with attendees. The AI takes it from there.
+              Create an event to invite attendees and start networking.
             {/if}
           </p>
-          {#if statusFilter === 'all'}
+          {#if data.q || statusFilter !== 'all'}
+            <Button onclick={clearFilters}>Clear filters</Button>
+          {:else if data.filter === 'joined'}
+            <Button onclick={() => goto('/discover')}>Discover events</Button>
+          {:else}
             <Button onclick={() => goto('/events/create')} class="gap-2">
               <Plus size={16} />
               Create your first event
@@ -458,7 +470,7 @@
       {/if}
 
       {#if data.pagination.totalPages > 1 && !$navigating}
-        <nav class="mt-8 flex items-center justify-between gap-4" aria-label="Events pagination">
+        <nav class="mt-8 flex flex-wrap items-center justify-between gap-4" aria-label="Events pagination">
           <p class="text-xs text-ink-500">
             Showing {(data.pagination.page - 1) * data.pagination.limit + 1}–{Math.min(data.pagination.page * data.pagination.limit, data.pagination.total)} of {data.pagination.total} events
           </p>
@@ -478,32 +490,16 @@
 </PageShell>
 
 <style>
-  .events-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
-  }
   .event-card { display: flex; flex-direction: column; overflow: hidden; border-color: rgba(255,255,255,.08); }
-  .card-accent { height: 3px; flex-shrink: 0; }
   .accent-live     { background: linear-gradient(90deg, rgba(251,113,133,.9) 0%, rgba(251,113,133,.15) 100%); }
-  .accent-upcoming { background: linear-gradient(90deg, rgba(34,211,238,.8)  0%, rgba(34,211,238,.1)   100%); }
+  .accent-upcoming { background: linear-gradient(90deg, rgba(251,191,36,.8)  0%, rgba(251,191,36,.1)   100%); }
   .accent-archived { background: linear-gradient(90deg, rgba(100,116,139,.4) 0%, transparent           100%); }
-  .card-body { flex: 1; padding: 1rem 1.1rem 0.75rem; }
-  .card-title { font-size: .9375rem; font-weight: 700; color: #f1f5f9; line-height: 1.35; margin-bottom: .45rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .card-desc  { font-size: .775rem; color: rgba(148,163,184,.72); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .card-footer { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .7rem 1.1rem .9rem; border-top: 1px solid rgba(255,255,255,.05); margin-top: auto; }
-  .card-meta { display: flex; flex-direction: column; gap: .28rem; min-width: 0; overflow: hidden; }
-  .meta-date { display: flex; align-items: center; gap: .3rem; font-size: .64rem; color: rgba(100,116,139,.8); white-space: nowrap; }
-  .copy-btn { display: flex; align-items: center; gap: .3rem; font-size: .62rem; font-family: monospace; color: rgba(148,163,184,.55); background: transparent; border: none; cursor: pointer; padding: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; transition: color 150ms; }
-  .copy-btn:hover { color: #fde68a; }
   .status-badge { display: inline-flex; align-items: center; gap: .3rem; font-size: .64rem; font-weight: 700; padding: .18rem .5rem; border-radius: 9999px; border: 1px solid; }
   .status-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
   .status-live     { color: #fca5a5; background: rgba(251,113,133,.1);       border-color: rgba(251,113,133,.25); }
-  .status-upcoming { color: #67e8f9; background: rgba(34,211,238,.08);        border-color: rgba(34,211,238,.2); }
+  .status-upcoming { color: var(--primary); background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.2); }
   .status-archived { color: rgba(100,116,139,.9); background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); }
-  .hosting-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.3); padding: .18rem .48rem; border-radius: 9999px; }
-  .joined-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 700; color: #34d399; background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.3); padding: .18rem .48rem; border-radius: 9999px; }
-  .format-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 600; color: #cbd5e1; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); padding: .18rem .48rem; border-radius: 9999px; text-transform: capitalize; }
   .approval-badge { display: inline-flex; align-items: center; gap: .25rem; font-size: .62rem; font-weight: 600; color: #fde68a; background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.2); padding: .18rem .48rem; border-radius: 9999px; }
   .event-card-skeleton { display: flex; flex-direction: column; }
   .skeleton-header { height: 3px; background: rgba(255,255,255,.06); }

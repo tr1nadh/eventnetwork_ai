@@ -1,16 +1,31 @@
 <script>
+  import { toast } from "$lib/components/ui/sonner/index.js";
   import { onMount } from 'svelte';
   import { CheckCircle2, LoaderCircle, LogIn, Users } from '@lucide/svelte';
   import PageShell from '$lib/components/page-shell.svelte';
   import Sidebar from '$lib/components/sidebar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
   import { goto } from '$app/navigation';
-  import { startGoogleSignIn } from '$lib/supabase/client';
+  import { createSupabaseBrowserClient, startGoogleSignIn } from '$lib/supabase/client';
 
   export let data;
   let state = data.user && data.token ? 'connecting' : (data.token ? 'sign-in' : 'error');
   let message = '';
   let signingIn = false;
+  let signingOut = false;
+
+  async function signOut() {
+    signingOut = true;
+    try {
+      const { error } = await createSupabaseBrowserClient().auth.signOut();
+      if (error) throw error;
+      await goto('/');
+    } catch {
+      toast.error('Could not sign out. Try again.');
+    } finally {
+      signingOut = false;
+    }
+  }
 
   onMount(async () => {
     if (!data.user || !data.token) {
@@ -50,14 +65,14 @@
 <svelte:head><title>Network Card Scan | Evenai</title></svelte:head>
 
 <PageShell hasSidebar={Boolean(data.user)}>
-  {#if data.user}<Sidebar user={data.user} />{/if}
+  {#if data.user}<Sidebar user={data.user} {signingOut} onSignOut={signOut} />{/if}
   <main class="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-10">
-    <section class="w-full max-w-md rounded-3xl border border-white/10 bg-[#12131a] p-8 text-center shadow-2xl">
+    <section class="w-full max-w-md workspace-panel p-8 text-center">
       {#if state === 'connecting'}
-        <LoaderCircle size={30} class="mx-auto animate-spin text-cyan-300" />
+        <LoaderCircle size={30} class="mx-auto animate-spin text-primary" />
         <h1 class="mt-5 text-xl font-bold text-white">Connecting Network Cards…</h1>
       {:else if state === 'sign-in'}
-        <LogIn size={34} class="mx-auto text-cyan-300" />
+        <LogIn size={34} class="mx-auto text-primary" />
         <h1 class="mt-5 text-xl font-bold text-white">Sign in to connect</h1>
         <p class="mt-3 text-sm leading-6 text-ink-300">Sign in to connect with this Network Card and mark the in-person meeting.</p>
         <Button class="mt-6 gap-2" disabled={signingIn} onclick={signIn}>{#if signingIn}<LoaderCircle size={16} class="animate-spin" /> Signing in…{:else}<LogIn size={16} /> Continue with Google{/if}</Button>

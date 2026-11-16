@@ -577,22 +577,22 @@
 <PageShell>
   <Sidebar {user} {signingOut} onSignOut={signOut} />
 
-  <main class="mx-auto max-w-4xl lg:max-w-5xl px-4 sm:px-6 md:px-8 py-8 space-y-8 animate-fade-in">
+  <main class="workspace-page workspace-form space-y-6">
 
     <!-- Header -->
     <div class="flex items-center gap-4">
       <a
-        href="/event/{event.slug}"
+        href="/event/{event.slug}" aria-label="Back to event"
         class="flex items-center justify-center w-9 h-9 rounded-xl glass border border-white/10 text-ink-400 hover:text-white transition-colors"
       >
         <ArrowLeft size={16} />
       </a>
       <div>
         <div class="flex items-center gap-2 mb-0.5">
-          <Settings size={16} class="text-indigo-400" />
-          <p class="text-xs font-bold uppercase tracking-widest text-indigo-400">Event Settings</p>
+          <Settings size={16} class="text-amber-400" />
+          <p class="text-xs font-bold uppercase tracking-widest text-amber-400">Event Settings</p>
         </div>
-        <h1 class="text-2xl font-black text-white tracking-tight">{event.name}</h1>
+        <h1 class="workspace-title">{event.name}</h1>
       </div>
     </div>
 
@@ -608,10 +608,10 @@
         </div>
       </div>
     {:else if isEventLive}
-      <div class="flex items-start gap-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-indigo-300 text-xs">
-        <Clock size={18} class="shrink-0 text-indigo-400 mt-0.5" />
+      <div class="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-amber-300 text-xs">
+        <Clock size={18} class="shrink-0 text-amber-400 mt-0.5" />
         <div>
-          <p class="font-bold text-sm text-indigo-300">🔴 Event is Currently Live</p>
+          <p class="font-bold text-sm text-amber-300">🔴 Event is Currently Live</p>
           <p class="text-ink-400 mt-0.5 leading-relaxed">
             Start time is locked while the event is live, but you can update location, end time, venue map, and details.
           </p>
@@ -620,7 +620,7 @@
     {/if}
 
     <!-- Edit Form -->
-    <div class="glass rounded-2xl border border-white/8 p-6 sm:p-10 space-y-8 shadow-2xl {isEventEnded ? 'opacity-75 pointer-events-none' : ''}">
+    <div class="workspace-panel p-4 sm:p-8 space-y-8 {isEventEnded ? 'opacity-75 pointer-events-none' : ''}">
 
       <div class="border-b border-white/8 pb-4 mb-2">
         <h2 class="text-base font-bold text-white">General</h2>
@@ -629,37 +629,37 @@
 
       <!-- Name -->
       <div class="space-y-2">
-        <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event Name</Label>
+        <Label for="event-name" class="text-sm font-medium text-ink-200">Event Name</Label>
         <Input
-          bind:value={name}
+          id="event-name" bind:value={name}
           disabled={isEventEnded}
           placeholder="My Awesome Event"
-          class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
+          class="bg-white/5 border-white/10 text-white placeholder:text-ink-500 focus:border-amber-400/50"
         />
       </div>
 
       <!-- Description -->
       <div class="space-y-2">
-        <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Description</Label>
+        <Label for="event-description" class="text-sm font-medium text-ink-200">Description</Label>
         <textarea
-          bind:value={description}
+          id="event-description" bind:value={description}
           disabled={isEventEnded}
           rows="4"
           placeholder="What is this event about?"
-          class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
+          class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-500 focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 resize-none disabled:opacity-50"
         ></textarea>
       </div>
 
       <!-- Slug -->
       <div class="space-y-2">
-        <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Slug (URL ID)</Label>
+        <Label for="event-slug" class="text-sm font-medium text-ink-200">Slug (URL ID)</Label>
         <div class="flex items-center gap-2">
           <span class="text-xs text-ink-500 shrink-0">/event/</span>
           <Input
-            bind:value={slug}
+            id="event-slug" bind:value={slug}
             disabled={isEventEnded}
             placeholder="my-awesome-event"
-            class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50 font-mono flex-1"
+            class="bg-white/5 border-white/10 text-white placeholder:text-ink-500 focus:border-amber-400/50 font-mono flex-1"
           />
           <button
             type="button"
@@ -684,9 +684,9 @@
         <div><h3 class="text-sm font-bold text-white">Event images</h3><p class="text-xs text-ink-500 mt-0.5">Square logo and optional 16:9 banner.</p></div>
         <div class="grid gap-4 sm:grid-cols-[160px_1fr]">
           <div class="space-y-2">
-            <label class="block cursor-pointer rounded-xl border border-dashed border-indigo-400/30 bg-white/3 p-3 text-center hover:bg-white/5 {isEventEnded ? 'pointer-events-none opacity-50' : ''}">
+            <label class="block cursor-pointer rounded-xl border border-dashed border-amber-400/30 bg-white/3 p-3 text-center hover:bg-white/5 {isEventEnded ? 'pointer-events-none opacity-50' : ''}">
               {#if logoPreview}<img src={logoPreview.startsWith('blob:') ? logoPreview : eventImageSrc(logoPreview)} alt="Event logo" class="mx-auto aspect-square w-full rounded-lg object-cover" />{:else}<div class="flex aspect-square items-center justify-center text-xs text-ink-400">Add logo<br />(1:1)</div>{/if}
-              <span class="mt-2 block text-xs font-semibold text-indigo-300">{logoPreview ? 'Replace logo' : 'Add logo'}</span><input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={isEventEnded} onchange={(event) => selectImage(event, 'logo')} />
+              <span class="mt-2 block text-xs font-semibold text-amber-300">{logoPreview ? 'Replace logo' : 'Add logo'}</span><input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={isEventEnded} onchange={(event) => selectImage(event, 'logo')} />
             </label>
             {#if logoPreview}<button type="button" class="w-full text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50" disabled={isEventEnded} onclick={() => removeImage('logo')}>Remove logo</button>{/if}
           </div>
@@ -703,7 +703,7 @@
       {/if}
 <!-- Format -->
       <div class="space-y-2">
-        <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">Event Format</Label>
+        <Label class="text-sm font-medium text-ink-200">Event Format</Label>
         <div class="grid grid-cols-3 gap-2">
           {#each ['online', 'offline', 'hybrid'] as fmt}
             <button
@@ -711,7 +711,7 @@
               disabled={isEventEnded}
               onclick={() => (eventFormat = fmt)}
               class="py-2.5 rounded-xl border text-sm font-semibold capitalize transition-all {eventFormat === fmt
-                ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-300'
+                ? 'bg-amber-500/20 border-amber-400/50 text-amber-300'
                 : 'bg-white/4 border-white/10 text-ink-400 hover:text-white hover:border-white/20'} disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {fmt}
@@ -731,7 +731,7 @@
           <!-- Start Date & Time -->
           <div class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3 {isEventLive || isEventEnded ? 'opacity-60' : ''}">
             <div class="flex items-center justify-between">
-              <Label class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+              <Label class="text-xs font-semibold uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
                 <CalendarClock size={14} /> Start Schedule
                 {#if isEventLive}
                   <span class="text-[10px] text-amber-400 font-bold ml-1">(Locked - Live)</span>
@@ -739,8 +739,8 @@
               </Label>
               {#if !isEventLive && !isEventEnded}
                 <div class="flex gap-1.5 text-[11px]">
-                  <button type="button" onclick={() => setStartDateQuick('today')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Today</button>
-                  <button type="button" onclick={() => setStartDateQuick('tomorrow')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Tomorrow</button>
+                  <button type="button" onclick={() => setStartDateQuick('today')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-amber-300 transition-colors">Today</button>
+                  <button type="button" onclick={() => setStartDateQuick('tomorrow')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-amber-300 transition-colors">Tomorrow</button>
                 </div>
               {/if}
             </div>
@@ -755,11 +755,11 @@
                 class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
               >
                 <span class="flex items-center gap-2">
-                  <Calendar size={15} class="text-indigo-400" />
+                  <Calendar size={15} class="text-amber-400" />
                   {formatDateHuman(startDate)}
                 </span>
                 {#if !isEventLive && !isEventEnded}
-                  <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
+                  <span class="text-xs text-amber-400 font-medium">Pick Date</span>
                 {/if}
               </button>
             </div>
@@ -774,11 +774,11 @@
                 class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
               >
                 <span class="flex items-center gap-2">
-                  <Clock size={15} class="text-indigo-400" />
+                  <Clock size={15} class="text-amber-400" />
                   {formatTime12h(startTimeVal)}
                 </span>
                 {#if !isEventLive && !isEventEnded}
-                  <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
+                  <span class="text-xs text-amber-400 font-medium">Pick Time</span>
                 {/if}
               </button>
             </div>
@@ -787,13 +787,13 @@
           <!-- End Date & Time -->
           <div class="p-4 rounded-xl bg-white/3 border border-white/6 space-y-3">
             <div class="flex items-center justify-between">
-              <Label class="text-xs font-semibold uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+              <Label class="text-xs font-semibold uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
                 <CalendarClock size={14} /> End Schedule
               </Label>
               {#if !isEventEnded}
                 <div class="flex gap-1.5 text-[11px]">
-                  <button type="button" onclick={() => setEndDateQuick('sameday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Same Day</button>
-                  <button type="button" onclick={() => setEndDateQuick('nextday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 transition-colors">Next Day</button>
+                  <button type="button" onclick={() => setEndDateQuick('sameday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-amber-300 transition-colors">Same Day</button>
+                  <button type="button" onclick={() => setEndDateQuick('nextday')} class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-amber-300 transition-colors">Next Day</button>
                 </div>
               {/if}
             </div>
@@ -808,11 +808,11 @@
                 class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
               >
                 <span class="flex items-center gap-2">
-                  <Calendar size={15} class="text-indigo-400" />
+                  <Calendar size={15} class="text-amber-400" />
                   {formatDateHuman(endDate)}
                 </span>
                 {#if !isEventEnded}
-                  <span class="text-xs text-indigo-400 font-medium">Pick Date</span>
+                  <span class="text-xs text-amber-400 font-medium">Pick Date</span>
                 {/if}
               </button>
             </div>
@@ -827,11 +827,11 @@
                 class="w-full flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white transition-colors disabled:cursor-not-allowed"
               >
                 <span class="flex items-center gap-2">
-                  <Clock size={15} class="text-indigo-400" />
+                  <Clock size={15} class="text-amber-400" />
                   {formatTime12h(endTimeVal)}
                 </span>
                 {#if !isEventEnded}
-                  <span class="text-xs text-indigo-400 font-medium">Pick Time</span>
+                  <span class="text-xs text-amber-400 font-medium">Pick Time</span>
                 {/if}
               </button>
             </div>
@@ -860,14 +860,14 @@
             <p class="text-xs text-ink-500">Virtual meeting details for online and hybrid events.</p>
           </div>
           <div class="space-y-2">
-            <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+            <Label for="event-meeting-url" class="text-sm font-medium text-ink-200">
               <Video size={12} class="inline mr-1 text-cyan-400" />Meet Link
             </Label>
             <Input
-              bind:value={eventMeetingUrl}
+              id="event-meeting-url" bind:value={eventMeetingUrl}
               disabled={isEventEnded}
               placeholder="https://meet.google.com/... or https://zoom.us/..."
-              class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
+              class="bg-white/5 border-white/10 text-white placeholder:text-ink-500 focus:border-amber-400/50"
             />
           </div>
         </div>
@@ -881,26 +881,26 @@
             <p class="text-xs text-ink-500">Venue details for offline and hybrid events.</p>
           </div>
           <div class="space-y-2">
-            <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+            <Label for="event-location" class="text-sm font-medium text-ink-200">
               <MapPin size={12} class="inline mr-1 text-amber-400" />Address
             </Label>
             <textarea
-              bind:value={location}
+              id="event-location" bind:value={location}
               disabled={isEventEnded}
               rows="3"
               placeholder="123 Main St, City, Country"
-              class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-600 focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/20 resize-none disabled:opacity-50"
+              class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-ink-500 focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 resize-none disabled:opacity-50"
             ></textarea>
           </div>
           <div class="space-y-2">
-            <Label class="text-xs font-semibold uppercase tracking-widest text-ink-400">
+            <Label for="event-map-url" class="text-sm font-medium text-ink-200">
               <Globe size={12} class="inline mr-1 text-amber-400" />Google Maps URL
             </Label>
             <Input
-              bind:value={googleMapUrl}
+              id="event-map-url" bind:value={googleMapUrl}
               disabled={isEventEnded}
               placeholder="https://maps.google.com/..."
-              class="bg-white/5 border-white/10 text-white placeholder:text-ink-600 focus:border-indigo-400/50"
+              class="bg-white/5 border-white/10 text-white placeholder:text-ink-500 focus:border-amber-400/50"
             />
           </div>
         </div>
@@ -1124,7 +1124,7 @@
           <Input
             bind:value={deleteConfirmText}
             placeholder={event.slug}
-            class="bg-white/5 border-red-500/30 text-white placeholder:text-ink-600 focus:border-red-400/50 font-mono"
+            class="bg-white/5 border-red-500/30 text-white placeholder:text-ink-500 focus:border-red-400/50 font-mono"
           />
           <div class="flex gap-3">
             <Button
@@ -1197,7 +1197,7 @@
                   disabled={isDisabled}
                   onclick={() => selectCalendarDate(item.dateStr)}
                   class="h-9 w-9 mx-auto rounded-xl text-xs font-semibold flex items-center justify-center transition-all {isSelected
-                    ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-amber-500/30'
                     : isDisabled
                     ? 'text-white/20 cursor-not-allowed opacity-30'
                     : 'text-ink-300 hover:bg-white/10 hover:text-white'}"
@@ -1221,7 +1221,7 @@
         <div class="glass rounded-2xl border border-white/10 p-6 max-w-sm w-full space-y-5 shadow-2xl bg-neutral-950/95">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Clock size={16} class="text-indigo-400" />
+              <Clock size={16} class="text-amber-400" />
               {activeTimePicker === 'start' ? 'Set Start Time' : 'Set End Time'}
             </h3>
             <button type="button" onclick={() => (activeTimePicker = null)} class="text-ink-400 hover:text-white">
@@ -1238,14 +1238,14 @@
               <button
                 type="button"
                 onclick={() => (clockPeriod = 'AM')}
-                class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'AM' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'AM' ? 'bg-primary text-primary-foreground' : 'bg-white/5 text-ink-400 hover:text-white'}"
               >
                 AM
               </button>
               <button
                 type="button"
                 onclick={() => (clockPeriod = 'PM')}
-                class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'PM' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-ink-400 hover:text-white'}"
+                class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all {clockPeriod === 'PM' ? 'bg-primary text-primary-foreground' : 'bg-white/5 text-ink-400 hover:text-white'}"
               >
                 PM
               </button>
@@ -1261,7 +1261,7 @@
                   type="button"
                   onclick={() => (clockHour = h)}
                   class="py-2 rounded-xl text-xs font-semibold transition-all {clockHour === h
-                    ? 'bg-indigo-500/30 border border-indigo-400/50 text-indigo-300 font-bold'
+                    ? 'bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold'
                     : 'bg-white/4 border border-white/6 text-ink-300 hover:bg-white/10 hover:text-white'}"
                 >
                   {h}
@@ -1279,7 +1279,7 @@
                   type="button"
                   onclick={() => (clockMinute = m)}
                   class="py-2 rounded-xl text-xs font-semibold transition-all {clockMinute === m
-                    ? 'bg-indigo-500/30 border border-indigo-400/50 text-indigo-300 font-bold'
+                    ? 'bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold'
                     : 'bg-white/4 border border-white/6 text-ink-300 hover:bg-white/10 hover:text-white'}"
                 >
                   :{String(m).padStart(2, '0')}

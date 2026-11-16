@@ -1,4 +1,5 @@
 <script>
+  import { Sparkles } from "@lucide/svelte";
   import { onMount } from "svelte";
   import { createSupabaseBrowserClient, takeOAuthReturnPath } from "$lib/supabase/client";
 
@@ -76,34 +77,11 @@
   ?code= param in the URL and +page.server.js returned successfully).
 -->
 <div class="overlay" aria-live="polite" aria-busy={phase === "loading"}>
-  <!-- Ambient background glows matching the app's colour palette -->
-  <div class="glow glow-violet" aria-hidden="true"></div>
-  <div class="glow glow-amber" aria-hidden="true"></div>
 
   <div class="card">
     <!-- Brand logo mark -->
     <div class="logo-wrap" aria-hidden="true">
-      <svg
-        width="28"
-        height="28"
-        viewBox="0 0 28 28"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle cx="14" cy="14" r="14" fill="rgba(251,191,36,0.12)" />
-        <path
-          d="M9 14L14 9L19 14L14 19Z"
-          stroke="#fbbf24"
-          stroke-width="1.5"
-          fill="none"
-          stroke-linejoin="round"
-        />
-        <circle cx="14" cy="14" r="2.5" fill="#fbbf24" />
-        <circle cx="9" cy="14" r="1.5" fill="#a78bfa" />
-        <circle cx="19" cy="14" r="1.5" fill="#38bdf8" />
-        <circle cx="14" cy="9" r="1.5" fill="#a78bfa" />
-        <circle cx="14" cy="19" r="1.5" fill="#38bdf8" />
-      </svg>
+      <Sparkles size={24} class="text-primary" />
     </div>
 
     {#if phase === "loading"}
@@ -203,39 +181,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #050816;
+    background: var(--background);
     z-index: 9999;
     overflow: hidden;
-  }
-
-  /* ── Ambient glows ── */
-  .glow {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(90px);
-    pointer-events: none;
-  }
-  .glow-violet {
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(
-      circle,
-      rgba(124, 58, 237, 0.16) 0%,
-      transparent 70%
-    );
-    top: -180px;
-    left: -180px;
-  }
-  .glow-amber {
-    width: 480px;
-    height: 480px;
-    background: radial-gradient(
-      circle,
-      rgba(251, 191, 36, 0.1) 0%,
-      transparent 70%
-    );
-    bottom: -100px;
-    right: -100px;
   }
 
   /* ── Card ── */
@@ -247,32 +195,10 @@
     gap: 1.1rem;
     padding: 2.75rem 2.25rem;
     width: min(420px, 92vw);
-    background: rgba(255, 255, 255, 0.025);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 1.5rem;
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
     text-align: center;
-    /* Subtle border gradient highlight at top */
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.04),
-      0 32px 80px rgba(0, 0, 0, 0.6);
-  }
-  .card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 12%;
-    right: 12%;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(124, 58, 237, 0.5),
-      rgba(251, 191, 36, 0.4),
-      transparent
-    );
-    border-radius: 1px;
   }
 
   /* ── Logo ── */
@@ -399,7 +325,7 @@
 
   /* ── Result icons (success / error) ── */
   .result-icon {
-    animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation: pop-in 0.35s ease-out both;
   }
   .check-path {
     stroke-dasharray: 30;

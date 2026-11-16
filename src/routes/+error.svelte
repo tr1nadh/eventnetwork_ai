@@ -12,7 +12,7 @@
   <title>{status} • Evenai</title>
 </svelte:head>
 
-<PageShell>
+<PageShell hasSidebar={false}>
   <main class="mx-auto max-w-3xl px-4 py-16 sm:py-24 text-center space-y-8 animate-fade-in">
     <!-- Decorative Icon -->
     <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-white/10 bg-white/4 text-amber-400 shadow-glow">
@@ -48,7 +48,7 @@
     <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
       <Button
         href="/"
-        class="h-11 px-6 gap-2 text-sm font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)] transition-all"
+        class="h-11 px-6 gap-2 text-sm font-semibold bg-primary text-primary-foreground transition-all"
       >
         <ArrowLeft size={16} />
         Back to Home

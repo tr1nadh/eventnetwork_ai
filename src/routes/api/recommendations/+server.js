@@ -51,9 +51,10 @@ export async function GET({ url, locals }) {
     .select('display_name, what_i_do, looking_for, about_me, about_user_embed, looking_for_embed')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
-  if (curErr || !currentProfile) {
+  if (curErr) throw error(500, 'Could not load your networking profile');
+  if (!currentProfile) {
     return json({ recommendations: [] });
   }
 
@@ -70,7 +71,8 @@ export async function GET({ url, locals }) {
     .neq('user_id', user.id)
     .not('about_user_embed', 'is', null);
 
-  if (partErr || !participants) {
+  if (partErr) throw error(500, 'Could not load event attendees');
+  if (!participants) {
     return json({ recommendations: [] });
   }
 
@@ -109,100 +111,88 @@ export async function GET({ url, locals }) {
     return json(quota.errorData, { status: 429 });
   }
 
+  // Use request-local numeric keys so repeated names or missing entries cannot
+  // shift one attendee's explanation onto another card.
+  let explanations = {};
+  try {
+    const completion = await createChatCompletion({
+      model: FIREWORKS_MODEL || 'accounts/fireworks/models/qwen2p5-7b-instruct',
+      messages: [
+        {
+          role: 'system',
+          content: 'For each attendee, explain the strongest fit with what the viewer seeks in 1-2 specific sentences. Address the viewer as "you"; omit names. Return JSON {"explanations":{"0":"..."}} keyed by attendee ID.'
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            viewer: { role: currentProfile.what_i_do, about: currentProfile.about_me, seeks: currentProfile.looking_for },
+            attendees: scored.map(({ role, about, looking_for }, id) => ({ id, role, about, seeks: looking_for }))
+          })
+        }
+      ],
+      temperature: 0.4,
+      response_format: { type: 'json_object' },
+      max_tokens: 32 + scored.length * 100
+    });
+    explanations = JSON.parse(completion.choices?.[0]?.message?.content)?.explanations ?? {};
+  } catch {
+    console.warn('Using fallback match explanations after a provider failure.');
+  }
+
+  let usedAi = false;
+  for (const [id, match] of scored.entries()) {
+    const reason = explanations[id];
+    if (typeof reason === 'string' && /[.!?]$/.test(reason.trim())) {
+      match.explanation = reason.trim();
+      usedAi = true;
+    } else {
+      match.explanation = fallbackExplanation(currentProfile, match);
+    }
+  }
+  if (!usedAi) await refundAiCredit(user.id);
+
   const stream = new ReadableStream({
     async start(controller) {
-      const myProfileContext = `
-My name is ${currentProfile.display_name}.
-What I do: ${currentProfile.what_i_do}
-About me: ${currentProfile.about_me}
-I am looking for: ${currentProfile.looking_for}
-`;
-
-      let aiSuccessCount = 0;
-
+      const encoder = new TextEncoder();
       try {
-        // Generate one explanation at a time. Firing all five requests at once
-        // can cause provider throttling, which previously exposed generic UI
-        // fallbacks instead of useful reasons.
         for (const match of scored) {
-        const matchContext = `
-Their name is ${match.name}.
-What i do: ${match.role}
-About me: ${match.about}
-They are looking for: ${match.looking_for}
-`;
-
-        const systemPrompt = `You are an AI matchmaker for a professional networking event.
-Given my profile and a matched attendee's profile, write a concise 1-2 sentence explanation of WHY we are a good match.
-Use a concrete detail from the viewer's "looking for" field and, when relevant, the attendee's "looking for" field.
-Focus on the single strongest connection point: a shared interest, complementary skill, or collaboration opportunity.
-Speak directly to the viewer using "you". Do not mention either person's name—the card already shows the matched attendee's name.
-Return exactly one or two complete sentences. Be brief and punchy. No greetings, pleasantries, headings, or bullet points.`;
-
-        try {
-          const llmRes = await createChatCompletion({
-            model: FIREWORKS_MODEL || 'accounts/fireworks/models/qwen2p5-7b-instruct',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: `My Profile:\n${myProfileContext}\n\nMatched Profile:\n${matchContext}` }
-            ],
-            temperature: 0.4,
-            max_tokens: 100
-          });
-          const explanation = llmRes.choices?.[0]?.message?.content?.trim();
-          if (!explanation || !/[.!?]$/.test(explanation)) {
-            throw new Error('LLM returned an incomplete explanation');
-          }
-          match.explanation = explanation;
-          aiSuccessCount++;
-        } catch (err) {
-          console.error('Failed to generate explanation for', match.name, err);
-          match.explanation = fallbackExplanation(currentProfile, match);
-        }
-
-        // Upsert this match into the database
-        const matchRow = {
-          event_id: eventId,
-          user_id: user.id,
-          matched_user_id: match.user_id,
-          match_details: {
-            score: match.matchPercentage,
-            summary: match.explanation,
-            requester_profile: {
-              display_name: currentProfile.display_name,
-              what_i_do: currentProfile.what_i_do,
-              about_me: currentProfile.about_me
+          // Upsert this match into the database
+          const matchRow = {
+            event_id: eventId,
+            user_id: user.id,
+            matched_user_id: match.user_id,
+            match_details: {
+              score: match.matchPercentage,
+              summary: match.explanation,
+              requester_profile: {
+                display_name: currentProfile.display_name,
+                what_i_do: currentProfile.what_i_do,
+                about_me: currentProfile.about_me
+              },
+              matched_profile: {
+                display_name: match.name,
+                what_i_do: match.role,
+                about_me: match.about
+              }
             },
-            matched_profile: {
-              display_name: match.name,
-              what_i_do: match.role,
-              about_me: match.about
-            }
-          },
-          updated_at: new Date().toISOString()
-        };
+            updated_at: new Date().toISOString()
+          };
 
-        const { error: upsertErr } = await supabase.from('matches').upsert(matchRow, {
-          onConflict: 'event_id,user_id,matched_user_id'
-        });
-        if (upsertErr) {
-          console.error('Failed to upsert match into database:', upsertErr);
-        }
+          const { error: upsertErr } = await supabase.from('matches').upsert(matchRow, {
+            onConflict: 'event_id,user_id,matched_user_id'
+          });
+          if (upsertErr) {
+            console.error('Failed to upsert match into database:', upsertErr);
+          }
 
-        // Enqueue the match to the stream
-        const encoder = new TextEncoder();
-        controller.enqueue(encoder.encode(JSON.stringify(match) + '\n'));
+          // Enqueue the match to the stream
+          controller.enqueue(encoder.encode(JSON.stringify(match) + '\n'));
         }
         controller.close();
-
-        // If no AI generations succeeded, refund the credit
-        if (aiSuccessCount === 0 && scored.length > 0) {
-          await refundAiCredit(user.id);
-        }
       } catch (streamErr) {
         console.error('Stream generation error:', streamErr);
+        if (usedAi) await refundAiCredit(user.id);
         controller.error(streamErr);
-        await refundAiCredit(user.id);
       }
     }
   });
@@ -210,7 +200,8 @@ Return exactly one or two complete sentences. Be brief and punchy. No greetings,
   return new Response(stream, {
     headers: {
       'Content-Type': 'application/x-ndjson',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-store',
+      'X-AI-Credit-Used': usedAi ? '1' : '0',
       'Connection': 'keep-alive'
     }
   });

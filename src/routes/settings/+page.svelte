@@ -1,6 +1,6 @@
 <script>
   import { goto, invalidateAll } from '$app/navigation';
-  import { LoaderCircle, Save, Settings } from '@lucide/svelte';
+  import { LoaderCircle, Save } from '@lucide/svelte';
   import PageShell from '$lib/components/page-shell.svelte';
   import Sidebar from '$lib/components/sidebar.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -32,14 +32,18 @@
 </script>
 
 <svelte:head><title>Settings | Evenai</title></svelte:head>
-<PageShell user={data.user}>
+<PageShell>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
-  <main class="mx-auto min-h-screen w-full max-w-2xl px-5 py-12 pb-28 sm:px-8">
-    <div class="rounded-3xl border border-white/10 bg-[#12131a] p-6 shadow-2xl sm:p-8">
-      <div class="flex items-center gap-3"><span class="grid size-11 place-items-center rounded-2xl bg-cyan-400/10 text-cyan-300"><Settings size={21} /></span><div><h1 class="text-xl font-bold text-white">Settings</h1><p class="mt-1 text-sm text-ink-400">Your name is used on your Network Card, event profiles, and connections.</p></div></div>
+  <main class="workspace-page workspace-form">
+    <header class="mb-6">
+      <h1 class="workspace-title">Settings</h1>
+    </header>
+    <form class="workspace-panel max-w-2xl p-5 sm:p-8" onsubmit={(event) => { event.preventDefault(); if (name.trim() && !saving) save(); }}>
+      <h2 class="text-lg font-semibold">Profile</h2>
+      <p class="mt-1 text-sm text-ink-400">Your name appears on your Network Card, event profiles, and connections.</p>
       <label class="mt-8 block text-sm font-medium text-ink-200" for="name">Your name<Input id="name" bind:value={name} class="mt-2 border-white/10 bg-white/5 text-white" maxlength="80" /></label>
       <p class="mt-2 text-xs leading-5 text-ink-500">Changing this name updates your existing Network Card and networking profiles.</p>
-      <Button class="mt-7 gap-2" disabled={saving || !name.trim()} onclick={save}>{#if saving}<LoaderCircle size={16} class="animate-spin" /> Saving…{:else}<Save size={16} /> Save name{/if}</Button>
-    </div>
+      <Button class="mt-7 gap-2" disabled={saving || !name.trim()} type="submit">{#if saving}<LoaderCircle size={16} class="animate-spin" /> Saving…{:else}<Save size={16} /> Save name{/if}</Button>
+    </form>
   </main>
 </PageShell>

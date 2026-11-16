@@ -28,11 +28,12 @@
   async function generatePrep(regenerate = false) {
     if (!connection?.id || generating) return;
 
+    const connectionId = connection.id;
     generating = true;
     generationError = "";
 
     try {
-      const url = `/api/meeting-prep?connection_id=${connection.id}${regenerate ? "&regenerate=true" : ""}`;
+      const url = `/api/meeting-prep?connection_id=${connectionId}${regenerate ? "&regenerate=true" : ""}`;
       const res = await fetch(url);
 
       if (!res.ok) {
@@ -44,7 +45,7 @@
           }
           throw new Error(errData.message || "AI request limit reached");
         }
-        throw new Error(errData.message || "Failed to generate Meeting Prep");
+        throw new Error(errData.message || errData.error || "Failed to generate Meeting Prep");
       }
 
       const data = await res.json();
@@ -53,7 +54,7 @@
       aiMeetingPrepStore.update((store) => {
         return {
           ...store,
-          [connection.id]: data,
+          [connectionId]: data,
         };
       });
 
@@ -195,11 +196,7 @@
               <Sparkles size={18} />
               Generate AI Meeting Prep
             </Button>
-            <div
-              class="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[11px] font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap z-50"
-            >
-              Uses 1 AI credit
-            </div>
+            <p class="text-xs text-ink-400">Uses 1 AI credit</p>
           </div>
           {#if generationError}
             <p class="mt-4 text-sm text-red-400">{generationError}</p>

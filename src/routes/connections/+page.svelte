@@ -131,11 +131,14 @@
 
 <svelte:head><title>Connections | Evenai</title></svelte:head>
 
-<PageShell user={data.user}>
+<PageShell fullHeight>
   <Sidebar user={data.user} {signingOut} onSignOut={signOut} />
-  <main class="-mt-8 min-h-[calc(100dvh-4.25rem)] lg:min-h-screen">
-    <div class="grid min-h-[calc(100dvh-4.25rem)] overflow-hidden bg-[#111216] lg:h-screen lg:min-h-0 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <aside class="{selectedConnection || selectedRequest ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col border-b border-white/10 bg-[#15161a] lg:border-b-0 lg:border-r">
+  <main class="min-h-[calc(100dvh-4.25rem)] lg:min-h-screen">
+    <div class="grid min-h-[calc(100dvh-4.25rem)] overflow-hidden bg-background lg:h-screen lg:min-h-0 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <aside class="{selectedConnection || selectedRequest ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col border-b border-white/10 bg-card lg:border-b-0 lg:border-r">
+        <header class="border-b border-border px-4 py-5 sm:px-6">
+          <h1 class="workspace-title">Connections</h1>
+        </header>
         <div class="min-h-0 flex-1 overflow-y-auto">
           {#if loadingConnections}
             <div class="flex justify-center py-12 text-sm text-ink-400"><LoaderCircle size={16} class="mr-2 animate-spin" /> Loading people</div>
@@ -147,7 +150,7 @@
                   <Avatar class="size-10 shrink-0 border {person.hasMet ? 'border-teal-400/40' : 'border-white/10'}"><AvatarImage src={person.profile?.avatar_url ?? undefined} /><AvatarFallback>{getInitials(person.profile?.display_name)}</AvatarFallback></Avatar><span class="min-w-0 flex-1"><span class="flex items-center gap-1 truncate text-sm font-medium text-white">{person.profile?.display_name ?? "Unknown"}{#if person.hasMet}<CalendarHeart size={13} class="shrink-0 text-teal-300" />{/if}</span><span class="block truncate text-xs {person.hasMet ? 'text-teal-200/80' : 'text-ink-500'}">{person.hasMet ? 'Met' : person.connection?.event_name ?? 'Connected'}</span></span>
                 </button>
               {/each}
-            {:else}<p class="px-4 py-8 text-center text-sm text-ink-500">No accepted connections yet.</p>{/if}
+            {:else}<p class="px-4 py-8 text-center text-sm text-ink-500">No accepted connections yet.<a href="/discover" class="mt-2 block text-primary underline underline-offset-4">Discover events</a></p>{/if}
             {#if receivedRequests.length}
               <div class="border-y border-white/8 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-cyan-300">Received requests</div>
               {#each receivedRequests as request (request.id)}
@@ -168,29 +171,21 @@
         </div>
         {#if connectionsHasMore}<div class="border-t border-white/8 p-3"><Button variant="outline" class="w-full border-white/10" disabled={loadingMoreConnections} onclick={loadMoreConnections}>{loadingMoreConnections ? "Loading…" : "Load more"}</Button></div>{/if}
       </aside>
-      <section class="{selectedConnection || selectedRequest ? 'flex lg:block' : 'hidden lg:block'} h-[calc(100dvh-4.25rem)] min-h-0 flex-col bg-[#101114] lg:h-full">
-        <button type="button" class="flex shrink-0 w-full items-center gap-2 border-b border-white/8 bg-[#15161a] px-4 py-3 text-sm font-medium text-ink-300 hover:bg-white/5 lg:hidden" onclick={returnToPeople}>
+      <section class="{selectedConnection || selectedRequest ? 'flex lg:block' : 'hidden lg:block'} h-[calc(100dvh-4.25rem)] min-h-0 flex-col bg-background lg:h-full">
+        <button type="button" class="flex shrink-0 w-full items-center gap-2 border-b border-white/8 bg-card px-4 py-3 text-sm font-medium text-ink-300 hover:bg-white/5 lg:hidden" onclick={returnToPeople}>
           <ArrowLeft size={16} /> People
         </button>
         {#if selectedConnection}
           {#await import("$lib/components/connection-chat-window.svelte")}<p role="status">Loading chat…</p>{:then module}<svelte:component this={module.default} connection={selectedConnection} currentUserId={data.user?.id} history={selectedHistory} />{:catch}<p role="alert">Could not load chat. Please reload and retry.</p>{/await}
         {:else if selectedRequest}
-          <div class="flex h-full min-h-[580px] flex-col items-center justify-center rounded-2xl border border-white/8 bg-white/[0.02] px-6 text-center">
+          <div class="flex h-full min-h-0 flex-col items-center justify-center rounded-2xl border border-white/8 bg-white/[0.02] px-6 text-center">
             <Avatar class="mb-4 size-16 border border-white/10"><AvatarImage src={selectedRequest.profile?.avatar_url ?? undefined} /><AvatarFallback>{getInitials(selectedRequest.profile?.display_name)}</AvatarFallback></Avatar><h2 class="text-xl font-semibold text-white">{selectedRequest.profile?.display_name ?? "Connection request"}</h2><p class="mt-2 max-w-sm text-sm leading-6 text-ink-400">{selectedRequest.type === "received" ? `Wants to connect with you from ${selectedRequest.event_name}.` : `Your request from ${selectedRequest.event_name} is awaiting acceptance. Chat will unlock once they accept.`}</p>
             {#if selectedRequest.type === "received"}<div class="mt-6 flex gap-3"><Button disabled={updatingRequest} onclick={() => updateRequest("accepted")} class="gap-2"><Check size={16} /> Accept</Button><Button disabled={updatingRequest} variant="outline" onclick={() => updateRequest("rejected")} class="gap-2 border-white/10"><X size={16} /> Decline</Button></div>{:else}<div class="mt-6 inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-sm text-amber-200"><Lock size={14} /> Chat locked until accepted</div>{/if}
           </div>
         {:else}
-          <div class="flex h-full min-h-[580px] flex-col items-center justify-center rounded-2xl border border-white/8 bg-[radial-gradient(circle_at_top,#17212a_0%,#101114_55%)] px-6 text-center"><div class="mb-5 flex size-16 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300"><MessageCircle size={28} /></div><h2 class="text-xl font-semibold text-white">Select a conversation</h2><p class="mt-2 max-w-sm text-sm leading-6 text-ink-400">Choose a connected person from the sidebar to view your chat and shared event history.</p></div>
+          <div class="flex h-full min-h-0 flex-col items-center justify-center bg-background px-6 text-center"><div class="mb-5 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><MessageCircle size={28} /></div><h2 class="text-xl font-semibold text-white">Select a conversation</h2><p class="mt-2 max-w-sm text-sm leading-6 text-ink-400">Choose a connected person from the sidebar to view your chat and shared event history.</p></div>
         {/if}
       </section>
     </div>
   </main>
 </PageShell>
-
-<style>
-  /* The chat already reserves exactly the mobile navigation height. Avoid the
-     PageShell's additional generic page padding creating an empty strip below it. */
-  @media (max-width: 767px) {
-    :global(.page-content) { padding-bottom: 0 !important; }
-  }
-</style>

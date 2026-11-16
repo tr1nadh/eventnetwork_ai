@@ -2139,6 +2139,7 @@
   matchesStore.set(data.suggestedMatches ?? []);
 
   async function fetchMatches() {
+    if (refreshingMatches) return;
     refreshingMatches = true;
     try {
       const res = await fetch(
@@ -2158,12 +2159,16 @@
         }
         throw new Error("Failed to fetch matches");
       }
+      if (res.headers.get("content-type")?.includes("application/json")) {
+        const { recommendations } = await res.json();
+        matchesStore.set(recommendations);
+        return;
+      }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
 
-      matchesStore.set([]); // Clear existing matches while streaming new ones
-      let creditDeducted = false;
+      let received = [];
 
       while (true) {
         const { value, done } = await reader.read();
@@ -2178,17 +2183,15 @@
           if (line.trim()) {
             try {
               const match = JSON.parse(line);
-              matchesStore.update((matches) => [...matches, match]);
-              if (!creditDeducted) {
-                aiCreditsStore.useCredit();
-                creditDeducted = true;
-              }
+              received = [...received, match];
+              matchesStore.set(received);
             } catch (e) {
               console.warn("Error parsing JSON from stream:", line, e);
             }
           }
         }
       }
+      if (res.headers.get("X-AI-Credit-Used") === "1") aiCreditsStore.useCredit();
     } catch (error) {
       toast.error(error.message || "Could not find matches");
     } finally {
@@ -2969,7 +2972,7 @@
 
 <PageShell>
   <Sidebar user={data.user} {signingOut} {signingIn} onSignOut={signOut} onSignIn={signInWithGoogle} />
-  <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+  <main class="workspace-page">
     {#if data.user}
       <div class="mb-6 animate-slide-up">
         <button
@@ -2989,7 +2992,7 @@
         class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start animate-fade-in"
       >
         <!-- Left: Event info -->
-        <div class="glass rounded-3xl border border-white/8 overflow-hidden">
+        <div class="workspace-panel overflow-hidden">
           <div
             class="h-1 bg-gradient-to-r from-amber-400 via-amber-300/50 to-transparent"
           ></div>
@@ -3007,7 +3010,7 @@
               <div class="mb-4 flex items-center gap-4">
 
                 <h1
-                  class="text-4xl font-black tracking-tight text-white sm:text-6xl"
+                  class="workspace-title"
                 >
                   {currentEvent.name}
                   {#if data.isParticipant}
@@ -3139,7 +3142,7 @@
               </Badge>
               <div class="space-y-2">
                 <h1
-                  class="text-2xl font-black tracking-tight text-white sm:text-3xl"
+                  class="workspace-title"
                 >
                   ✨ Magic AI Profile Auto-Fill
                 </h1>
@@ -3377,7 +3380,7 @@
                 <div class="flex items-center justify-center gap-4">
 
                   <h1
-                    class="text-4xl sm:text-5xl font-black tracking-tight text-white"
+                    class="workspace-title"
                   >
                     {currentEvent.name}
                   </h1>
@@ -3685,7 +3688,7 @@
 
                   <Tabs.Trigger
                     value="attendees"
-                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=inactive]:text-ink-500 hover:text-indigo-200"
                   >
                     <Users size={16} />
                     <span class="flex items-center gap-1.5"
@@ -3725,7 +3728,7 @@
 
                   <Tabs.Trigger
                     value="settings"
-                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-indigo-400/15 data-[state=active]:text-indigo-200 data-[state=inactive]:text-ink-500 hover:text-indigo-200"
+                    class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=inactive]:text-ink-500 hover:text-indigo-200"
                   >
                     <Settings size={16} />
                     <span>Settings</span>
@@ -3762,7 +3765,7 @@
                   {#if Boolean(currentEvent.is_network_enabled)}
                     <Tabs.Trigger
                       value="network"
-                      class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-violet-400/15 data-[state=active]:text-violet-200 data-[state=inactive]:text-ink-500 hover:text-violet-200"
+                      class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=inactive]:text-ink-500 hover:text-violet-200"
                     >
                       <Network size={16} />
                       <span class="flex items-center gap-1.5"
@@ -3786,7 +3789,7 @@
                   {#if Boolean(currentEvent.is_venue_enabled)}
                     <Tabs.Trigger
                       value="venue"
-                      class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-emerald-400/15 data-[state=active]:text-emerald-200 data-[state=inactive]:text-ink-500 hover:text-emerald-200"
+                      class="flex items-center justify-center gap-1.5 py-2.5 px-5 text-xs sm:text-sm font-medium transition-colors duration-200 min-w-max data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=inactive]:text-ink-500 hover:text-emerald-200"
                     >
                       <MapPin size={16} />
                       <span>Venue</span>
@@ -4032,7 +4035,7 @@
                         <!-- Header: Avatar + Info -->
                         <div class="flex items-start gap-3">
                           <div
-                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-indigo-400/30 text-indigo-200 font-bold text-lg shadow-inner"
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary border border-border text-foreground font-bold text-lg shadow-inner"
                           >
                             {attendee.name
                               ? attendee.name.charAt(0).toUpperCase()
@@ -4145,7 +4148,7 @@
                           {:else}
                             <Button
                               size="sm"
-                              class="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-500 shadow-md"
+                              class="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
                               disabled={connectingIds.includes(
                                 attendee.user_id,
                               )}
@@ -4632,7 +4635,7 @@
             <!-- Networking profile dialog (portaled outside) -->
             <Dialog.Root bind:open={editProfileOpen}>
               <Dialog.Content
-                class="sm:max-w-2xl bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto"
+                class="sm:max-w-2xl bg-popover border border-white/10 text-white max-h-[90vh] overflow-y-auto"
               >
                 <Dialog.Header class="hidden">
                   <Dialog.Title>Edit networking profile</Dialog.Title>
@@ -4785,7 +4788,7 @@
                             </Badge>
                             <div class="space-y-2">
                               <h1
-                                class="text-2xl font-black tracking-tight text-white sm:text-3xl"
+                                class="workspace-title"
                               >
                                 ✨ Magic AI Profile Auto-Fill
                               </h1>
@@ -4937,7 +4940,7 @@
                             </div>
                             <div class="space-y-2">
                               <h1
-                                class="text-2xl font-black tracking-tight text-white sm:text-3xl"
+                                class="workspace-title"
                               >
                                 📝 Fill Networking Profile
                               </h1>
@@ -5005,7 +5008,7 @@
                               <Button
                                 onclick={saveProfile}
                                 disabled={savingProfile || !profileValid}
-                                class="h-10 px-6 gap-2 text-sm font-bold bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white shadow-lg shadow-violet-500/20"
+                                class="h-10 px-6 gap-2 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
                               >
                                 {#if savingProfile}
                                   <LoaderCircle
@@ -5203,7 +5206,7 @@
                                   >
                                     <Tabs.Trigger
                                       value="why"
-                                      class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-200"
+                                      class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
                                     >
                                       Why
                                     </Tabs.Trigger>
@@ -5407,7 +5410,7 @@
                                     >
                                       <Tabs.Trigger
                                         value="why"
-                                        class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-200"
+                                        class="rounded-lg py-1.5 text-xs font-semibold text-ink-400 data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
                                       >
                                         Why
                                       </Tabs.Trigger>
@@ -5488,7 +5491,7 @@
                               </div>
                             {:else}
                               <div
-                                class="h-0.5 bg-gradient-to-r from-violet-400 to-pink-400"
+                                class="h-0.5 bg-border"
                                 style="width: {conn.matchPercentage ?? 50}%"
                               ></div>
                               <div class="p-5 flex flex-col gap-3">
@@ -5662,7 +5665,7 @@
                   <!-- Create Dummy Users confirmation modal -->
                   <Dialog.Root bind:open={dummyModalOpen}>
                     <Dialog.Content
-                      class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+                      class="sm:max-w-lg bg-popover border border-white/10 text-white"
                     >
                       <Dialog.Header>
                         <Dialog.Title
@@ -5731,7 +5734,7 @@
                   <!-- Find Matches Modal -->
                   <Dialog.Root bind:open={findMatchesModalOpen}>
                     <Dialog.Content
-                      class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+                      class="sm:max-w-lg bg-popover border border-white/10 text-white"
                     >
                       <Dialog.Header>
                         <Dialog.Title
@@ -5810,7 +5813,7 @@
                   <!-- Dummy user connect confirmation modal -->
                   <Dialog.Root bind:open={dummyConnectModalOpen}>
                     <Dialog.Content
-                      class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
+                      class="sm:max-w-md bg-popover border border-white/10 text-white"
                     >
                       <Dialog.Header>
                         <Dialog.Title
@@ -5964,7 +5967,7 @@
                           >
                             <Tabs.Trigger
                               value="ai-insights"
-                              class="rounded-lg text-xs font-semibold data-[state=active]:bg-cyan-400/20 data-[state=active]:text-cyan-300"
+                              class="rounded-lg text-xs font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
                             >
                               🤖 AI Insights
                             </Tabs.Trigger>
@@ -6145,7 +6148,7 @@
               <!-- Create Dummy Users confirmation modal -->
               <Dialog.Root bind:open={dummyModalOpen}>
                 <Dialog.Content
-                  class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+                  class="sm:max-w-lg bg-popover border border-white/10 text-white"
                 >
                   <Dialog.Header>
                     <Dialog.Title
@@ -6213,7 +6216,7 @@
               <!-- Find Matches Modal -->
               <Dialog.Root bind:open={findMatchesModalOpen}>
                 <Dialog.Content
-                  class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white"
+                  class="sm:max-w-lg bg-popover border border-white/10 text-white"
                 >
                   <Dialog.Header>
                     <Dialog.Title
@@ -6292,7 +6295,7 @@
             <!-- Dummy user connect confirmation modal -->
             <Dialog.Root bind:open={dummyConnectModalOpen}>
               <Dialog.Content
-                class="sm:max-w-md bg-[#0f0f11] border border-white/10 text-white"
+                class="sm:max-w-md bg-popover border border-white/10 text-white"
               >
                 <Dialog.Header>
                   <Dialog.Title
@@ -6375,7 +6378,7 @@
                       class="glass card-hover rounded-2xl border border-white/8 overflow-hidden"
                     >
                       <div
-                        class="h-0.5 bg-gradient-to-r from-purple-400 to-pink-400"
+                        class="h-0.5 bg-border"
                         style="width: {conn.matchPercentage ?? 50}%"
                       ></div>
                       <div class="p-5 flex flex-col gap-2">
@@ -8347,7 +8350,7 @@
     <!-- Edit Event Modal -->
     <Dialog.Root bind:open={editEventModalOpen}>
       <Dialog.Content
-        class="sm:max-w-lg bg-[#0f0f11] border border-white/10 text-white max-h-[90vh] overflow-y-auto"
+        class="sm:max-w-lg bg-popover border border-white/10 text-white max-h-[90vh] overflow-y-auto"
       >
         <Dialog.Header>
           <Dialog.Title class="text-xl font-bold">Edit Event</Dialog.Title>
@@ -8572,7 +8575,7 @@
     <!-- Delete Event Modal -->
     <Dialog.Root bind:open={deleteEventModalOpen}>
       <Dialog.Content
-        class="sm:max-w-md bg-[#0f0f11] border border-red-500/20 text-white"
+        class="sm:max-w-md bg-popover border border-red-500/20 text-white"
       >
         <Dialog.Header>
           <Dialog.Title class="text-xl font-bold text-red-400"
@@ -8627,7 +8630,7 @@
     <!-- Announcement Create/Edit Modal -->
     <Dialog.Root bind:open={showAnnouncementModal}>
       <Dialog.Content
-        class="sm:max-w-xl bg-[#0f0f11] border border-white/10 text-white p-6 sm:p-8"
+        class="sm:max-w-xl bg-popover border border-white/10 text-white p-6 sm:p-8"
       >
         <Dialog.Header class="space-y-1.5 mb-5">
           <div class="flex items-center gap-2">

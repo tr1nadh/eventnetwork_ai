@@ -242,6 +242,7 @@
   async function generateIcebreakers() {
     if (!connection?.id || generatingIcebreakers) return;
 
+    const connectionId = connection.id;
     generatingIcebreakers = true;
     icebreakerError = '';
 
@@ -250,7 +251,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ connection_id: connection.id })
+        body: JSON.stringify({ connection_id: connectionId })
       });
       const payload = await res.json().catch(() => ({}));
 
@@ -263,7 +264,7 @@
         throw new Error(payload.message || payload.error || 'Could not generate icebreakers');
       }
 
-      setConnectionIcebreakers(connection.id, payload.questions ?? []);
+      setConnectionIcebreakers(connectionId, payload.questions ?? []);
       aiCreditsStore.useCredit();
       icebreakerConfirmOpen = false;
       toast.success('Icebreakers generated');

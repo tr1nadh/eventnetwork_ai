@@ -3865,7 +3865,9 @@
                           <div class="flex flex-wrap items-center gap-2">
                             <span class="font-semibold">{person.name}</span>
                             {#if person.has_network_profile}
-                              <Badge variant="secondary">Networking profile</Badge>
+                              <span role="img" aria-label="Has a networking profile" title="Has a networking profile" class="inline-flex shrink-0 text-primary">
+                                <Network size={16} aria-hidden="true" />
+                              </span>
                             {/if}
                           </div>
                           <p class="break-all text-sm text-muted-foreground">{person.email || "Email unavailable"}</p>
@@ -3939,7 +3941,9 @@
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <h3 class="min-w-0 break-words text-base font-semibold">{attendee.name}</h3>
                           {#if attendee.has_network_profile}
-                            <Badge variant="secondary">Networking profile</Badge>
+                            <span role="img" aria-label="Has a networking profile" title="Has a networking profile" class="inline-flex shrink-0 text-primary">
+                              <Network size={16} aria-hidden="true" />
+                            </span>
                           {/if}
                         </div>
                         <p class="break-all text-sm text-muted-foreground">{attendee.email || "Email unavailable"}</p>

@@ -108,11 +108,17 @@ test('host roster recovers auth emails and identifies saved networking profiles'
     event_participants: [{ user_id: 'member', status: 'joined' }, { user_id: 'pending', status: 'requested' }],
     network_profiles: [{ ...viewer, user_id: 'member' }]
   };
+  let batchLookups = 0;
   globalThis.matchTest.admin = {
-    rpc: async () => ({ error: { code: 'PGRST202' } }),
+    rpc: async () => { batchLookups++; return { error: { code: 'PGRST202' } }; },
     auth: { admin: { getUserById: async id => ({ data: { user: { email: id + '@example.test' } } }) } },
     from(table) {
-      return { data: rows[table], select() { return this; }, eq() { return this; },
+      return { data: rows[table], select(fields) {
+        if (table === 'network_profiles' && fields.includes('is_dummy')) {
+          this.error = { code: '42703', message: 'column network_profiles.is_dummy does not exist' };
+        }
+        return this;
+      }, eq() { return this; },
         in() { return this; }, or() { return this; }, maybeSingle() { return this; } };
     }
   };
@@ -124,6 +130,9 @@ test('host roster recovers auth emails and identifies saved networking profiles'
   const pending = host.attendees.find(person => person.user_id === 'pending');
   assert.equal(pending.email, 'pending@example.test');
   assert.equal(pending.has_network_profile, false);
+  const joined = await (await listAttendees({ url: new URL('http://local/?event_id=event&status=joined'), locals: { user: { id: 'host' } } })).json();
+  assert.equal(joined.attendees.find(person => person.user_id === 'member').email, 'member@example.test');
+  assert.equal(batchLookups, 1);
   const guest = await (await listAttendees({ url, locals: {} })).json();
   assert.ok(guest.attendees.every(person => !('email' in person)));
 });

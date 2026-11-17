@@ -1,3 +1,4 @@
+import { selectNetworkProfiles } from './network-profile-query.js';
 import { error } from '@sveltejs/kit';
 import { hasNetworkingProfile } from '../network-profile.js';
 
@@ -40,9 +41,9 @@ export async function rankNetworkMatches(supabase, eventId, user) {
 
   // Fetch other participants in the same event
   const [profiles, registrations, event] = await Promise.all([
-    supabase.from('network_profiles')
-      .select('user_id, display_name, what_i_do, looking_for, about_me, about_user_embed, looking_for_embed, is_dummy')
-      .eq('event_id', eventId).neq('user_id', user.id).not('about_user_embed', 'is', null),
+    selectNetworkProfiles('user_id, display_name, what_i_do, looking_for, about_me, about_user_embed, looking_for_embed',
+      columns => supabase.from('network_profiles').select(columns)
+        .eq('event_id', eventId).neq('user_id', user.id).not('about_user_embed', 'is', null)),
     supabase.from('event_participants').select('user_id').eq('event_id', eventId).eq('status', 'joined'),
     supabase.from('events').select('created_by').eq('id', eventId).maybeSingle()
   ]);

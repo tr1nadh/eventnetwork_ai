@@ -1,3 +1,4 @@
+import { selectNetworkProfiles } from '../../../lib/server/network-profile-query.js';
 import { networkingIntent, hasNetworkingProfile } from '$lib/network-profile';
 import { json, error } from '@sveltejs/kit';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
@@ -5,11 +6,20 @@ import { demoEvent, demoAttendees } from '$lib/demo';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
+let retryBatchEmailLookupAt = 0;
+
 async function loadRosterEmails(admin, userIds) {
-  const { data, error } = await admin.rpc('attendee_auth_emails', { user_ids: userIds });
-  const emails = data ?? {};
+  let emails = {};
+  if (Date.now() >= retryBatchEmailLookupAt) {
+    const { data, error } = await admin.rpc('attendee_auth_emails', { user_ids: userIds });
+    if (error?.code === 'PGRST202') {
+      retryBatchEmailLookupAt = Date.now() + 5 * 60_000;
+    } else if (error) {
+      console.warn('Batch attendee email lookup failed:', error.code);
+    }
+    emails = data ?? {};
+  }
   const missing = userIds.filter(id => !emails[id]);
-  if (error) console.warn('Batch attendee email lookup failed:', error.code);
   for (let start = 0; start < missing.length; start += 8) {
     await Promise.all(missing.slice(start, start + 8).map(async id => {
       const { data: account } = await admin.auth.admin.getUserById(id);
@@ -121,13 +131,11 @@ export async function GET({ url, locals }) {
     }
 
     // 2. Parallel fetch network_profiles, users info, and active user connections
-    const hostRoster = isOrganizer && statusFilter === 'all';
+    const fields = 'user_id, display_name, what_i_do, looking_for, about_me';
+    const profileQuery = columns => admin.from('network_profiles').select(columns)
+      .eq('event_id', realEventId).in('user_id', participantUserIds);
     const [profilesRes, usersRes, connectionsRes, attendeeEmails] = await Promise.all([
-      admin
-        .from('network_profiles')
-        .select(hostRoster ? 'user_id, display_name, what_i_do, looking_for, about_me' : 'user_id, display_name, what_i_do, looking_for, about_me, is_dummy')
-        .eq('event_id', realEventId)
-        .in('user_id', participantUserIds),
+      isOrganizer && statusFilter === 'all' ? profileQuery(fields) : selectNetworkProfiles(fields, profileQuery),
       admin
         .from('users')
         .select('id, name, avatar_url')

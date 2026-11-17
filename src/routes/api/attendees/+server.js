@@ -5,6 +5,20 @@ import { demoEvent, demoAttendees } from '$lib/demo';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
+async function loadRosterEmails(admin, userIds) {
+  const { data, error } = await admin.rpc('attendee_auth_emails', { user_ids: userIds });
+  const emails = data ?? {};
+  const missing = userIds.filter(id => !emails[id]);
+  if (error) console.warn('Batch attendee email lookup failed:', error.code);
+  for (let start = 0; start < missing.length; start += 8) {
+    await Promise.all(missing.slice(start, start + 8).map(async id => {
+      const { data: account } = await admin.auth.admin.getUserById(id);
+      if (account?.user?.email) emails[id] = account.user.email;
+    }));
+  }
+  return emails;
+}
+
 export async function GET({ url, locals }) {
   try {
   const eventParam = url.searchParams.get('event_id') || '';
@@ -32,6 +46,7 @@ export async function GET({ url, locals }) {
         role: a.role,
         about: a.about,
         looking_for: a.lookingFor,
+        has_network_profile: true,
         is_dummy: true,
         is_host: idx === 0,
         is_current_user: false,
@@ -106,10 +121,11 @@ export async function GET({ url, locals }) {
     }
 
     // 2. Parallel fetch network_profiles, users info, and active user connections
-    const [profilesRes, usersRes, connectionsRes, emailResult] = await Promise.all([
+    const hostRoster = isOrganizer && statusFilter === 'all';
+    const [profilesRes, usersRes, connectionsRes, attendeeEmails] = await Promise.all([
       admin
         .from('network_profiles')
-        .select('user_id, display_name, what_i_do, looking_for, about_me, is_dummy, created_at')
+        .select(hostRoster ? 'user_id, display_name, what_i_do, looking_for, about_me' : 'user_id, display_name, what_i_do, looking_for, about_me, is_dummy')
         .eq('event_id', realEventId)
         .in('user_id', participantUserIds),
       admin
@@ -124,10 +140,11 @@ export async function GET({ url, locals }) {
             .or(`sender_user_id.eq.${user.id},receiver_user_id.eq.${user.id}`)
         : Promise.resolve({ data: [] }),
       isOrganizer
-        ? admin.rpc('attendee_auth_emails', { user_ids: participantUserIds })
-        : Promise.resolve({ data: {} })
+        ? loadRosterEmails(admin, participantUserIds)
+        : Promise.resolve({})
     ]);
 
+    if (profilesRes.error) throw profilesRes.error;
     const profilesMap = {};
     for (const p of profilesRes.data || []) {
       profilesMap[p.user_id] = p;
@@ -139,9 +156,6 @@ export async function GET({ url, locals }) {
     }
 
     const connections = connectionsRes.data || [];
-    if (emailResult.error) console.error('Failed to load attendee emails:', emailResult.error);
-    const attendeeEmails = emailResult.data ?? {};
-
     // 3. Map EVERY participant from event_participants (and host) into attendee items
     const visibleIds = url.searchParams.get('network_profiles_only') === 'true'
       ? participantUserIds.filter(id => id !== hostUserId && participantsByUser.get(id)?.status === 'joined' && hasNetworkingProfile(profilesMap[id]))
@@ -188,6 +202,7 @@ export async function GET({ url, locals }) {
         role,
         about,
         looking_for: lookingForStr,
+        has_network_profile: Boolean(prof),
         is_dummy: Boolean(prof?.is_dummy),
         is_host: isHost,
         is_current_user: isCurrentUser,

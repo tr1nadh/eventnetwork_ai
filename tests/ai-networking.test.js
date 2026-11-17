@@ -102,6 +102,32 @@ test('All requires all three answers, while the registration roster keeps every 
   assert.deepEqual(await attendeeIds(''), ids.sort());
 });
 
+test('host roster recovers auth emails and identifies saved networking profiles', async () => {
+  const rows = {
+    events: { id: 'event', created_by: 'host' }, connections: [], users: [],
+    event_participants: [{ user_id: 'member', status: 'joined' }, { user_id: 'pending', status: 'requested' }],
+    network_profiles: [{ ...viewer, user_id: 'member' }]
+  };
+  globalThis.matchTest.admin = {
+    rpc: async () => ({ error: { code: 'PGRST202' } }),
+    auth: { admin: { getUserById: async id => ({ data: { user: { email: id + '@example.test' } } }) } },
+    from(table) {
+      return { data: rows[table], select() { return this; }, eq() { return this; },
+        in() { return this; }, or() { return this; }, maybeSingle() { return this; } };
+    }
+  };
+  const url = new URL('http://local/?event_id=event&status=all');
+  const host = await (await listAttendees({ url, locals: { user: { id: 'host' } } })).json();
+  const member = host.attendees.find(person => person.user_id === 'member');
+  assert.equal(member.email, 'member@example.test');
+  assert.equal(member.has_network_profile, true);
+  const pending = host.attendees.find(person => person.user_id === 'pending');
+  assert.equal(pending.email, 'pending@example.test');
+  assert.equal(pending.has_network_profile, false);
+  const guest = await (await listAttendees({ url, locals: {} })).json();
+  assert.ok(guest.attendees.every(person => !('email' in person)));
+});
+
 test('a missing explanation falls back only for that attendee', async () => {
   const { matches } = await runMatches(candidates.slice(0, 2), { 1: 'You both design tools.' });
   assert.equal(matches[1].explanation, 'You both design tools.');

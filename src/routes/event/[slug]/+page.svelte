@@ -42,7 +42,6 @@
     Trash2,
     Search,
     UserPlus,
-    UserCheck,
     Clock,
     MapPinOff,
     ChevronDown,
@@ -2331,23 +2330,25 @@
   let reviewingRequest = null;
   let loadingAttendees = false;
   let attendeeSearchQuery = "";
-  let attendeeSearchTimeout = null;
+  $: rosterQuery = attendeeSearchQuery.trim().toLowerCase();
+  $: visibleAttendees = attendeesList.filter(person =>
+    [person.name, person.email].some(value => value?.toLowerCase().includes(rosterQuery))
+  );
 
-  async function fetchAttendees(query = attendeeSearchQuery) {
+  async function fetchAttendees() {
     const eventIdOrSlug = data.event?.id || data.event?.slug || "";
     if (!eventIdOrSlug) return;
     loadingAttendees = true;
     try {
-      const q = encodeURIComponent(query.trim());
       const res = await fetch(
-        `/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&q=${q}&status=${data.isOrganizer ? "all" : "joined"}`,
+        `/api/attendees?event_id=${encodeURIComponent(eventIdOrSlug)}&status=${data.isOrganizer ? "all" : "joined"}`,
         {
           credentials: "include",
         },
       );
       if (!res.ok) throw new Error("Failed to fetch attendees");
       const { attendees } = await res.json();
-      attendeesList = attendees.filter((person) => person.registrationStatus === "joined" || !person.registrationStatus);
+      attendeesList = attendees.filter((person) => !person.is_host && person.user_id !== data.event.created_by && (person.registrationStatus === "joined" || !person.registrationStatus));
       attendanceRequests = attendees.filter((person) => ["waitlisted", "requested"].includes(person.registrationStatus));
     } catch (e) {
       toast.error("Could not load attendees");
@@ -2371,35 +2372,6 @@
       toast.error(err.message);
     } finally {
       reviewingRequest = null;
-    }
-  }
-
-  function handleAttendeeSearchInput(e) {
-    attendeeSearchQuery = e.target.value;
-    if (attendeeSearchTimeout) clearTimeout(attendeeSearchTimeout);
-    attendeeSearchTimeout = setTimeout(() => {
-      fetchAttendees(attendeeSearchQuery);
-    }, 300);
-  }
-
-  async function handleConnectAttendee(attendee) {
-    await connectUser({
-      user_id: attendee.user_id,
-      is_dummy: attendee.is_dummy,
-    });
-    attendeesList = attendeesList.map((a) =>
-      a.user_id === attendee.user_id ? { ...a, connectionStatus: "sent" } : a,
-    );
-  }
-
-  async function handleAcceptAttendee(attendee) {
-    if (attendee.connectionId) {
-      await updateConnection(attendee.connectionId, "accepted");
-      attendeesList = attendeesList.map((a) =>
-        a.user_id === attendee.user_id
-          ? { ...a, connectionStatus: "connected" }
-          : a,
-      );
     }
   }
 
@@ -3889,58 +3861,30 @@
                     <h2 class="font-semibold text-white">Attendance requests ({attendanceRequests.length})</h2>
                     {#each attendanceRequests as person (person.user_id)}
                       <div class="flex flex-wrap items-center gap-2">
-                        <span class="mr-auto">{person.name}</span>
+                        <div class="mr-auto min-w-0">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-semibold">{person.name}</span>
+                            {#if person.has_network_profile}
+                              <Badge variant="secondary">Networking profile</Badge>
+                            {/if}
+                          </div>
+                          <p class="break-all text-sm text-muted-foreground">{person.email || "Email unavailable"}</p>
+                        </div>
                         <Button disabled={Boolean(reviewingRequest)} onclick={() => reviewAttendanceRequest(person.user_id, "approve")}>Approve</Button>
                         <Button variant="outline" disabled={Boolean(reviewingRequest)} onclick={() => reviewAttendanceRequest(person.user_id, "reject")}>Decline</Button>
                       </div>
                     {/each}
                   </section>
                 {/if}
-                <!-- Attendees Header with Search and Refresh -->
-                <div
-                  class="glass rounded-2xl border border-white/8 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                >
-                  <div>
-                    <div class="flex items-center gap-2 mb-1">
-                      <Users size={18} class="text-indigo-400" />
-                      <h2 class="text-xl font-bold text-white">
-                        Joined Attendees
-                      </h2>
-                    </div>
-                    <p class="text-xs text-ink-400">
-                      Explore all members who have joined {currentEvent.name} and
-                      build your network.
-                    </p>
+                <div class="flex items-center gap-2">
+                  <div class="relative flex-1">
+                    <Search size={16} class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input type="search" aria-label="Search attendees by name or email"
+                      placeholder="Search by name or email" bind:value={attendeeSearchQuery} class="pl-9" />
                   </div>
-
-                  <div class="flex items-center gap-3 w-full sm:w-auto">
-                    <div class="relative flex-1 sm:w-64">
-                      <Search
-                        size={15}
-                        class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500"
-                      />
-                      <Input
-                        type="search"
-                        placeholder="Search by name, role, bio..."
-                        value={attendeeSearchQuery}
-                        oninput={handleAttendeeSearchInput}
-                        class="pl-9 bg-white/5 border-white/10 text-white placeholder:text-ink-500 h-9 text-xs focus:border-indigo-400/50 focus:ring-indigo-400/20"
-                      />
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      class="h-9 w-9 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 shrink-0"
-                      onclick={() => fetchAttendees()}
-                      disabled={loadingAttendees}
-                      title="Refresh Attendees"
-                    >
-                      <RefreshCw
-                        size={15}
-                        class={loadingAttendees ? "animate-spin" : ""}
-                      />
-                    </Button>
-                  </div>
+                  <Button variant="outline" class="h-11 gap-2" onclick={() => fetchAttendees()} disabled={loadingAttendees}>
+                    <RefreshCw size={16} class={loadingAttendees ? "animate-spin" : ""} /> Refresh
+                  </Button>
                 </div>
 
                 <!-- Attendees Grid / Skeleton / Empty state -->
@@ -3950,19 +3894,12 @@
                       <div
                         class="glass rounded-2xl border border-white/8 p-5 space-y-4 animate-pulse"
                       >
-                        <div class="flex items-center gap-3">
-                          <div class="h-12 w-12 rounded-full bg-white/10"></div>
-                          <div class="space-y-2 flex-1">
-                            <div class="h-4 w-28 rounded bg-white/10"></div>
-                            <div class="h-3 w-20 rounded bg-white/10"></div>
-                          </div>
-                        </div>
-                        <div class="h-12 rounded bg-white/5"></div>
-                        <div class="h-9 rounded bg-white/10 w-full"></div>
+                        <div class="h-4 w-28 rounded bg-white/10"></div>
+                        <div class="h-3 w-40 rounded bg-white/10"></div>
                       </div>
                     {/each}
                   </div>
-                {:else if attendeesList.length === 0}
+                {:else if visibleAttendees.length === 0}
                   <div
                     class="glass rounded-2xl border border-white/8 p-12 text-center flex flex-col items-center justify-center"
                   >
@@ -3989,7 +3926,6 @@
                         size="sm"
                         onclick={() => {
                           attendeeSearchQuery = "";
-                          fetchAttendees("");
                         }}
                       >
                         Clear Search
@@ -3998,143 +3934,16 @@
                   </div>
                 {:else}
                   <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {#each attendeesList as attendee (attendee.user_id)}
-                      <div
-                        class="glass card-hover rounded-2xl border border-white/8 p-5 flex flex-col justify-between space-y-4 relative overflow-hidden"
-                      >
-                        <!-- Header: Avatar + Info -->
-                        <div class="flex items-start gap-3">
-                          <div
-                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary border border-border text-foreground font-bold text-lg shadow-inner"
-                          >
-                            {attendee.name
-                              ? attendee.name.charAt(0).toUpperCase()
-                              : "A"}
-                          </div>
-                          <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 flex-wrap">
-                              <h3
-                                class="text-base font-bold text-white truncate"
-                              >
-                                {attendee.name}
-                              </h3>
-                              {#if attendee.is_host}
-                                <Badge
-                                  variant="secondary"
-                                  class="gap-1 border-amber-400/30 bg-amber-400/10 text-amber-300 text-[10px] font-bold px-2 py-0.5"
-                                >
-                                  <Crown size={11} /> Host
-                                </Badge>
-                              {/if}
-                              {#if attendee.is_current_user}
-                                <Badge
-                                  variant="secondary"
-                                  class="border-indigo-400/30 bg-indigo-400/10 text-indigo-300 text-[10px] font-bold px-2 py-0.5"
-                                >
-                                  You
-                                </Badge>
-                              {/if}
-                            </div>
-                            <p
-                              class="text-xs text-indigo-300 font-medium truncate mt-0.5"
-                            >
-                              {attendee.role || "Participant"}
-                            </p>
-                            {#if data.isOrganizer && attendee.email}
-                              <p
-                                class="mt-1 truncate text-xs text-ink-400"
-                                title={attendee.email}
-                              >
-                                {attendee.email}
-                              </p>
-                            {/if}
-                          </div>
-                        </div>
-
-                        <!-- Bio & Looking For -->
-                        <div class="space-y-2 flex-1">
-                          {#if attendee.about}
-                            <p
-                              class="text-xs text-ink-300 line-clamp-3 leading-relaxed bg-white/4 p-2.5 rounded-xl border border-white/5"
-                            >
-                              {attendee.about}
-                            </p>
-                          {/if}
-
-                          {#if attendee.looking_for}
-                            <div class="pt-1">
-                              <p
-                                class="text-[10px] uppercase tracking-wider font-semibold text-ink-500 mb-1"
-                              >
-                                Looking For
-                              </p>
-                              <p
-                                class="text-xs text-ink-300 bg-indigo-400/5 border border-indigo-400/15 p-2 rounded-lg line-clamp-2"
-                              >
-                                {attendee.looking_for}
-                              </p>
-                            </div>
+                    {#each visibleAttendees as attendee (attendee.user_id)}
+                      <article class="workspace-panel min-w-0 space-y-1 p-4">
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <h3 class="min-w-0 break-words text-base font-semibold">{attendee.name}</h3>
+                          {#if attendee.has_network_profile}
+                            <Badge variant="secondary">Networking profile</Badge>
                           {/if}
                         </div>
-
-                        <!-- Action Button -->
-                        <div class="pt-2 border-t border-white/6">
-                          {#if attendee.is_current_user}
-                            <Badge
-                              variant="outline"
-                              class="w-full justify-center py-2 text-ink-400 border-white/10 text-xs"
-                            >
-                              Your Profile
-                            </Badge>
-                          {:else if attendee.connectionStatus === "connected" || attendee.connectionStatus === "met"}
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              class="w-full gap-2 border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
-                              onclick={() => {
-                                networkFilter = "connected";
-                                activeTab.set("network");
-                              }}
-                            >
-                              <CheckCheck size={14} /> Connected
-                            </Button>
-                          {:else if attendee.connectionStatus === "rejected" || attendee.connectionStatus === "cancelled"}
-                            <p class="text-sm text-ink-400">{attendee.connectionStatus === "rejected" ? "Request declined" : "Request cancelled"}</p>
-                          {:else if attendee.connectionStatus === "sent"}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled
-                              class="w-full gap-2 border-amber-400/30 bg-amber-400/10 text-amber-300 opacity-90 cursor-not-allowed"
-                            >
-                              <Clock size={14} /> Request Sent
-                            </Button>
-                          {:else if attendee.connectionStatus === "received"}
-                            <Button
-                              size="sm"
-                              class="w-full gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:opacity-90 shadow-md"
-                              onclick={() => handleAcceptAttendee(attendee)}
-                            >
-                              <UserCheck size={14} /> Accept Request
-                            </Button>
-                          {:else}
-                            <Button
-                              size="sm"
-                              class="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
-                              disabled={connectingIds.includes(
-                                attendee.user_id,
-                              )}
-                              onclick={() => handleConnectAttendee(attendee)}
-                            >
-                              {#if connectingIds.includes(attendee.user_id)}
-                                <LoaderCircle size={14} class="animate-spin" /> Connecting…
-                              {:else}
-                                <UserPlus size={14} /> Connect
-                              {/if}
-                            </Button>
-                          {/if}
-                        </div>
-                      </div>
+                        <p class="break-all text-sm text-muted-foreground">{attendee.email || "Email unavailable"}</p>
+                      </article>
                     {/each}
                   </div>
                 {/if}

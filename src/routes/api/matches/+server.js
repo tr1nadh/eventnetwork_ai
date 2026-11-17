@@ -1,3 +1,4 @@
+import { loadSavedNetworkMatches } from '$lib/server/network-matches';
 import { json, error } from '@sveltejs/kit';
 
 export async function GET({ url, locals }) {
@@ -12,25 +13,6 @@ export async function GET({ url, locals }) {
     throw error(401, 'Unauthenticated');
   }
 
-  const { data: dbMatches, error: matchError } = await supabase
-    .from('matches')
-    .select('matched_user_id, match_details')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id);
-
-  if (matchError) {
-    throw error(500, matchError.message);
-  }
-
-  const matches = (dbMatches || []).map(m => ({
-    user_id: m.matched_user_id,
-    name: m.match_details.matched_profile?.display_name,
-    role: m.match_details.matched_profile?.what_i_do,
-    about: m.match_details.matched_profile?.about_me,
-    explanation: m.match_details.summary,
-    matchPercentage: m.match_details.score,
-    tags: []
-  })).sort((a, b) => (b.matchPercentage ?? 0) - (a.matchPercentage ?? 0));
-
+  const matches = await loadSavedNetworkMatches(supabase, eventId, user);
   return json({ matches });
 }

@@ -1,3 +1,4 @@
+import { networkingIntent, hasNetworkingProfile } from '$lib/network-profile';
 import { json, error } from '@sveltejs/kit';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { demoEvent, demoAttendees } from '$lib/demo';
@@ -142,17 +143,14 @@ export async function GET({ url, locals }) {
     const attendeeEmails = emailResult.data ?? {};
 
     // 3. Map EVERY participant from event_participants (and host) into attendee items
-    let attendees = participantUserIds.map((userId) => {
+    const visibleIds = url.searchParams.get('network_profiles_only') === 'true'
+      ? participantUserIds.filter(id => id !== hostUserId && participantsByUser.get(id)?.status === 'joined' && hasNetworkingProfile(profilesMap[id]))
+      : participantUserIds;
+    let attendees = visibleIds.map((userId) => {
       const prof = profilesMap[userId];
       const userRec = usersMap[userId];
 
-      let lookingForStr = prof?.looking_for ?? '';
-      try {
-        const parsed = JSON.parse(lookingForStr);
-        if (Array.isArray(parsed)) {
-          lookingForStr = parsed.join(', ');
-        }
-      } catch (e) {}
+      const lookingForStr = networkingIntent(prof?.looking_for);
 
       const isHost = userId === hostUserId;
       const isCurrentUser = Boolean(user && userId === user.id);
@@ -171,10 +169,10 @@ export async function GET({ url, locals }) {
           connectionId = conn.id;
           if (conn.status === 'accepted') {
             connectionStatus = conn.met_at ? 'met' : 'connected';
-          } else if (conn.sender_user_id === user.id) {
-            connectionStatus = 'sent';
+          } else if (conn.status === 'pending') {
+            connectionStatus = conn.sender_user_id === user.id ? 'sent' : 'received';
           } else {
-            connectionStatus = 'received';
+            connectionStatus = conn.status;
           }
         }
       }

@@ -1,4 +1,5 @@
 <script>
+  import NetworkAttendeeDirectory from "$lib/components/network-attendee-directory.svelte";
   import EventOverviewSchedule from "$lib/components/event-overview-schedule.svelte";
   import OnlineEventJoin from "$lib/components/online-event-join.svelte";
   import EventDateTime from "$lib/components/event-date-time.svelte";
@@ -2292,7 +2293,7 @@
   $: hasCompletedProfile = Boolean(data.networkProfile);
   let loadingConnections = false;
   let connectionFilter = "received"; // received | sent | connected | met
-  let networkFilter = "matches"; // matches | received | connected | sent | met
+  let networkFilter = "all"; // all | matches | received | connected | sent | met
   let chatOpen = false;
   let venueLocation = null;
   let activeChatConnectionId = null;
@@ -2499,8 +2500,6 @@
       });
       if (!res.ok) throw new Error("Failed to update connection");
 
-      const targetConn = $connectionsStore.find((c) => c.id === connectionId);
-
       connectionsStore.update((conns) => {
         return conns.map((c) => {
           if (c.id === connectionId) {
@@ -2513,36 +2512,6 @@
           return c;
         });
       });
-
-      // If accepted or rejected, add to matchesStore if not already present
-      if (targetConn && (newStatus === "accepted" || newStatus === "rejected")) {
-        const otherUserId =
-          targetConn.sender_user_id === data.user?.id
-            ? targetConn.receiver_user_id
-            : targetConn.sender_user_id;
-
-        const alreadyInMatches = $matchesStore.some(
-          (m) => m.user_id === otherUserId,
-        );
-
-        if (!alreadyInMatches && otherUserId) {
-          const newMatch = {
-            user_id: otherUserId,
-            name: targetConn.profile?.display_name || "Attendee",
-            role: targetConn.profile?.what_i_do || "Participant",
-            about: targetConn.profile?.about_me || "",
-            company: targetConn.profile?.company || "",
-            explanation:
-              targetConn.explanation ||
-              (newStatus === "accepted"
-                ? "Connection request accepted."
-                : "Connection request."),
-            matchPercentage: targetConn.matchPercentage ?? 75,
-            tags: [],
-          };
-          matchesStore.update((matches) => [newMatch, ...matches]);
-        }
-      }
 
       toast.success(`Connection ${newStatus}`);
     } catch (e) {
@@ -2587,6 +2556,7 @@
   }
 
   async function doConnect(matchUserId) {
+    if (connectingIds.includes(matchUserId)) return;
     connectingIds = [...connectingIds, matchUserId];
     try {
       const res = await fetch(`/api/connections/create`, {
@@ -4128,6 +4098,8 @@
                             >
                               <CheckCheck size={14} /> Connected
                             </Button>
+                          {:else if attendee.connectionStatus === "rejected" || attendee.connectionStatus === "cancelled"}
+                            <p class="text-sm text-ink-400">{attendee.connectionStatus === "rejected" ? "Request declined" : "Request cancelled"}</p>
                           {:else if attendee.connectionStatus === "sent"}
                             <Button
                               variant="outline"
@@ -4757,7 +4729,110 @@
             {#if Boolean(currentEvent.is_network_enabled)}
               <!-- Network tab (unified Matches + Connections) -->
               <Tabs.Content value="network" class="mt-4">
-                {#if !networkProfileCheckComplete}
+                  <!-- Network Header -->
+                  <div
+                    class="glass rounded-2xl border border-white/8 p-4 sm:p-5 mb-5"
+                  >
+                    <div
+                      class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div class="flex items-center gap-3">
+                        <div
+                          class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-400/10 border border-violet-400/20"
+                        >
+                          <Network size={18} class="text-violet-300" />
+                        </div>
+                        <div>
+                          <h2 class="text-base font-bold text-white">
+                            Network
+                          </h2>
+                          <p class="text-xs text-ink-400">
+                            Discover matches & manage your connections
+                          </p>
+                        </div>
+                      </div>
+
+                      {#if networkFilter === "matches" && hasCompletedProfile}
+                      <div class="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                          onclick={() => (editProfileOpen = true)}
+                        >
+                          <UserCircle2 size={14} /> Edit Profile
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                          onclick={refreshFromDb}
+                          disabled={refreshingFromDb}
+                          title="Refresh matches from database"
+                        >
+                          {#if refreshingFromDb}<LoaderCircle
+                              size={13}
+                              class="animate-spin"
+                            />{:else}<RefreshCcw size={13} />{/if}
+                          Refresh matches
+                        </Button>
+                        <Button
+                          size="sm"
+                          class="gap-1.5 h-8 text-xs"
+                          onclick={() => (findMatchesModalOpen = true)}
+                          disabled={refreshingMatches}
+                        >
+                          {#if refreshingMatches}<LoaderCircle
+                              size={13}
+                              class="animate-spin"
+                            />{:else}<Sparkles size={13} />{/if}
+                          {refreshingMatches ? "Finding…" : "Find Matches"}
+                        </Button>
+                        {#if data.isOrganizer}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
+                            onclick={() => (dummyModalOpen = true)}
+                          >
+                            <Users size={13} /> Simulation
+                          </Button>
+                        {/if}
+                      </div>
+                      {/if}
+                    </div>
+                  </div>
+
+                  <!-- Sub-filter pill navigation -->
+                  <div class="flex flex-wrap items-center gap-2 mb-5">
+                    {#each [{ value: "all", label: "All", count: 0 }, { value: "matches", label: "✨ AI Matches", count: $matchesStore.length, color: "amber" }, { value: "received", label: "📥 Received", count: $connectionsStore.filter((c) => c.receiver_user_id === data.user?.id && c.status === "pending").length, color: "violet" }] as pill}
+                      <button
+                        aria-pressed={networkFilter === pill.value}
+                        onclick={() => {
+                          networkFilter = pill.value;
+                          if (pill.value === "received")
+                            connectionFilter = pill.value;
+                        }}
+                        class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border
+                    {networkFilter === pill.value
+                          ? 'bg-violet-400/20 border-violet-400/40 text-violet-200 shadow-[0_0_12px_rgba(167,139,250,0.2)]'
+                          : 'bg-white/4 border-white/8 text-ink-400 hover:text-white hover:border-white/20'}"
+                      >
+                        {pill.label}
+                        {#if pill.count > 0}
+                          <span
+                            class="rounded-full px-1.5 py-0.5 text-[10px] font-bold
+                      {networkFilter === pill.value
+                              ? 'bg-violet-400/30 text-violet-100'
+                              : 'bg-white/10 text-ink-300'}">{pill.count}</span
+                          >
+                        {/if}
+                      </button>
+                    {/each}
+
+                  </div>
+
+                {#if networkFilter === "matches" && !networkProfileCheckComplete}
                   <div
                     class="flex min-h-56 items-center justify-center rounded-3xl border border-white/8 bg-white/[0.03]"
                   >
@@ -4766,7 +4841,7 @@
                       class="animate-spin text-violet-300"
                     />
                   </div>
-                {:else if !hasCompletedProfile}
+                {:else if networkFilter === "matches" && !hasCompletedProfile}
                   <!-- ─── PROFILE STAGE IN NETWORK TAB ─── -->
                   <div class="mx-auto max-w-5xl animate-slide-up my-4">
                     <div
@@ -5036,106 +5111,6 @@
                     </div>
                   </div>
                 {:else}
-                  <!-- Network Header -->
-                  <div
-                    class="glass rounded-2xl border border-white/8 p-4 sm:p-5 mb-5"
-                  >
-                    <div
-                      class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                    >
-                      <div class="flex items-center gap-3">
-                        <div
-                          class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-400/10 border border-violet-400/20"
-                        >
-                          <Network size={18} class="text-violet-300" />
-                        </div>
-                        <div>
-                          <h2 class="text-base font-bold text-white">
-                            Network
-                          </h2>
-                          <p class="text-xs text-ink-400">
-                            Discover matches & manage your connections
-                          </p>
-                        </div>
-                      </div>
-
-                      <div class="flex flex-wrap items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
-                          onclick={() => (editProfileOpen = true)}
-                        >
-                          <UserCircle2 size={14} /> Edit Profile
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
-                          onclick={refreshFromDb}
-                          disabled={refreshingFromDb}
-                          title="Refresh matches from database"
-                        >
-                          {#if refreshingFromDb}<LoaderCircle
-                              size={13}
-                              class="animate-spin"
-                            />{:else}<RefreshCcw size={13} />{/if}
-                          Refresh matches
-                        </Button>
-                        <Button
-                          size="sm"
-                          class="gap-1.5 h-8 text-xs"
-                          onclick={() => (findMatchesModalOpen = true)}
-                          disabled={refreshingMatches}
-                        >
-                          {#if refreshingMatches}<LoaderCircle
-                              size={13}
-                              class="animate-spin"
-                            />{:else}<Sparkles size={13} />{/if}
-                          {refreshingMatches ? "Finding…" : "Find Matches"}
-                        </Button>
-                        {#if data.isOrganizer}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            class="gap-1.5 border-white/10 text-ink-300 hover:text-white hover:bg-white/10 h-8 text-xs"
-                            onclick={() => (dummyModalOpen = true)}
-                          >
-                            <Users size={13} /> Simulation
-                          </Button>
-                        {/if}
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Sub-filter pill navigation -->
-                  <div class="flex flex-wrap items-center gap-2 mb-5">
-                    {#each [{ value: "matches", label: "✨ AI Matches", count: $matchesStore.length, color: "amber" }, { value: "received", label: "📥 Received", count: $connectionsStore.filter((c) => c.receiver_user_id === data.user?.id && c.status === "pending").length, color: "violet" }] as pill}
-                      <button
-                        onclick={() => {
-                          networkFilter = pill.value;
-                          if (pill.value !== "matches")
-                            connectionFilter = pill.value;
-                        }}
-                        class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border
-                    {networkFilter === pill.value
-                          ? 'bg-violet-400/20 border-violet-400/40 text-violet-200 shadow-[0_0_12px_rgba(167,139,250,0.2)]'
-                          : 'bg-white/4 border-white/8 text-ink-400 hover:text-white hover:border-white/20'}"
-                      >
-                        {pill.label}
-                        {#if pill.count > 0}
-                          <span
-                            class="rounded-full px-1.5 py-0.5 text-[10px] font-bold
-                      {networkFilter === pill.value
-                              ? 'bg-violet-400/30 text-violet-100'
-                              : 'bg-white/10 text-ink-300'}">{pill.count}</span
-                          >
-                        {/if}
-                      </button>
-                    {/each}
-
-                  </div>
-
                   <!-- ── AI MATCHES view ── -->
                   {#if networkFilter === "matches"}
                     {#if refreshingMatches}
@@ -5269,7 +5244,7 @@
                               </div>
                               <!-- Connect Button -->
                               <div class="pt-4 mt-auto">
-                                {#if !conn || conn.status === "cancelled"}
+                                {#if !conn}
                                   <Button
                                     class="w-full bg-white text-black hover:bg-white/90 gap-2"
                                     disabled={connectingIds.includes(
@@ -5327,6 +5302,8 @@
                                       ✓ Met
                                     </span>
                                   {/if}
+                                {:else if conn.status === "cancelled"}
+                                  <p class="text-sm text-ink-400">Request cancelled</p>
                                 {:else if conn.status === "rejected"}
                                   <Button
                                     variant="outline"
@@ -5360,6 +5337,11 @@
                       </div>
                     {/if}
 
+                  {:else if networkFilter === "all"}
+                    {#key data.event.id}
+                      <NetworkAttendeeDirectory eventId={data.event.id} hostId={data.event.created_by}
+                        viewerId={data.user?.id} connections={$connectionsStore} {connectingIds} onConnect={connectUser} />
+                    {/key}
                     <!-- ── CONNECTIONS views (received / sent / connected / met) ── -->
                   {:else}
                     {#if loadingConnections}

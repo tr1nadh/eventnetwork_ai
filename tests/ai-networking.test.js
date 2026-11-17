@@ -4,6 +4,7 @@ import { createServer } from 'vite';
 
 let vite;
 let recommendations;
+let listAttendees;
 let meetingPrep;
 const calls = [];
 let charges = 0;
@@ -16,6 +17,9 @@ const candidates = Array.from({ length: 5 }, (_, i) => ({
 
 before(async () => {
   const mocks = {
+    '$lib/demo': 'export const demoEvent = {}; export const demoAttendees = []',
+    '$lib/network-profile': 'export * from "/src/lib/network-profile.js"',
+    '$lib/supabase/admin': 'export const createSupabaseAdminClient = () => globalThis.matchTest.admin',
     '$lib/llm/fireworks': 'export const createChatCompletion = (...args) => globalThis.matchTest.complete(...args)',
     '$env/static/private': 'export const FIREWORKS_MODEL = "fixture"',
     '$lib/server/ai-credits': 'export const checkAiQuota = () => globalThis.matchTest.charge(); export const refundAiCredit = () => globalThis.matchTest.refund()'
@@ -31,6 +35,7 @@ before(async () => {
     load(id) { return mocks[id.slice(1)]; }
   }] });
   recommendations = (await vite.ssrLoadModule('/src/routes/api/recommendations/+server.js')).GET;
+  listAttendees = (await vite.ssrLoadModule('/src/routes/api/attendees/+server.js')).GET;
   meetingPrep = (await vite.ssrLoadModule('/src/routes/api/meeting-prep/+server.js')).GET;
 });
 after(async () => { await vite?.close(); delete globalThis.matchTest; });
@@ -44,7 +49,11 @@ async function runMatches(rows, explanations) {
     maybeSingle() { return { data: viewer }; }, not() { return { data: rows }; },
     upsert(row) { saved.push(row); return {}; }
   };
-  const response = await recommendations({ url: new URL('http://local/?event_id=e'), locals: { user: { id: 'viewer' }, supabase: { from: () => db } } });
+  const response = await recommendations({ url: new URL('http://local/?event_id=e'), locals: { user: { id: 'viewer' }, supabase: { from(table) {
+    if (table === 'event_participants') return { select: () => ({ eq: () => ({ eq: () => ({ data: candidates }) }) }) };
+    if (table === 'events') return { select: () => ({ eq: () => ({ maybeSingle: () => ({ data: { created_by: 'host' } }) }) }) };
+    return db;
+  } } } });
   const text = await response.text();
   return { creditUsed: response.headers.get("X-AI-Credit-Used"), matches: text.trim().split('\n').filter(Boolean).map(line => JSON.parse(line)), saved };
 }
@@ -60,6 +69,37 @@ test('five ranked matches share one model call and retain their own explanations
   assert.equal(creditUsed, "1");
   assert.equal(saved.length, 5);
   assert.deepEqual(matches.map(m => m.explanation), Object.values(explanations));
+});
+
+test('incomplete profiles, unregistered people and unrelated profiles stay out of matches', async () => {
+  const { matches } = await runMatches([
+    candidates[0], { ...candidates[1], looking_for: '[" "]' },
+    { ...candidates[2], user_id: 'unregistered' }, { ...candidates[3], about_user_embed: [-1, 0] }
+  ], {});
+  assert.deepEqual(matches.map(match => match.user_id), ['0']);
+});
+
+test('All requires all three answers, while the registration roster keeps every attendee', async () => {
+  const profiles = [
+    { ...viewer, user_id: 'complete' }, { ...viewer, user_id: 'host' },
+    { ...viewer, user_id: 'blank', about_me: ' ' }, { ...viewer, user_id: 'empty', looking_for: '[]' }
+  ];
+  const ids = [...profiles.map(p => p.user_id), 'no-profile'];
+  const rows = {
+    events: { id: 'event', created_by: 'host' },
+    event_participants: ids.map(user_id => ({ user_id, status: 'joined' })),
+    network_profiles: profiles, users: []
+  };
+  globalThis.matchTest.admin = { from(table) {
+    return { data: rows[table], select() { return this; }, eq() { return this; },
+      in() { return this; }, maybeSingle() { return this; } };
+  } };
+  async function attendeeIds(query) {
+    const response = await listAttendees({ url: new URL('http://local/?event_id=event' + query), locals: {} });
+    return (await response.json()).attendees.map(person => person.user_id).sort();
+  }
+  assert.deepEqual(await attendeeIds('&network_profiles_only=true'), ['complete']);
+  assert.deepEqual(await attendeeIds(''), ids.sort());
 });
 
 test('a missing explanation falls back only for that attendee', async () => {

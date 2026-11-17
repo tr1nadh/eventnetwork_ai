@@ -1,3 +1,4 @@
+import { loadSavedNetworkMatches } from '$lib/server/network-matches';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { demoEvent } from '$lib/demo';
 import { error } from '@sveltejs/kit';
@@ -9,14 +10,16 @@ async function loadViewerData(admin, eventId, userId, isOrganizer) {
   if (lookupError) throw error(500, lookupError.message);
   const status = participant?.status;
   if (status !== 'joined' && !isOrganizer) return { status };
-  const [meeting, profileRes, matchRes] = await Promise.all([
+  const [meeting, profileRes, matches] = await Promise.all([
     admin.from('events').select('event_meeting_url').eq('id', eventId).maybeSingle(),
     admin.from('network_profiles').select('display_name, what_i_do, looking_for, about_me')
       .eq('event_id', eventId).eq('user_id', userId).maybeSingle(),
-    admin.from('matches').select('matched_user_id, match_details')
-      .eq('event_id', eventId).eq('user_id', userId).order('updated_at', { ascending: false }),
+    loadSavedNetworkMatches(admin, eventId, { id: userId }).catch(err => {
+      console.error('Failed to load networking matches:', err);
+      return [];
+    }),
   ]);
-  return { status, meetingUrl: meeting.data?.event_meeting_url, profileRes, matchRes };
+  return { status, meetingUrl: meeting.data?.event_meeting_url, profileRes, matches };
 }
 
 export const load = async ({ params, locals }) => {
@@ -84,9 +87,9 @@ export const load = async ({ params, locals }) => {
   if (isParticipant || isOrganizer) {
     // Hosts can switch to attendee view, so load their event profile too.
     // Fetch profile and matches in parallel to speed up load time.
-    const { profileRes, matchRes } = viewer;
+    const { profileRes, matches } = viewer;
     const { data: profileData, error: profileError } = profileRes;
-    const { data: dbMatches, error: matchError } = matchRes;
+    suggestedMatches = matches;
 
     if (profileError) {
       console.error('Failed to load network profile:', profileError);
@@ -107,18 +110,6 @@ export const load = async ({ params, locals }) => {
         whoTheyWant: lookingForStr,
         expectations: profileData.about_me
       };
-    }
-
-    if (!matchError && dbMatches) {
-      suggestedMatches = dbMatches.map(m => ({
-        user_id: m.matched_user_id,
-        name: m.match_details.matched_profile?.display_name,
-        role: m.match_details.matched_profile?.what_i_do,
-        about: m.match_details.matched_profile?.about_me,
-        explanation: m.match_details.summary,
-        matchPercentage: m.match_details.score,
-        tags: []
-      })).sort((a, b) => (b.matchPercentage ?? 0) - (a.matchPercentage ?? 0));
     }
   }
 

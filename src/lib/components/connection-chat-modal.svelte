@@ -67,6 +67,7 @@
   }
 
   onDestroy(() => {
+    loadVersion++;
     cleanupRealtime();
   });
 
@@ -124,6 +125,7 @@
     cleanupRealtime();
     activeConnectionId = selectedConnection.id;
     loadingMessages = true;
+    sendingMessage = false;
     loadError = '';
     draftMessage = '';
 
@@ -185,6 +187,8 @@
       return;
     }
 
+    const connectionId = connection.id;
+    const sendVersion = loadVersion;
     sendingMessage = true;
     loadError = '';
 
@@ -194,7 +198,7 @@
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          connection_id: connection.id,
+          connection_id: connectionId,
           message: draftMessage
         })
       });
@@ -204,7 +208,8 @@
         throw new Error(payload.message || payload.error || 'Could not send message');
       }
 
-      appendConnectionMessage(connection.id, payload.message);
+      appendConnectionMessage(connectionId, payload.message);
+      if (sendVersion !== loadVersion) return;
       draftMessage = '';
       await queueScroll();
     } catch (err) {
@@ -212,7 +217,7 @@
         description: err instanceof Error ? err.message : 'Please try again.'
       });
     } finally {
-      sendingMessage = false;
+      if (sendVersion === loadVersion) sendingMessage = false;
     }
   }
 

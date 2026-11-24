@@ -30,7 +30,10 @@
   $: if (connection?.id && connection.id !== activeConnectionId) void openChat(connection);
   $: if (!connection?.id && activeConnectionId) resetChat();
 
-  onDestroy(() => cleanupRealtime());
+  onDestroy(() => {
+    loadVersion++;
+    cleanupRealtime();
+  });
 
   function getInitials(name) {
     return (name ?? 'U').split(' ').map((part) => part[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -76,6 +79,7 @@
     cleanupRealtime();
     activeConnectionId = selectedConnection.id;
     loadingMessages = true;
+    sendingMessage = false;
     loadError = '';
     draftMessage = '';
     messagesReady = false;
@@ -109,6 +113,8 @@
 
   async function sendMessage() {
     if (!connection?.id || !draftMessage.trim() || sendingMessage) return;
+    const connectionId = connection.id;
+    const sendVersion = loadVersion;
     sendingMessage = true;
     loadError = '';
     try {
@@ -116,17 +122,18 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ connection_id: connection.id, message: draftMessage.trim() })
+        body: JSON.stringify({ connection_id: connectionId, message: draftMessage.trim() })
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.message || payload.error || 'Could not send message');
-      appendConnectionMessage(connection.id, payload.message);
+      appendConnectionMessage(connectionId, payload.message);
+      if (sendVersion !== loadVersion) return;
       draftMessage = '';
       await queueScroll();
     } catch (err) {
       toast.error('Could not send message', { description: err instanceof Error ? err.message : 'Please try again.' });
     } finally {
-      sendingMessage = false;
+      if (sendVersion === loadVersion) sendingMessage = false;
     }
   }
 

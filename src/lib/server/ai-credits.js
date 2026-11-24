@@ -62,7 +62,7 @@ function getNextMonthDate() {
 /**
  * Validates burst limits and monthly quotas, reserving a credit if allowed.
  * @param {string} userId The Supabase user ID
- * @returns {Promise<{ allowed: boolean, reason?: string, errorData?: any, remaining?: number, used?: number }>}
+ * @returns {Promise<{ allowed: boolean, reason?: string, errorData?: any, remaining?: number, used?: number, reservationKey?: string }>}
  */
 export async function checkAiQuota(userId) {
   // 0. Validate userId
@@ -132,16 +132,19 @@ export async function checkAiQuota(userId) {
   return {
     allowed: true,
     used: currentUsage,
-    remaining: MONTHLY_LIMIT - currentUsage
+    remaining: MONTHLY_LIMIT - currentUsage,
+    reservationKey: monthlyKey
   };
 }
 
 /**
  * Refunds a credit if an AI operation fails after a successful reservation.
  * @param {string} userId The Supabase user ID
+ * @param {string} [reservationKey] The original monthly key, when available
  */
-export async function refundAiCredit(userId) {
+export async function refundAiCredit(userId, reservationKey) {
   const monthlyKey = getMonthlyKey(userId);
+  if (reservationKey && reservationKey !== monthlyKey) return;
   const newVal = await getRedis().decr(monthlyKey);
   if (newVal < 0) {
     // Revert the decrement if it dropped below zero

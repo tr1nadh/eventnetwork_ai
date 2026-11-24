@@ -19,12 +19,18 @@ function discoveryPage(events, args) {
   const groups = { live: [], upcoming: [], completed: [] };
   const formatCounts = { online: 0, offline: 0 };
   const dates = new Set();
+  const dateFormat = new Intl.DateTimeFormat('en-CA', {
+    timeZone: args.viewer_time_zone, year: 'numeric', month: '2-digit', day: '2-digit'
+  });
   for (const event of events) {
     const start = Date.parse(event.start_time || event.created_at);
     const end = event.end_time ? Date.parse(event.end_time) : start + 7200000;
     event.status = start > now ? 'upcoming' : end >= now ? 'live' : 'completed';
     groups[event.status].push(event);
-    if (event.start_time) dates.add(new Date(event.start_time).toISOString().slice(0, 10));
+    if (event.start_time) {
+      const parts = Object.fromEntries(dateFormat.formatToParts(start).map(({ type, value }) => [type, value]));
+      dates.add(`${parts.year}-${parts.month}-${parts.day}`);
+    }
     if (['online', 'hybrid'].includes(event.event_format)) formatCounts.online++;
     if (!event.event_format || ['offline', 'hybrid'].includes(event.event_format)) formatCounts.offline++;
   }
@@ -57,8 +63,8 @@ export async function listEventsFromTables(admin, args) {
     if (joinedOnly) return query.eq('event_participants.user_id', args.viewer).eq('event_participants.status', 'joined');
     if (!discover) return query.eq('created_by', args.viewer);
     query = query.eq('is_public', true);
-    if (args.period_start) query = query.gte('end_time', args.period_start);
-    if (args.period_end) query = query.lte('start_time', args.period_end);
+    if (args.period_start) query = query.gt('end_time', args.period_start);
+    if (args.period_end) query = query.lt('start_time', args.period_end);
     if (['online', 'offline'].includes(args.format_filter)) query = query.in('event_format', [args.format_filter, 'hybrid']);
     return query;
   }

@@ -84,21 +84,6 @@
   import { clearAllChatStores } from "$lib/stores/chatStore";
   import { aiCreditsStore } from "$lib/stores/ai-credits";
 
-  // Embedding helper – calls server-side /api/embeddings to keep the API key secure
-  async function generateEmbedding(text) {
-    const res = await fetch("/api/embeddings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error ?? "Embedding generation failed");
-    }
-    const { embedding } = await res.json();
-    return embedding;
-  }
   import { createSupabaseBrowserClient, startGoogleSignIn } from "$lib/supabase/client";
   import { onMount, onDestroy, tick } from "svelte";
   import EventAnalytics from "$lib/components/event-analytics.svelte";
@@ -432,166 +417,186 @@
       currentTime = new Date();
     }, 1000);
 
-    // Always clear the connections store on mount so we don't show stale data from another event
+    eventMounted = true;
+  });
+
+  let eventMounted = false;
+  let subscribedEventId;
+  let subscribedUserId;
+  let connectionScopeVersion = 0;
+
+  $: if (eventMounted) {
+    syncEventConnections(data.isParticipant || data.isOrganizer ? data.event?.id : null, data.user?.id);
+  }
+
+  function syncEventConnections(eventId, userId) {
+    if (subscribedEventId === eventId && subscribedUserId === userId) return;
+    subscribedEventId = eventId;
+    subscribedUserId = userId;
+    const version = ++connectionScopeVersion;
+    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
     connectionsStore.set([]);
+    connectionsHasMore = false;
+    loadingConnections = false;
+    loadingMoreConnections = false;
+    if (!eventId || !userId) return;
 
-    if (!data.user?.id) return;
+    void fetchAllConnections();
+    realtimeChannel = supabase
+      .channel(`connections-changes-${Date.now()}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "connections",
+          filter: `event_id=eq.${eventId}`,
+        },
+        async (payload) => {
+          if (version !== connectionScopeVersion) return;
+          const { eventType, new: newRecord, old: oldRecord } = payload;
 
-    if (data.isParticipant) {
-      if (!loadingConnections) fetchAllConnections();
-
-      // Setup a single channel for connections realtime updates
-      realtimeChannel = supabase
-        .channel(`connections-changes-${Date.now()}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "connections",
-            filter: `event_id=eq.${data.event.id}`,
-          },
-          async (payload) => {
-            const { eventType, new: newRecord, old: oldRecord } = payload;
-
-            if (eventType === "INSERT") {
-              if (
-                newRecord.receiver_user_id === data.user.id &&
-                newRecord.status === "pending"
-              ) {
-                const senderName = await connectionDisplayName(newRecord.sender_user_id, "Someone");
-
-                connectionsStore.update((conns) => {
-                  if (conns.find((c) => c.id === newRecord.id)) return conns;
-                  return [
-                    { ...newRecord, profile: { display_name: senderName } },
-                    ...conns,
-                  ];
-                });
-
-                toast.custom(ConnectionToast, {
-                  componentProps: {
-                    title: "New Connection Request",
-                    message: `${senderName} wants to connect with you.`,
-                    type: "request",
-                  },
-                });
-
-                if (
-                  typeof window !== "undefined" &&
-                  "Notification" in window &&
-                  Notification.permission === "granted"
-                ) {
-                  const notification = new Notification(
-                    "New Connection Request",
-                    { body: `${senderName} wants to connect with you.` },
-                  );
-                  notification.onclick = () => {
-                    window.focus();
-                    networkFilter = "received";
-                    activeTab.set("network");
-                  };
-                }
-              } else if (newRecord.sender_user_id === data.user.id) {
-                // Fetch all connections for inserts we initiated so we get the profile join cleanly
-                fetchAllConnections();
-              }
-            } else if (eventType === "UPDATE") {
-              if (
-                newRecord.sender_user_id !== data.user.id &&
-                newRecord.receiver_user_id !== data.user.id
-              )
-                return;
+          if (eventType === "INSERT") {
+            if (
+              newRecord.receiver_user_id === userId &&
+              newRecord.status === "pending"
+            ) {
+              const senderName = await connectionDisplayName(newRecord.sender_user_id, "Someone");
+              if (version !== connectionScopeVersion) return;
 
               connectionsStore.update((conns) => {
-                const idx = conns.findIndex((c) => c.id === newRecord.id);
-                if (idx >= 0) {
-                  conns[idx] = { ...conns[idx], ...newRecord };
-                }
-                return conns;
+                if (conns.find((c) => c.id === newRecord.id)) return conns;
+                return [
+                  { ...newRecord, profile: { display_name: senderName } },
+                  ...conns,
+                ];
+              });
+
+              toast.custom(ConnectionToast, {
+                componentProps: {
+                  title: "New Connection Request",
+                  message: `${senderName} wants to connect with you.`,
+                  type: "request",
+                },
               });
 
               if (
-                newRecord.sender_user_id === data.user.id &&
-                oldRecord.status === "pending" &&
-                newRecord.status === "accepted" &&
-                !newRecord.met_at
+                typeof window !== "undefined" &&
+                "Notification" in window &&
+                Notification.permission === "granted"
               ) {
-                const receiverName = await connectionDisplayName(newRecord.receiver_user_id, "Your connection");
-
-                toast.custom(ConnectionToast, {
-                  componentProps: {
-                    title: "Connection Accepted",
-                    message: `${receiverName} accepted your connection request.`,
-                    type: "accepted",
-                  },
-                });
-
-                if (
-                  typeof window !== "undefined" &&
-                  "Notification" in window &&
-                  Notification.permission === "granted"
-                ) {
-                  const notification = new Notification("Connection Accepted", {
-                    body: `${receiverName} accepted your connection request.`,
-                  });
-                  notification.onclick = () => {
-                    window.focus();
-                    networkFilter = "connected";
-                    activeTab.set("network");
-                  };
-                }
-              } else if (
-                newRecord.sender_user_id === data.user.id &&
-                oldRecord.status === "pending" &&
-                newRecord.status === "rejected"
-              ) {
-                const receiverName = await connectionDisplayName(newRecord.receiver_user_id, "Your connection");
-
-                toast.custom(ConnectionToast, {
-                  componentProps: {
-                    title: "Connection Request Declined",
-                    message: `${receiverName} declined your connection request.`,
-                    type: "rejected",
-                  },
-                });
-              } else if (
-                oldRecord.met_at == null &&
-                newRecord.met_at != null &&
-                newRecord.status === "accepted"
-              ) {
-                const otherUserId =
-                  newRecord.sender_user_id === data.user.id
-                    ? newRecord.receiver_user_id
-                    : newRecord.sender_user_id;
-                const name = await connectionDisplayName(otherUserId, "Your connection");
-
-                toast.custom(ConnectionToast, {
-                  componentProps: {
-                    title: "Meeting Confirmed",
-                    message: `You and ${name} have officially met.`,
-                    type: "met",
-                  },
-                });
+                const notification = new Notification(
+                  "New Connection Request",
+                  { body: `${senderName} wants to connect with you.` },
+                );
+                notification.onclick = () => {
+                  window.focus();
+                  networkFilter = "received";
+                  activeTab.set("network");
+                };
               }
-            } else if (eventType === "DELETE") {
-              if (
-                oldRecord.sender_user_id === data.user.id ||
-                oldRecord.receiver_user_id === data.user.id
-              ) {
-                fetchAllConnections();
-              }
+            } else if (newRecord.sender_user_id === userId) {
+              // Fetch all connections for inserts we initiated so we get the profile join cleanly
+              fetchAllConnections();
             }
-          },
-        )
-        .subscribe();
-    }
-  });
+          } else if (eventType === "UPDATE") {
+            if (
+              newRecord.sender_user_id !== userId &&
+              newRecord.receiver_user_id !== userId
+            )
+              return;
+
+            connectionsStore.update((conns) => {
+              const idx = conns.findIndex((c) => c.id === newRecord.id);
+              if (idx >= 0) {
+                conns[idx] = { ...conns[idx], ...newRecord };
+              }
+              return conns;
+            });
+
+            if (
+              newRecord.sender_user_id === userId &&
+              oldRecord.status === "pending" &&
+              newRecord.status === "accepted" &&
+              !newRecord.met_at
+            ) {
+              const receiverName = await connectionDisplayName(newRecord.receiver_user_id, "Your connection");
+              if (version !== connectionScopeVersion) return;
+
+              toast.custom(ConnectionToast, {
+                componentProps: {
+                  title: "Connection Accepted",
+                  message: `${receiverName} accepted your connection request.`,
+                  type: "accepted",
+                },
+              });
+
+              if (
+                typeof window !== "undefined" &&
+                "Notification" in window &&
+                Notification.permission === "granted"
+              ) {
+                const notification = new Notification("Connection Accepted", {
+                  body: `${receiverName} accepted your connection request.`,
+                });
+                notification.onclick = () => {
+                  window.focus();
+                  networkFilter = "connected";
+                  activeTab.set("network");
+                };
+              }
+            } else if (
+              newRecord.sender_user_id === userId &&
+              oldRecord.status === "pending" &&
+              newRecord.status === "rejected"
+            ) {
+              const receiverName = await connectionDisplayName(newRecord.receiver_user_id, "Your connection");
+              if (version !== connectionScopeVersion) return;
+
+              toast.custom(ConnectionToast, {
+                componentProps: {
+                  title: "Connection Request Declined",
+                  message: `${receiverName} declined your connection request.`,
+                  type: "rejected",
+                },
+              });
+            } else if (
+              oldRecord.met_at == null &&
+              newRecord.met_at != null &&
+              newRecord.status === "accepted"
+            ) {
+              const otherUserId =
+                newRecord.sender_user_id === userId
+                  ? newRecord.receiver_user_id
+                  : newRecord.sender_user_id;
+              const name = await connectionDisplayName(otherUserId, "Your connection");
+              if (version !== connectionScopeVersion) return;
+
+              toast.custom(ConnectionToast, {
+                componentProps: {
+                  title: "Meeting Confirmed",
+                  message: `You and ${name} have officially met.`,
+                  type: "met",
+                },
+              });
+            }
+          } else if (eventType === "DELETE") {
+            if (
+              oldRecord.sender_user_id === userId ||
+              oldRecord.receiver_user_id === userId
+            ) {
+              fetchAllConnections();
+            }
+          }
+        },
+      )
+      .subscribe();
+  }
 
   onDestroy(() => {
-    if (realtimeChannel) {
-      supabase.removeChannel(realtimeChannel);
-    }
+    connectionScopeVersion++;
+    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
     if (timeInterval) clearInterval(timeInterval);
   });
 
@@ -2414,6 +2419,7 @@
   let loadingMoreConnections = false;
 
   async function fetchAllConnections() {
+    const version = connectionScopeVersion;
     loadingConnections = true;
     connectionsPage = 1;
     try {
@@ -2425,17 +2431,19 @@
       );
       if (!res.ok) throw new Error("Failed to fetch connections");
       const { connections: conn, hasMore } = await res.json();
+      if (version !== connectionScopeVersion) return;
       connectionsStore.set(conn || []);
       connectionsHasMore = hasMore;
     } catch (e) {
-      toast.error("Could not load connections");
+      if (version === connectionScopeVersion) toast.error("Could not load connections");
     } finally {
-      loadingConnections = false;
+      if (version === connectionScopeVersion) loadingConnections = false;
     }
   }
 
   async function loadMoreConnections() {
     if (loadingMoreConnections || !connectionsHasMore) return;
+    const version = connectionScopeVersion;
     loadingMoreConnections = true;
     try {
       const nextPage = connectionsPage + 1;
@@ -2447,6 +2455,7 @@
       );
       if (!res.ok) throw new Error("Failed to fetch more connections");
       const { connections: newConns, hasMore } = await res.json();
+      if (version !== connectionScopeVersion) return;
       connectionsStore.update((existing) => {
         // Deduplicate by ID
         const existingIds = new Set(existing.map((c) => c.id));
@@ -2456,9 +2465,9 @@
       connectionsHasMore = hasMore;
       connectionsPage = nextPage;
     } catch (e) {
-      toast.error("Could not load more connections");
+      if (version === connectionScopeVersion) toast.error("Could not load more connections");
     } finally {
-      loadingMoreConnections = false;
+      if (version === connectionScopeVersion) loadingMoreConnections = false;
     }
   }
 
@@ -2645,8 +2654,6 @@
       editProfileOpen = false;
       toast.success("Event joined");
 
-      // Fetch member data and invalidate server-side load in background
-      fetchAllConnections();
       fetchAttendees();
       await invalidateAll();
     } catch (error) {
@@ -2660,6 +2667,7 @@
   }
 
   async function saveProfile() {
+    if (savingProfile) return;
     if (!data.user) {
       toast.error("Sign in first", {
         description:
@@ -2669,41 +2677,27 @@
     }
     savingProfile = true;
     try {
-      // Step 1: Build texts for embeddings
-      const aboutUserText =
-        `What I do:\n${networkingProfile.whatTheyDo}` +
-        (networkingProfile.expectations
-          ? `\n\nAbout me:\n${networkingProfile.expectations}`
-          : "");
-      const lookingForText = `Looking for:\n${networkingProfile.whoTheyWant}`;
-
-      // Step 2: Generate embeddings (parallel)
-      const [aboutUserEmbed, lookingForEmbed] = await Promise.all([
-        generateEmbedding(aboutUserText),
-        generateEmbedding(lookingForText),
-      ]);
-
-      // Step 3: Save networking profile with embeddings
       const profileRes = await fetch("/api/network_profiles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         mode: "same-origin",
         body: JSON.stringify({
-          profile: {
-            ...networkingProfile,
-            about_user_embed: aboutUserEmbed,
-            looking_for_embed: lookingForEmbed,
-          },
+          profile: networkingProfile,
           event_id: data.event.id,
         }),
       });
-      const profilePayload = await profileRes.json();
+      const profilePayload = await profileRes.json().catch(() => ({}));
       if (!profileRes.ok) {
+        if (profilePayload.error === "MONTHLY_AI_LIMIT_EXCEEDED") {
+          aiCreditsStore.showExhaustedModal();
+          return;
+        }
         throw new Error(
-          profilePayload.error ?? "Failed to save networking profile",
+          profilePayload.message ?? profilePayload.error ?? "Failed to save networking profile",
         );
       }
+      if (profileRes.headers.get("X-AI-Credit-Used") === "1") aiCreditsStore.useCredit();
       // Transform DB row to UI shape
       const normalizeProfile = (p) => {
         let lookingForStr = p.looking_for ?? "";

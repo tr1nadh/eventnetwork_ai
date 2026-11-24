@@ -1,4 +1,5 @@
 import { listEvents } from '$lib/server/event-list';
+import { demoEvent } from '$lib/demo';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { json, error } from '@sveltejs/kit';
 
@@ -77,6 +78,7 @@ export async function POST({ request, locals }) {
   }
   const is_attendees_register_limited = body?.is_attendees_register_limited ?? true;
 
+  if (slug === demoEvent.slug) throw error(409, 'That event link is reserved. Choose another ID.');
   const admin = createSupabaseAdminClient();
 
   const { data: existingEvent, error: lookupError } = await admin

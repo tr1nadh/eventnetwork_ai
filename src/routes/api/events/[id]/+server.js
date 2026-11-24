@@ -1,4 +1,5 @@
 import { getAnalyticsResponse } from '$lib/server/event-analytics-response';
+import { demoEvent } from '$lib/demo';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { POST as handleApproval } from '../approve/+server.js';
 import { json, error } from '@sveltejs/kit';
@@ -35,7 +36,7 @@ export async function PUT({ request, params, locals }) {
   // Validate ownership and fetch existing event schedule
   const { data: existingEvent, error: lookupError } = await admin
     .from('events')
-    .select('created_by, start_time, end_time')
+    .select('created_by, start_time, end_time, slug')
     .eq('id', eventId)
     .single();
 
@@ -45,6 +46,9 @@ export async function PUT({ request, params, locals }) {
 
   if (existingEvent.created_by !== locals.user.id) {
     throw error(403, 'Forbidden. Only the organizer can edit this event.');
+  }
+  if (slug === demoEvent.slug && slug !== existingEvent.slug) {
+    throw error(409, 'That event link is reserved. Choose another ID.');
   }
 
   const now = new Date();

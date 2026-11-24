@@ -1,6 +1,6 @@
 <script>
   import { MapPin, Coffee, Mic, Users, MonitorPlay, Pencil, Plus, Trash2, Save, X, CalendarClock, Clock, DoorOpen, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Music, Ticket, Sofa, Droplets, Utensils, Store, Info, Car } from '@lucide/svelte';
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import { slide } from 'svelte/transition';
   import PillScroller from '$lib/components/pill-scroller.svelte';
   
@@ -186,6 +186,8 @@
   let isEditing = false;
   let editingZoneId = null; 
   let editForm = { name: '', icon: '', color: '', door: emptyDoors() };
+  let zoneEditor;
+  let zoneNameInput;
 
   const colorOptions = [
     { value: 'from-blue-500/20 to-indigo-500/20 border-blue-400/30', name: 'Blue' },
@@ -247,7 +249,7 @@
     openEditZone(newId);
   }
 
-  function openEditZone(zoneId) {
+  async function openEditZone(zoneId) {
     const zone = zones.find(z => z.id === zoneId);
     if (!zone) return;
     editingZoneId = zoneId;
@@ -260,10 +262,21 @@
         right: [...zone.door.right] 
       } 
     };
+    await tick();
+    if (zoneEditor && !zoneEditor.open) zoneEditor.showModal();
+    zoneNameInput?.focus();
   }
 
   function saveZone() {
-    zones = zones.map(z => z.id === editingZoneId ? { ...editForm, id: editingZoneId } : z);
+    zones = zones.map(zone => {
+      if (zone.id !== editingZoneId) return zone;
+      const x = Math.min(gridCols, Math.max(1, Math.round(editForm.x ?? zone.x)));
+      const y = Math.min(gridRows, Math.max(1, Math.round(editForm.y ?? zone.y)));
+      const w = Math.min(gridCols - x + 1, Math.max(1, Math.round(editForm.w ?? zone.w)));
+      const h = Math.min(gridRows - y + 1, Math.max(1, Math.round(editForm.h ?? zone.h)));
+      return { ...editForm, id: zone.id, x, y, w, h };
+    });
+    zoneEditor?.close();
     editingZoneId = null;
   }
 
@@ -637,33 +650,33 @@
 
           {#if isEditing}
              <!-- Center Drag Overlay -->
-             <div class="absolute inset-0 z-10 cursor-move" onpointerdown={(e) => onPointerDown(e, zone, 'center')} role="button" tabindex="0"></div>
+             <div class="absolute inset-0 z-10 cursor-move" aria-hidden="true" onpointerdown={(e) => onPointerDown(e, zone, 'center')}></div>
 
              <!-- Edge Resizers -->
-             <div class="absolute top-0 left-2 right-2 h-2 cursor-ns-resize z-20 hover:bg-white/20 rounded-full" onpointerdown={(e) => onPointerDown(e, zone, 'n')}></div>
-             <div class="absolute bottom-0 left-2 right-2 h-2 cursor-ns-resize z-20 hover:bg-white/20 rounded-full" onpointerdown={(e) => onPointerDown(e, zone, 's')}></div>
-             <div class="absolute left-0 top-2 bottom-2 w-2 cursor-ew-resize z-20 hover:bg-white/20 rounded-full" onpointerdown={(e) => onPointerDown(e, zone, 'w')}></div>
-             <div class="absolute right-0 top-2 bottom-2 w-2 cursor-ew-resize z-20 hover:bg-white/20 rounded-full" onpointerdown={(e) => onPointerDown(e, zone, 'e')}></div>
+             <div class="absolute top-0 left-2 right-2 h-2 cursor-ns-resize z-20 hover:bg-white/20 rounded-full" aria-hidden="true" onpointerdown={(e) => onPointerDown(e, zone, 'n')}></div>
+             <div class="absolute bottom-0 left-2 right-2 h-2 cursor-ns-resize z-20 hover:bg-white/20 rounded-full" aria-hidden="true" onpointerdown={(e) => onPointerDown(e, zone, 's')}></div>
+             <div class="absolute left-0 top-2 bottom-2 w-2 cursor-ew-resize z-20 hover:bg-white/20 rounded-full" aria-hidden="true" onpointerdown={(e) => onPointerDown(e, zone, 'w')}></div>
+             <div class="absolute right-0 top-2 bottom-2 w-2 cursor-ew-resize z-20 hover:bg-white/20 rounded-full" aria-hidden="true" onpointerdown={(e) => onPointerDown(e, zone, 'e')}></div>
 
              <!-- Corner Resizers -->
-             <div class="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-30" onpointerdown={(e) => onPointerDown(e, zone, 'nw')}></div>
-             <div class="absolute top-0 right-0 w-4 h-4 cursor-nesw-resize z-30" onpointerdown={(e) => onPointerDown(e, zone, 'ne')}></div>
-             <div class="absolute bottom-0 left-0 w-4 h-4 cursor-nesw-resize z-30" onpointerdown={(e) => onPointerDown(e, zone, 'sw')}></div>
-             <div class="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-30" onpointerdown={(e) => onPointerDown(e, zone, 'se')}>
+             <div class="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-30" aria-hidden="true" onpointerdown={(e) => onPointerDown(e, zone, 'nw')}></div>
+             <div class="absolute top-0 right-0 w-4 h-4 cursor-nesw-resize z-30" aria-hidden="true" onpointerdown={(e) => onPointerDown(e, zone, 'ne')}></div>
+             <div class="absolute bottom-0 left-0 w-4 h-4 cursor-nesw-resize z-30" aria-hidden="true" onpointerdown={(e) => onPointerDown(e, zone, 'sw')}></div>
+             <div class="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-30" aria-hidden="true" onpointerdown={(e) => onPointerDown(e, zone, 'se')}>
                <div class="absolute bottom-1 right-1 w-2 h-2 bg-white/50 rounded-full pointer-events-none"></div>
              </div>
 
              <!-- Delete & Edit buttons -->
-             <div class="absolute -top-3 -right-3 bg-black/90 rounded-full p-1.5 border border-white/20 text-white/50 hover:text-red-400 hover:border-red-400/50 transition-colors z-40 cursor-pointer shadow-lg"
-                  role="button" tabindex="0"
+             <button type="button" class="absolute -top-3 -right-3 bg-black/90 rounded-full p-1.5 border border-white/20 text-white/50 hover:text-red-400 hover:border-red-400/50 transition-colors z-40 cursor-pointer shadow-lg"
+                  aria-label="Delete {zone.name}"
                   onclick={(e) => { e.stopPropagation(); deleteZone(zone.id); }}>
                <Trash2 size={14} />
-             </div>
-             <div class="absolute -top-3 -left-3 bg-black/90 rounded-full p-1.5 border border-white/20 text-white/50 hover:text-white hover:border-white/50 transition-colors z-40 cursor-pointer shadow-lg"
-                  role="button" tabindex="0"
+             </button>
+             <button type="button" class="absolute -top-3 -left-3 bg-black/90 rounded-full p-1.5 border border-white/20 text-white/50 hover:text-white hover:border-white/50 transition-colors z-40 cursor-pointer shadow-lg"
+                  aria-label="Edit {zone.name}"
                   onclick={(e) => { e.stopPropagation(); openEditZone(zone.id); }}>
                <Pencil size={14} />
-             </div>
+             </button>
           {/if}
         </div>
       {/each}
@@ -714,16 +727,17 @@
 
   <!-- Edit Zone Modal overlay -->
   {#if isEditing && editingZoneId}
-    <div class="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div class="bg-[#1a1b1e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+    <dialog bind:this={zoneEditor} aria-labelledby="edit-venue-zone-title"
+      onclose={() => editingZoneId = null}
+      class="m-auto w-[calc(100%-2rem)] max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1b1e] text-white shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm">
         <div class="p-5 border-b border-white/10 flex justify-between items-center">
-          <h3 class="text-lg font-bold text-white">Edit Zone Info</h3>
-          <button onclick={() => editingZoneId = null} class="text-ink-400 hover:text-white"><X size={18}/></button>
+          <h3 id="edit-venue-zone-title" class="text-lg font-bold text-white">Edit Zone Info</h3>
+          <button type="button" aria-label="Close zone editor" onclick={() => zoneEditor.close()} class="text-ink-400 hover:text-white"><X size={18}/></button>
         </div>
         <div class="p-5 space-y-4">
           <div>
-            <div class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Zone Name</div>
-            <input type="text" bind:value={editForm.name} class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-400/50 focus:outline-none" />
+            <label for="venue-zone-name" class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Zone Name</label>
+            <input id="venue-zone-name" type="text" bind:this={zoneNameInput} bind:value={editForm.name} class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-400/50 focus:outline-none" />
             
             <!-- Timeline locations not yet added to Venue Map -->
             {#if unaddedLocations.length > 0}
@@ -742,6 +756,18 @@
               </div>
             {/if}
           </div>
+
+          <fieldset>
+            <legend class="mb-1.5 text-xs font-semibold text-ink-400 uppercase tracking-wider">Position and size</legend>
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {#each [{ key: 'x', label: 'Column', max: gridCols }, { key: 'y', label: 'Row', max: gridRows }, { key: 'w', label: 'Width', max: gridCols }, { key: 'h', label: 'Height', max: gridRows }] as field}
+                <label class="text-xs text-ink-300">
+                  {field.label}
+                  <input type="number" min="1" max={field.max} step="1" bind:value={editForm[field.key]} class="mt-1 block w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-amber-400/50 focus:outline-none" />
+                </label>
+              {/each}
+            </div>
+          </fieldset>
 
           <div>
             <div class="block text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Icon</div>
@@ -826,10 +852,9 @@
           </div>
         </div>
         <div class="p-5 border-t border-white/10 bg-black/20 flex justify-end gap-3">
-          <button onclick={() => editingZoneId = null} class="px-4 py-2 text-sm font-medium text-ink-300 hover:text-white">Cancel</button>
+          <button type="button" onclick={() => zoneEditor.close()} class="px-4 py-2 text-sm font-medium text-ink-300 hover:text-white">Cancel</button>
           <button onclick={saveZone} class="px-4 py-2 text-sm font-medium bg-white text-black rounded-lg hover:bg-gray-200">Done</button>
         </div>
-      </div>
-    </div>
+    </dialog>
   {/if}
 </div>

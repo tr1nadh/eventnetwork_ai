@@ -1,6 +1,7 @@
 import { selectNetworkProfiles } from '../../../lib/server/network-profile-query.js';
 import { networkingIntent, hasNetworkingProfile } from '$lib/network-profile';
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError } from '@sveltejs/kit';
+import { requireEventReadAccess } from '../../../lib/server/event-access.js';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { demoEvent, demoAttendees } from '$lib/demo';
 
@@ -29,17 +30,7 @@ async function loadRosterEmails(admin, userIds) {
   return emails;
 }
 
-export async function GET({ url, locals }) {
-  try {
-  const eventParam = url.searchParams.get('event_id') || '';
-  const q = (url.searchParams.get('q') || '').trim().toLowerCase();
-
-  if (!eventParam || eventParam === 'undefined' || eventParam === 'null') {
-    return json({ attendees: [] });
-  }
-
-  // Support demo event fallback
-  if (eventParam === demoEvent.slug || eventParam === 'demo-event') {
+function demoRoster(q) {
     const filtered = demoAttendees.filter((a) => {
       if (!q) return true;
       return (
@@ -64,34 +55,30 @@ export async function GET({ url, locals }) {
         connectionId: null
       }))
     });
-  }
+}
 
-  const user = locals.user;
-  const admin = createSupabaseAdminClient();
-
-
-    const isUuid = UUID_REGEX.test(eventParam);
-    let eventData = null;
-
-    if (isUuid) {
-      const { data } = await admin
-        .from('events')
-        .select('id, created_by')
-        .eq('id', eventParam)
-        .maybeSingle();
-      eventData = data;
-    } else {
-      const { data } = await admin
-        .from('events')
-        .select('id, created_by')
-        .eq('slug', eventParam)
-        .maybeSingle();
-      eventData = data;
-    }
-
-    if (!eventData) {
+export async function GET({ url, locals }) {
+  try {
+    const eventParam = url.searchParams.get('event_id') || '';
+    const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+    if (!eventParam || eventParam === 'undefined' || eventParam === 'null') {
       return json({ attendees: [] });
     }
+    if (eventParam === 'demo-event') return demoRoster(q);
+
+    const user = locals.user;
+    const admin = createSupabaseAdminClient();
+    const { data: eventData, error: eventError } = await admin.from('events')
+      .select('id, created_by, is_public')
+      .eq(UUID_REGEX.test(eventParam) ? 'id' : 'slug', eventParam)
+      .maybeSingle();
+    if (eventError) throw error(500, 'Could not look up event.');
+
+    if (!eventData) {
+      if (eventParam === demoEvent.slug) return demoRoster(q);
+      return json({ attendees: [] });
+    }
+    await requireEventReadAccess(admin, eventData, user?.id);
 
     const realEventId = eventData.id;
     const hostUserId = eventData.created_by;
@@ -241,6 +228,7 @@ export async function GET({ url, locals }) {
 
     return json({ attendees });
   } catch (err) {
+    if (isHttpError(err)) throw err;
     console.error('Unhandled error in GET /api/attendees:', err);
     throw error(500, 'Internal Server Error');
   }

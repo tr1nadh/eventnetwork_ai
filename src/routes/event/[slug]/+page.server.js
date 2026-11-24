@@ -1,14 +1,12 @@
 import { loadSavedNetworkMatches } from '$lib/server/network-matches';
+import { getEventParticipantStatus, requireEventReadAccess } from '$lib/server/event-access';
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
 import { demoEvent } from '$lib/demo';
 import { error } from '@sveltejs/kit';
 
-async function loadViewerData(admin, eventId, userId, isOrganizer) {
+async function loadViewerData(admin, eventId, userId, isOrganizer, knownStatus) {
   if (!userId) return {};
-  const { data: participant, error: lookupError } = await admin.from('event_participants')
-    .select('status').eq('event_id', eventId).eq('user_id', userId).maybeSingle();
-  if (lookupError) throw error(500, lookupError.message);
-  const status = participant?.status;
+  const status = knownStatus ?? await getEventParticipantStatus(admin, eventId, userId);
   if (status !== 'joined' && !isOrganizer) return { status };
   const [meeting, profileRes, matches] = await Promise.all([
     admin.from('events').select('event_meeting_url').eq('id', eventId).maybeSingle(),
@@ -23,7 +21,19 @@ async function loadViewerData(admin, eventId, userId, isOrganizer) {
 }
 
 export const load = async ({ params, locals }) => {
-  if (params.slug === demoEvent.slug) {
+  const PUBLIC_EVENT_FIELDS =
+    'id, name, description, slug, venue_map, created_by, created_at, updated_at, start_time, end_time, location, google_map_url, event_format, attendees_count, max_attendees, is_attendees_register_limited, event_logo_url, event_banner_url, is_public, allow_join_after_start, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
+
+  const admin = createSupabaseAdminClient();
+  const { data, error: loadError } = await admin
+    .from('events')
+    .select(PUBLIC_EVENT_FIELDS)
+    .eq('slug', params.slug)
+    .maybeSingle();
+
+  if (loadError) throw error(500, loadError.message);
+
+  if (!data && params.slug === demoEvent.slug) {
     return {
       event: {
         ...demoEvent,
@@ -41,36 +51,12 @@ export const load = async ({ params, locals }) => {
     };
   }
 
-  const PUBLIC_EVENT_FIELDS =
-    'id, name, description, slug, venue_map, created_by, created_at, updated_at, start_time, end_time, location, google_map_url, event_format, attendees_count, max_attendees, is_attendees_register_limited, event_logo_url, event_banner_url, is_public, allow_join_after_start, is_approval_required, is_venue_enabled, is_network_enabled, is_announcements_enabled';
-
-  const admin = createSupabaseAdminClient();
-  const { data, error: loadError } = await admin
-    .from('events')
-    .select(PUBLIC_EVENT_FIELDS)
-    .eq('slug', params.slug)
-    .maybeSingle();
-
-  if (loadError) {
-    throw error(500, loadError.message);
-  }
-
-  if (!data) {
-    throw error(404, 'Event not found.');
-  }
-
-  // Determine auth state early so we can enforce is_public
-  const isOrganizer = !!locals.user && data.created_by === locals.user.id;
-
-  let privateViewer;
-  if (!data.is_public && !isOrganizer) {
-    if (!locals.user) throw error(404, 'Event not found.');
-    privateViewer = await loadViewerData(admin, data.id, locals.user.id, false);
-    if (privateViewer.status !== 'joined') throw error(404, 'Event not found.');
-  }
+  const userId = locals.user?.id;
+  const knownStatus = await requireEventReadAccess(admin, data, userId);
+  const isOrganizer = Boolean(userId && data.created_by === userId);
 
   const [viewer, timelineRes, announcementsRes] = await Promise.all([
-    privateViewer ?? loadViewerData(admin, data.id, locals.user?.id, isOrganizer),
+    loadViewerData(admin, data.id, userId, isOrganizer, knownStatus),
     admin.from('event_timeline').select('*').eq('event_id', data.id)
       .order('start_time', { ascending: true }).order('sort_order', { ascending: true }),
     admin.from('event_announcements').select('*').eq('event_id', data.id)

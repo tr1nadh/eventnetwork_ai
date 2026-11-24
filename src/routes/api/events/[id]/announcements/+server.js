@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from '$lib/supabase/admin';
+import { requireEventReadAccessById } from '$lib/server/event-access';
 import { json, error } from '@sveltejs/kit';
 
 async function checkOrganizerPermission(admin, eventId, userId) {
@@ -37,9 +38,10 @@ async function checkMaxPinnedLimit(admin, eventId, excludeId = null) {
   }
 }
 
-export async function GET({ params }) {
+export async function GET({ params, locals }) {
   const eventId = params.id;
   const admin = createSupabaseAdminClient();
+  await requireEventReadAccessById(admin, eventId, locals.user?.id);
 
   const { data: announcements, error: fetchError } = await admin
     .from('event_announcements')

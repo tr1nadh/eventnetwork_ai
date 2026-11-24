@@ -29,7 +29,8 @@ before(async () => {
     charge() { charges++; return { allowed: true }; },
     refund() { refunds++; }
   };
-  vite = await createServer({ configFile: false, server: { middlewareMode: true, hmr: false }, plugins: [{
+  vite = await createServer({ configFile: false, server: { middlewareMode: true, ws: false },
+    optimizeDeps: { noDiscovery: true, include: [] }, plugins: [{
     name: 'local-ai-fixtures',
     resolveId(id) { if (id in mocks) return '\0' + id; },
     load(id) { return mocks[id.slice(1)]; }
@@ -86,7 +87,7 @@ test('All requires all three answers, while the registration roster keeps every 
   ];
   const ids = [...profiles.map(p => p.user_id), 'no-profile'];
   const rows = {
-    events: { id: 'event', created_by: 'host' },
+    events: { id: 'event', created_by: 'host', is_public: true },
     event_participants: ids.map(user_id => ({ user_id, status: 'joined' })),
     network_profiles: profiles, users: []
   };
@@ -104,7 +105,7 @@ test('All requires all three answers, while the registration roster keeps every 
 
 test('host roster recovers auth emails and identifies saved networking profiles', async () => {
   const rows = {
-    events: { id: 'event', created_by: 'host' }, connections: [], users: [],
+    events: { id: 'event', created_by: 'host', is_public: true }, connections: [], users: [],
     event_participants: [{ user_id: 'member', status: 'joined' }, { user_id: 'pending', status: 'requested' }],
     network_profiles: [{ ...viewer, user_id: 'member' }]
   };

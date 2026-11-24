@@ -180,6 +180,12 @@
   }
 
   onMount(() => {
+    const url = new URL(window.location.href);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timeZone && url.searchParams.get('tz') !== timeZone) {
+      url.searchParams.set('tz', timeZone);
+      void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+    }
     updatePillsScrollState();
     const timer = setTimeout(updatePillsScrollState, 150);
     window.addEventListener('resize', updatePillsScrollState);
